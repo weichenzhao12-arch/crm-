@@ -29,11 +29,6 @@ interface AppBindings {
 
 const app = new Hono<AppBindings>().basePath('/api')
 
-const defaultPermissions = {
-  owner: { manageProducts: true, manageMaterials: true, importExcel: true, manageUsers: true, exportQuote: true, temporaryEdit: true },
-  quoter: { manageProducts: false, manageMaterials: false, importExcel: false, manageUsers: false, exportQuote: true, temporaryEdit: true },
-}
-
 function jsonUser(row: AdminUserRow) {
   return {
     id: row.id,
@@ -47,46 +42,6 @@ function jsonUser(row: AdminUserRow) {
 
 function randomToken() {
   return crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '')
-}
-
-async function ensureSchema(db: D1Database) {
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      account TEXT NOT NULL UNIQUE,
-      display_name TEXT NOT NULL,
-      role TEXT NOT NULL,
-      enabled INTEGER NOT NULL DEFAULT 1,
-      password TEXT NOT NULL,
-      permissions TEXT NOT NULL,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
-    CREATE TABLE IF NOT EXISTS sessions (
-      token TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
-      expires_at TEXT NOT NULL,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
-    CREATE TABLE IF NOT EXISTS app_state (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL,
-      updated_by TEXT,
-      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
-  `)
-
-  const owner = await db.prepare('SELECT id FROM users WHERE id = ?').bind('owner').first()
-  if (!owner) {
-    await db.batch([
-      db.prepare('INSERT INTO users (id, account, display_name, role, enabled, password, permissions) VALUES (?, ?, ?, ?, ?, ?, ?)')
-        .bind('owner', 'admin', '主账号', 'owner', 1, '123456', JSON.stringify(defaultPermissions.owner)),
-      db.prepare('INSERT INTO users (id, account, display_name, role, enabled, password, permissions) VALUES (?, ?, ?, ?, ?, ?, ?)')
-        .bind('sales-1', 'sales1', '销售一部', 'quoter', 1, '123456', JSON.stringify(defaultPermissions.quoter)),
-      db.prepare('INSERT INTO users (id, account, display_name, role, enabled, password, permissions) VALUES (?, ?, ?, ?, ?, ?, ?)')
-        .bind('sales-2', 'sales2', '销售二部', 'quoter', 1, '123456', JSON.stringify(defaultPermissions.quoter)),
-    ])
-  }
 }
 
 async function requireLogin(c: Context<AppBindings>, next: Next) {
@@ -107,11 +62,6 @@ async function requireLogin(c: Context<AppBindings>, next: Next) {
   c.set('user', user)
   await next()
 }
-
-app.use('*', async (c, next) => {
-  await ensureSchema(c.env.DB)
-  await next()
-})
 
 app.post('/auth/login', async (c) => {
   const body = await c.req.json<{ account?: string, password?: string }>()
