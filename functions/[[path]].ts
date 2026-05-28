@@ -129,4 +129,11 @@ app.get('/images/*', async (c) => {
   return new Response(object.body, { headers })
 })
 
-export const onRequest = handle(app)
+const apiHandler = handle(app)
+
+export const onRequest = (context: any) => {
+  const url = new URL(context.request.url)
+  if (!url.pathname.startsWith('/api/'))
+    return context.next()
+  return apiHandler(context)
+}
