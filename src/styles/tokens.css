@@ -1,0 +1,15 @@
+:root {
+  --color-bg: #f5f7fb;
+  --color-bg-soft: #edf2ff;
+  --color-surface: rgba(255, 255, 255, 0.82);
+  --color-surface-raised: rgba(255, 255, 255, 0.96);
+  --color-border: rgba(15, 23, 42, 0.08);
+  --color-text: #0f172a;
+  --color-text-soft: #475569;
+  --color-text-muted: #64748b;
+  --color-accent: #2563eb;
+  --color-accent-soft: rgba(37, 99, 235, 0.12);
+  --color-danger: #dc2626;
+  --color-danger-soft: rgba(220, 38, 38, 0.1);
+  --radius-xl: 24px;
+}

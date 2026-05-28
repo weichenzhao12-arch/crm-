@@ -1,0 +1,9 @@
+{
+  "name": "pwa",
+  "description": "Add vite-plugin-pwa and manifest skeleton.",
+  "dependencies": [],
+  "devDependencies": [
+    "vite-plugin-pwa"
+  ],
+  "conflicts": []
+}

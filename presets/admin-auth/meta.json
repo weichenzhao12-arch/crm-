@@ -1,0 +1,7 @@
+{
+  "name": "admin-auth",
+  "description": "Expand auth skeleton for admin-style route permissions.",
+  "dependencies": [],
+  "devDependencies": [],
+  "conflicts": []
+}

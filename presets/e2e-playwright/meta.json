@@ -1,0 +1,9 @@
+{
+  "name": "e2e-playwright",
+  "description": "Add Playwright-based end-to-end smoke tests.",
+  "dependencies": [],
+  "devDependencies": [
+    "@playwright/test"
+  ],
+  "conflicts": []
+}

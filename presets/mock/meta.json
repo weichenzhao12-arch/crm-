@@ -1,0 +1,7 @@
+{
+  "name": "mock",
+  "description": "Add local mock tooling and example handlers.",
+  "dependencies": [],
+  "devDependencies": [],
+  "conflicts": []
+}

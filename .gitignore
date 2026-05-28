@@ -1,0 +1,16 @@
+node_modules
+dist
+.tools
+.wrangler
+.DS_Store
+coverage
+.idea
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+src/types/auto-imports.d.ts
+src/types/components.d.ts
+src/types/typed-router.d.ts
+*.log
+homepage*.png
+homepage*.har

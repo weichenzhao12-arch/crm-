@@ -1,0 +1,9 @@
+{
+  "name": "ui-naive",
+  "description": "Add Naive UI as optional component library preset.",
+  "dependencies": [
+    "naive-ui"
+  ],
+  "devDependencies": [],
+  "conflicts": []
+}
