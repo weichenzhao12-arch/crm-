@@ -22,6 +22,16 @@ interface SessionRow {
   user_id: string
 }
 
+interface AdminUserPayload {
+  id?: string
+  account?: string
+  displayName?: string
+  role?: string
+  enabled?: boolean
+  password?: string
+  permissions?: unknown
+}
+
 interface AppBindings {
   Bindings: Env
   Variables: { user: AdminUserRow }
@@ -42,6 +52,49 @@ function jsonUser(row: AdminUserRow) {
 
 function randomToken() {
   return crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '')
+}
+
+function userPayloadToDbRow(user: AdminUserPayload) {
+  const account = String(user.account || '').trim()
+  return {
+    id: String(user.id || account || crypto.randomUUID()).trim(),
+    account,
+    displayName: String(user.displayName || account || '新账号').trim(),
+    role: String(user.role || 'quoter').trim(),
+    enabled: user.enabled === false ? 0 : 1,
+    password: String(user.password || '123456'),
+    permissions: JSON.stringify(user.permissions || {}),
+  }
+}
+
+async function syncAdminUsers(db: D1Database, users: unknown) {
+  if (!Array.isArray(users))
+    return
+
+  const rows = users.map(userPayloadToDbRow).filter(user => user.id && user.account)
+  const statements = rows.map(row =>
+    db.prepare(`
+      INSERT INTO users (id, account, display_name, role, enabled, password, permissions, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(id) DO UPDATE SET
+        account = excluded.account,
+        display_name = excluded.display_name,
+        role = excluded.role,
+        enabled = excluded.enabled,
+        password = excluded.password,
+        permissions = excluded.permissions,
+        updated_at = CURRENT_TIMESTAMP
+    `).bind(row.id, row.account, row.displayName, row.role, row.enabled, row.password, row.permissions),
+  )
+
+  const ids = rows.map(row => row.id)
+  if (ids.length) {
+    const placeholders = ids.map(() => '?').join(',')
+    statements.push(db.prepare(`DELETE FROM users WHERE id != 'owner' AND id NOT IN (${placeholders})`).bind(...ids))
+  }
+
+  if (statements.length)
+    await db.batch(statements)
 }
 
 async function requireLogin(c: Context<AppBindings>, next: Next) {
@@ -101,6 +154,10 @@ app.put('/state/:key', async (c) => {
     .prepare('INSERT INTO app_state (key, value, updated_by, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = CURRENT_TIMESTAMP')
     .bind(key, JSON.stringify(body.value ?? null), user.id)
     .run()
+
+  if (key === 'admin-users')
+    await syncAdminUsers(c.env.DB, body.value)
+
   return c.json({ ok: true })
 })
 
