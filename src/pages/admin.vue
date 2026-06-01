@@ -25,6 +25,7 @@ const keyword = ref('')
 const newPassword = ref('')
 const selectedProductIds = ref<string[]>([])
 const selectedMaterialIds = ref<string[]>([])
+const showUserPasswords = ref(false)
 
 watch(pricing, () => quote.savePricing(), { deep: true })
 
@@ -318,7 +319,8 @@ function changeOwnPassword() {
       </div>
       <div class="admin-table user-admin-table">
         <div class="admin-head">
-          <span>账号</span><span>姓名</span><span>角色</span><span>启用</span><span>产品</span><span>辅料</span><span>导入</span><span>用户</span><span>导出</span><span>临时改价</span><span>密码</span><span></span>
+          <span>账号</span><span>姓名</span><span>角色</span><span>启用</span><span>产品</span><span>辅料</span><span>导入</span><span>用户</span><span>导出</span><span>临时改价</span>
+          <button class="password-toggle" type="button" @click="showUserPasswords = !showUserPasswords">{{ showUserPasswords ? '隐藏密码' : '显示密码' }}</button><span></span>
         </div>
         <article v-for="user in users" :key="user.id">
           <input v-model="user.account">
@@ -336,7 +338,7 @@ function changeOwnPassword() {
           <input v-model="user.permissions.manageUsers" type="checkbox">
           <input v-model="user.permissions.exportQuote" type="checkbox">
           <input v-model="user.permissions.temporaryEdit" type="checkbox">
-          <input v-model="user.password" type="password">
+          <input v-model="user.password" :type="showUserPasswords ? 'text' : 'password'">
           <button :disabled="user.id === 'owner'" @click="admin.removeUser(user.id)">删除</button>
         </article>
       </div>
@@ -363,6 +365,7 @@ function changeOwnPassword() {
 .admin-table{overflow:auto;border:1px solid #e1e9f2;border-radius:12px}
 .admin-head,.admin-table article{display:grid;gap:8px;align-items:center;min-width:1260px;padding:10px;border-bottom:1px solid #e1e9f2}
 .admin-head{background:#f5f8fc;color:#50627a;font-size:12px;font-weight:900}
+.admin-head .password-toggle{min-height:28px;border-color:#bcd4f0;border-radius:7px;background:#eef6ff;color:#1f5f9d;padding:4px 8px;font-size:12px}
 .admin-table article:last-child{border-bottom:0}
 .product-admin-table .admin-head,.product-admin-table article{grid-template-columns:36px 120px 110px 130px 82px 92px 82px 92px 82px 120px 92px 180px 150px 140px 70px}
 .material-admin-table .admin-head,.material-admin-table article{grid-template-columns:36px 140px 150px 1fr 92px 110px 150px 220px 70px}
