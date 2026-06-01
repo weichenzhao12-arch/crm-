@@ -150,10 +150,15 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
       <section class="detail-grid">
         <article class="detail-panel customer-form">
           <header><h2>客户资料</h2><span>{{ stageLabels[customer.stage] }}</span></header>
+          <label>日期<input v-model="customer.date" type="date"></label>
           <label>客户名称<input v-model="customer.name"></label>
-          <label>联系人<input v-model="customer.contact"></label>
-          <label>电话<input v-model="customer.phone"></label>
-          <label>微信号<input v-model="customer.wechat"></label>
+          <label>客户联系方式<input v-model="customer.phone" placeholder="电话 / 微信 / 其他联系方式"></label>
+          <label>抖音账号来源<input v-model="customer.sourceAccount"></label>
+          <label>成交属性高中低无效<input v-model="customer.dealAttribute" placeholder="高 / 中 / 低 / 无效"></label>
+          <label>客户属性BC端<input v-model="customer.customerAttribute" placeholder="B端 / C端"></label>
+          <label>地址<input v-model="customer.region"></label>
+          <label>数量(平方)<input v-model.number="customer.area" type="number"></label>
+          <label>使用时间<input v-model="customer.usageTime"></label>
           <label>意向等级<select v-model="customer.intentLevel">
             <option value="A">A 高意向</option>
             <option value="B">B 较高</option>
@@ -162,10 +167,6 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
             <option value="E">E 低意向</option>
             <option value="F">F 无效/暂缓</option>
           </select></label>
-          <label>意向使用场景<input v-model="customer.scenario"></label>
-          <label>地区<input v-model="customer.region"></label>
-          <label>项目类型<input v-model="customer.projectType"></label>
-          <label>场地面积(㎡)<input v-model.number="customer.area" type="number"></label>
           <label>分配给<select v-model="customer.assignedToUserId">
             <option v-for="user in users" :key="user.id" :value="user.id">{{ user.displayName || user.account }}</option>
           </select></label>
@@ -177,6 +178,7 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
             <option value="won">已成交</option>
             <option value="lost">无效</option>
           </select></label>
+          <label class="wide">客户情况沟通内容<textarea v-model="customer.communication"></textarea></label>
           <label class="wide">备注<textarea v-model="customer.remark"></textarea></label>
         </article>
 
