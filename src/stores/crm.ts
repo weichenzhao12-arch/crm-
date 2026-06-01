@@ -31,15 +31,24 @@ export interface CrmQuoteRecord {
 
 export interface CrmCustomer {
   id: string
+  date: string
   name: string
   contact: string
   phone: string
   wechat: string
+  sourceAccount: string
+  dealAttribute: string
+  customerAttribute: string
   region: string
   projectType: string
   intentLevel: IntentLevel
   scenario: string
   area: number
+  usageTime: string
+  communication: string
+  sampleSent: boolean
+  sampleSpec: string
+  sampleTrackingNo: string
   stage: CustomerStage
   owner: string
   assignedToUserId: string
@@ -68,15 +77,24 @@ function createId(prefix: string) {
 function normalizeCustomer(raw: Partial<CrmCustomer>): CrmCustomer {
   return {
     id: raw.id || createId('customer'),
+    date: raw.date || today(),
     name: raw.name || '未命名客户',
     contact: raw.contact || '',
     phone: raw.phone || '',
     wechat: raw.wechat || '',
+    sourceAccount: raw.sourceAccount || '',
+    dealAttribute: raw.dealAttribute || '',
+    customerAttribute: raw.customerAttribute || '',
     region: raw.region || '',
     projectType: raw.projectType || '足球场',
     intentLevel: raw.intentLevel || 'C',
     scenario: raw.scenario || raw.projectType || '足球场',
     area: Number(raw.area) || 0,
+    usageTime: raw.usageTime || '',
+    communication: raw.communication || raw.remark || '',
+    sampleSent: Boolean(raw.sampleSent),
+    sampleSpec: raw.sampleSpec || '',
+    sampleTrackingNo: raw.sampleTrackingNo || '',
     stage: raw.stage || 'new',
     owner: raw.owner || '',
     assignedToUserId: raw.assignedToUserId || 'owner',
@@ -116,15 +134,22 @@ function defaultCustomers(): CrmCustomer[] {
   return [
     normalizeCustomer({
       id: 'customer-demo-1',
+      date: today(),
       name: '示例客户A',
       contact: '张经理',
       phone: '13800000000',
       wechat: 'zhang-demo',
       region: '山东',
+      sourceAccount: '抖音',
+      dealAttribute: '高',
+      customerAttribute: 'B端',
       projectType: '足球场',
       scenario: '学校足球场',
       intentLevel: 'B',
       area: 3275,
+      usageTime: '近期',
+      communication: '客户关注总价和辅料明细。',
+      sampleSent: false,
       stage: 'quoted',
       owner: '销售一部',
       assignedToUserId: 'owner',
@@ -139,15 +164,22 @@ function defaultCustomers(): CrmCustomer[] {
     }),
     normalizeCustomer({
       id: 'customer-demo-2',
+      date: daysAgo(4),
       name: '示例客户B',
       contact: '李总',
       phone: '13900000000',
       wechat: '',
       region: '河北',
+      sourceAccount: '微信',
+      dealAttribute: '中',
+      customerAttribute: 'C端',
       projectType: '幼儿园草坪',
       scenario: '幼儿园活动区',
       intentLevel: 'C',
       area: 800,
+      usageTime: '待确认',
+      communication: '客户需要对比两种草高方案。',
+      sampleSent: false,
       stage: 'follow',
       owner: '销售二部',
       assignedToUserId: 'owner',
@@ -203,6 +235,7 @@ export const useCrmStore = defineStore('crm', {
     addCustomer(payload: Partial<CrmCustomer> = {}) {
       const customer = normalizeCustomer({
         id: createId('customer'),
+        date: today(),
         name: '新客户',
         projectType: '足球场',
         scenario: '足球场',
@@ -220,6 +253,16 @@ export const useCrmStore = defineStore('crm', {
         phone: payload.phone || '',
         wechat: payload.wechat || '',
         scenario: payload.scenario || '',
+        sourceAccount: payload.sourceAccount || '',
+        dealAttribute: payload.dealAttribute || '',
+        customerAttribute: payload.customerAttribute || '',
+        region: payload.region || '',
+        area: Number(payload.area) || 0,
+        usageTime: payload.usageTime || '',
+        communication: payload.communication || '',
+        sampleSent: Boolean(payload.sampleSent),
+        sampleSpec: payload.sampleSpec || '',
+        sampleTrackingNo: payload.sampleTrackingNo || '',
         projectType: payload.projectType || payload.scenario || '待确认',
         intentLevel: payload.intentLevel || 'C',
         assignedToUserId: payload.assignedToUserId || 'owner',

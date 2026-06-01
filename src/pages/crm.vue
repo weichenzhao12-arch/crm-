@@ -8,11 +8,12 @@
 </route>
 
 <script setup lang="ts">
+import * as XLSX from 'xlsx'
 import { storeToRefs } from 'pinia'
 import { useAuth } from '~/composables/useAuth'
 import { useAdminStore } from '~/stores/admin'
 import { useCrmStore } from '~/stores/crm'
-import type { IntentLevel } from '~/stores/crm'
+import type { CrmCustomer, IntentLevel } from '~/stores/crm'
 
 const router = useRouter()
 const crm = useCrmStore()
@@ -32,6 +33,13 @@ const leadForm = ref({
   phone: '',
   wechat: '',
   scenario: '',
+  sourceAccount: '',
+  dealAttribute: '',
+  customerAttribute: '',
+  region: '',
+  area: 0,
+  usageTime: '',
+  communication: '',
   intentLevel: 'C' as IntentLevel,
   assignedToUserId: 'owner',
 })
@@ -65,6 +73,23 @@ const intentLabels: Record<IntentLevel, string> = {
   F: 'F 无效/暂缓',
 }
 
+const leadTableColumns = [
+  '序号',
+  '日期',
+  '客户名称',
+  '客户联系方式',
+  '抖音账号来源',
+  '成交属性高中低无效',
+  '客户属性BC端',
+  '地址',
+  '客户情况沟通内容',
+  '数量(平方)',
+  '使用时间',
+  '是否寄样品',
+  '样品规格',
+  '样品单号',
+]
+
 const loginUser = computed(() => admin.currentUser)
 const canManageLeads = computed(() => loginUser.value?.role === 'owner' || loginUser.value?.role === 'manager' || Boolean(loginUser.value?.permissions.manageUsers))
 const activeUser = computed(() => canManageLeads.value ? users.value.find(user => user.id === selectedUserId.value) || loginUser.value : loginUser.value)
@@ -87,6 +112,123 @@ const filteredCustomers = computed(() => scopedCustomers.value.filter((customer)
 
 function dateOnly(value: Date) {
   return value.toISOString().slice(0, 10)
+}
+
+function firstText(...values: unknown[]) {
+  return values.map(value => String(value ?? '').trim()).find(Boolean) || ''
+}
+
+function normalizeStage(value: string) {
+  if (value.includes('成交'))
+    return 'won'
+  if (value.includes('无效'))
+    return 'lost'
+  if (value.includes('跟进'))
+    return 'follow'
+  if (value.includes('报价'))
+    return 'quoted'
+  return 'new'
+}
+
+function normalizeIntent(value: string): IntentLevel {
+  const text = value.toUpperCase()
+  if (['A', 'B', 'C', 'D', 'E', 'F'].includes(text))
+    return text as IntentLevel
+  if (value.includes('高'))
+    return 'A'
+  if (value.includes('低'))
+    return 'E'
+  if (value.includes('无效'))
+    return 'F'
+  return 'C'
+}
+
+function customerContact(customer: CrmCustomer) {
+  return firstText(customer.phone, customer.wechat, customer.contact)
+}
+
+function customerToLeadRow(customer: CrmCustomer, index: number) {
+  return {
+    序号: index + 1,
+    日期: customer.date,
+    客户名称: customer.name,
+    客户联系方式: customerContact(customer),
+    抖音账号来源: customer.sourceAccount,
+    成交属性高中低无效: customer.dealAttribute,
+    客户属性BC端: customer.customerAttribute,
+    地址: customer.region,
+    客户情况沟通内容: customer.communication || customer.remark,
+    '数量(平方)': customer.area || '',
+    使用时间: customer.usageTime,
+    是否寄样品: customer.sampleSent ? '是' : '否',
+    样品规格: customer.sampleSpec,
+    样品单号: customer.sampleTrackingNo,
+  }
+}
+
+function rowToCustomer(row: Record<string, any>, index: number) {
+  const contactText = firstText(row.客户联系方式, row.联系方式, row.phone, row.contact)
+  const assignedUser = canManageLeads.value
+    ? users.value.find(user => user.id === leadForm.value.assignedToUserId) || salesUsers.value[0] || activeUser.value
+    : activeUser.value
+
+  return {
+    id: `import-${Date.now()}-${index}-${Math.random().toString(16).slice(2)}`,
+    date: firstText(row.日期, row.date) || dateOnly(new Date()),
+    name: firstText(row.客户名称, row.name, contactText) || '未命名客户',
+    contact: firstText(row.联系人, row.contact),
+    phone: contactText,
+    wechat: firstText(row.微信, row.wechat),
+    sourceAccount: firstText(row.抖音账号来源, row.来源, row.sourceAccount),
+    dealAttribute: firstText(row.成交属性高中低无效, row.成交属性, row.dealAttribute),
+    customerAttribute: firstText(row.客户属性BC端, row.客户属性, row.customerAttribute),
+    region: firstText(row.地址, row.region),
+    projectType: firstText(row.意向使用场景, row.使用场景, row.projectType, row.scenario) || '待确认',
+    scenario: firstText(row.意向使用场景, row.使用场景, row.scenario, row.projectType) || '待确认',
+    intentLevel: normalizeIntent(firstText(row.意向等级, row.intentLevel, row.成交属性高中低无效)),
+    area: Number(firstText(row['数量(平方)'], row.数量, row.面积, row.area)) || 0,
+    usageTime: firstText(row.使用时间, row.usageTime),
+    communication: firstText(row.客户情况沟通内容, row.沟通内容, row.communication),
+    sampleSent: ['是', '已寄', 'true', '1'].includes(firstText(row.是否寄样品, row.sampleSent).toLowerCase()),
+    sampleSpec: firstText(row.样品规格, row.sampleSpec),
+    sampleTrackingNo: firstText(row.样品单号, row.sampleTrackingNo),
+    stage: normalizeStage(firstText(row.客户状态, row.stage)),
+    owner: assignedUser?.displayName || '',
+    assignedToUserId: assignedUser?.id || 'owner',
+    createdByUserId: activeUser.value?.id || 'owner',
+    remark: firstText(row.备注, row.remark),
+    followUps: [],
+    quotes: [],
+  }
+}
+
+function exportLeadTable() {
+  const rows = filteredCustomers.value.map(customerToLeadRow)
+  const worksheet = XLSX.utils.json_to_sheet(rows.length ? rows : [Object.fromEntries(leadTableColumns.map(column => [column, '']))], { header: leadTableColumns })
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, worksheet, '客资记录')
+  XLSX.writeFile(workbook, `客资记录-${dateOnly(new Date())}.xlsx`)
+}
+
+function importLeadTable(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file)
+    return
+
+  const reader = new FileReader()
+  reader.onload = () => {
+    const workbook = XLSX.read(reader.result, { type: 'array' })
+    const sheet = workbook.Sheets[workbook.SheetNames[0]]
+    const rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet)
+    const imported = rows.map(rowToCustomer).filter(customer => customer.name || customer.phone || customer.wechat)
+    if (imported.length) {
+      customers.value = [...imported, ...customers.value]
+      crm.save()
+    }
+    input.value = ''
+  }
+  reader.readAsArrayBuffer(file)
 }
 
 function startOfMonth() {
@@ -248,6 +390,13 @@ function assignLead() {
     phone: '',
     wechat: '',
     scenario: '',
+    sourceAccount: '',
+    dealAttribute: '',
+    customerAttribute: '',
+    region: '',
+    area: 0,
+    usageTime: '',
+    communication: '',
     intentLevel: 'C',
     assignedToUserId: leadForm.value.assignedToUserId,
   }
@@ -348,10 +497,17 @@ async function handleLogout() {
           <input v-model="leadForm.contact" placeholder="联系人，可不填">
           <input v-model="leadForm.phone" placeholder="电话">
           <input v-model="leadForm.wechat" placeholder="微信号">
+          <input v-model="leadForm.sourceAccount" placeholder="抖音账号来源">
+          <input v-model="leadForm.dealAttribute" placeholder="成交属性：高/中/低/无效">
+          <input v-model="leadForm.customerAttribute" placeholder="客户属性：B端/C端">
+          <input v-model="leadForm.region" placeholder="地址">
           <select v-model="leadForm.intentLevel">
             <option v-for="(label, level) in intentLabels" :key="level" :value="level">{{ label }}</option>
           </select>
           <input v-model="leadForm.scenario" placeholder="意向使用场景">
+          <input v-model.number="leadForm.area" type="number" min="0" placeholder="数量(平方)">
+          <input v-model="leadForm.usageTime" placeholder="使用时间">
+          <input v-model="leadForm.communication" placeholder="客户情况沟通内容">
           <select v-model="leadForm.assignedToUserId">
             <option v-for="user in salesUsers" :key="user.id" :value="user.id">{{ user.displayName || user.account }}</option>
           </select>
@@ -365,6 +521,8 @@ async function handleLogout() {
         <h2>客户列表</h2>
         <div class="crm-tools">
           <input v-model="keyword" placeholder="搜索客户、联系人、电话、微信、场景">
+          <button @click="exportLeadTable">导出客资</button>
+          <label v-if="canManageLeads" class="import-leads">导入客资<input type="file" accept=".xlsx,.xls" @change="importLeadTable"></label>
         </div>
       </header>
 
@@ -386,17 +544,29 @@ async function handleLogout() {
         <span v-for="item in intentCounts" :key="item.level">{{ item.level }}：{{ item.count }}</span>
       </div>
 
-      <div class="customer-list">
-        <article v-for="customer in filteredCustomers" :key="customer.id" @click="router.push(`/crm/customer/${customer.id}`)">
-          <div>
-            <b>{{ customer.name }}</b>
-            <p>{{ customer.contact || '未填联系人' }} · {{ customer.phone || customer.wechat || '未填联系方式' }}</p>
-          </div>
-          <span>{{ intentLabels[customer.intentLevel] }}</span>
-          <span>{{ customer.scenario || customer.projectType || '-' }}</span>
+      <div class="lead-record-table">
+        <div class="lead-record-head">
+          <span>序号</span><span>日期</span><span>客户名称</span><span>客户联系方式</span><span>抖音账号来源</span><span>成交属性高中低无效</span><span>客户属性BC端</span><span>地址</span><span>客户情况沟通内容</span><span>数量(平方)</span><span>使用时间</span><span>负责人</span><span>状态</span><span>是否寄样品</span><span>样品规格</span><span>样品单号</span><span>操作</span>
+        </div>
+        <article v-for="(customer, index) in filteredCustomers" :key="customer.id" @click="router.push(`/crm/customer/${customer.id}`)">
+          <span>{{ index + 1 }}</span>
+          <span>{{ customer.date }}</span>
+          <strong>{{ customer.name }}</strong>
+          <span>{{ customerContact(customer) || '未填' }}</span>
+          <span>{{ customer.sourceAccount || '-' }}</span>
+          <span>{{ customer.dealAttribute || '-' }}</span>
+          <span>{{ customer.customerAttribute || '-' }}</span>
+          <span>{{ customer.region || '-' }}</span>
+          <span class="wrap-cell">{{ customer.communication || customer.remark || '-' }}</span>
+          <span>{{ customer.area || '-' }}</span>
+          <span>{{ customer.usageTime || '-' }}</span>
           <span>{{ customer.owner || '未分配' }}</span>
-          <strong>{{ stageLabels[customer.stage] }}</strong>
+          <strong class="stage-badge">{{ stageLabels[customer.stage] }}</strong>
+          <span>{{ customer.sampleSent ? '是' : '否' }}</span>
+          <span>{{ customer.sampleSpec || '-' }}</span>
+          <span>{{ customer.sampleTrackingNo || '-' }}</span>
           <button v-if="canDeleteCustomers" class="delete-customer" @click.stop="deleteCustomer(customer.id)">删除</button>
+          <span v-else>-</span>
         </article>
       </div>
     </section>
@@ -456,11 +626,13 @@ h2{margin:0;font-size:22px}
 .chart-panel svg circle{fill:#fff;stroke:#2f8cff;stroke-width:3}
 .chart-panel svg text{fill:#50627a;font-size:12px;text-anchor:middle}
 .lead-form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.lead-form input,.lead-form select,.lead-form button,.crm-tools select,.crm-tools input{min-height:40px;border:1px solid #d5dee9;border-radius:10px;background:#f8fafc;padding:8px 12px;color:#142235}
+.lead-form input,.lead-form select,.lead-form button,.crm-tools select,.crm-tools input,.crm-tools button,.crm-tools label{min-height:40px;border:1px solid #d5dee9;border-radius:10px;background:#f8fafc;padding:8px 12px;color:#142235}
 .lead-form button{grid-column:1/-1;background:#246ed8;color:#fff;border-color:#246ed8;font-weight:900;cursor:pointer}
 .crm-panel{max-width:1500px;margin:0 auto}
 .crm-tools{display:flex;align-items:center;gap:10px;min-width:360px}
 .crm-tools input{flex:1}
+.crm-tools button,.crm-tools label{display:inline-flex;align-items:center;justify-content:center;background:#246ed8;border-color:#246ed8;color:#fff;font-weight:900;white-space:nowrap;cursor:pointer}
+.crm-tools label input{display:none}
 .customer-filter-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:4px 0 12px;padding:12px;border:1px solid #dbe6f2;border-radius:14px;background:linear-gradient(180deg,#f8fbff,#f1f7ff)}
 .customer-filter-bar b{color:#183f68;font-size:15px;white-space:nowrap}
 .customer-tabs{display:flex;gap:6px;border:1px solid #dbe6f2;border-radius:12px;background:#f8fafc;padding:4px}
@@ -468,13 +640,15 @@ h2{margin:0;font-size:22px}
 .customer-tabs button.active{background:#246ed8;color:#fff;box-shadow:0 8px 18px rgba(36,110,216,.2)}
 .intent-strip{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
 .intent-strip span{border-radius:999px;background:#eff6ff;color:#246ed8;padding:7px 11px;font-weight:900}
-.customer-list{display:grid;gap:10px}
-.customer-list article{display:grid;grid-template-columns:minmax(220px,1fr) 110px 180px 130px 100px auto;gap:12px;align-items:center;border:1px solid #e1e9f2;border-radius:12px;background:#fbfdff;padding:14px;cursor:pointer}
-.customer-list article:hover{border-color:#91bdf5;box-shadow:0 10px 24px rgba(47,140,255,.1)}
-.customer-list b{font-size:16px}
-.customer-list p{margin:5px 0 0;color:#64748b}
-.customer-list span{color:#50627a}
-.customer-list strong{display:inline-flex;justify-content:center;border-radius:999px;background:#eff6ff;color:#246ed8;padding:7px 10px}
+.lead-record-table{overflow:auto;border:1px solid #dbe6f2;border-radius:12px;background:#fff}
+.lead-record-head,.lead-record-table article{display:grid;grid-template-columns:52px 96px 128px 130px 120px 120px 110px 130px 220px 92px 110px 110px 92px 92px 110px 120px 76px;min-width:1900px;align-items:stretch}
+.lead-record-head{position:sticky;top:0;z-index:1;background:#9fe5df;color:#10243f;font-size:13px;font-weight:900}
+.lead-record-head span,.lead-record-table article span,.lead-record-table article strong{display:flex;align-items:center;min-height:46px;border-right:1px solid #7fc7c1;border-bottom:1px solid #dbe6f2;padding:8px;line-height:1.35}
+.lead-record-table article{background:#fbfdff;cursor:pointer}
+.lead-record-table article:hover{background:#f0f8ff}
+.lead-record-table article strong{color:#10243f}
+.lead-record-table .wrap-cell{white-space:normal}
+.stage-badge{justify-content:center;color:#246ed8!important;background:#eff6ff;font-weight:900}
 .delete-customer{min-height:34px;border:1px solid #ffd3d3;border-radius:10px;background:#fff5f5;color:#d92929;padding:7px 12px;font-weight:900;cursor:pointer}
 .delete-customer:hover{background:#ffe8e8;border-color:#ffb9b9}
 @media(max-width:1000px){
@@ -486,7 +660,6 @@ h2{margin:0;font-size:22px}
   .crm-tools{min-width:0;width:100%;flex-direction:column}
   .customer-filter-bar{align-items:flex-start;flex-direction:column}
   .customer-tabs{width:100%;overflow:auto}
-  .customer-list article{grid-template-columns:1fr}
 }
 </style>
 
