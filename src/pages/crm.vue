@@ -27,6 +27,12 @@ const stageFilter = ref('全部')
 const selectedUserId = ref(admin.currentUser?.id || 'owner')
 const reminderVisible = ref(false)
 const reminderDismissed = ref('')
+const sampleDialogCustomerId = ref('')
+const sampleForm = ref({
+  sampleSent: false,
+  sampleSpec: '',
+  sampleTrackingNo: '',
+})
 const leadForm = ref({
   name: '',
   contact: '',
@@ -145,6 +151,36 @@ function normalizeIntent(value: string): IntentLevel {
 
 function customerContact(customer: CrmCustomer) {
   return firstText(customer.phone, customer.wechat, customer.contact)
+}
+
+const sampleCustomer = computed(() => customers.value.find(customer => customer.id === sampleDialogCustomerId.value))
+
+function trackingUrl(trackingNo: string) {
+  return `https://www.kuaidi100.com/chaxun?nu=${encodeURIComponent(trackingNo)}`
+}
+
+function openSampleDialog(customer: CrmCustomer) {
+  sampleDialogCustomerId.value = customer.id
+  sampleForm.value = {
+    sampleSent: customer.sampleSent,
+    sampleSpec: customer.sampleSpec,
+    sampleTrackingNo: customer.sampleTrackingNo,
+  }
+}
+
+function closeSampleDialog() {
+  sampleDialogCustomerId.value = ''
+}
+
+function saveSampleInfo() {
+  const customer = sampleCustomer.value
+  if (!customer)
+    return
+  customer.sampleSent = sampleForm.value.sampleSent
+  customer.sampleSpec = sampleForm.value.sampleSpec.trim()
+  customer.sampleTrackingNo = sampleForm.value.sampleTrackingNo.trim()
+  crm.save()
+  closeSampleDialog()
 }
 
 function customerToLeadRow(customer: CrmCustomer, index: number) {
@@ -448,6 +484,30 @@ async function handleLogout() {
       </div>
     </section>
 
+    <section v-if="sampleCustomer" class="modal-mask">
+      <div class="sample-dialog">
+        <header>
+          <h2>寄样信息</h2>
+          <button @click="closeSampleDialog">关闭</button>
+        </header>
+        <label class="sample-check">
+          <input v-model="sampleForm.sampleSent" type="checkbox">
+          已寄样
+        </label>
+        <label>样品规格
+          <input v-model="sampleForm.sampleSpec" placeholder="填写样品规格">
+        </label>
+        <label>样品单号
+          <input v-model="sampleForm.sampleTrackingNo" placeholder="填写物流单号">
+        </label>
+        <a v-if="sampleForm.sampleTrackingNo" :href="trackingUrl(sampleForm.sampleTrackingNo)" target="_blank" rel="noopener">查看物流跟踪</a>
+        <footer>
+          <button @click="closeSampleDialog">取消</button>
+          <button class="primary" @click="saveSampleInfo">保存</button>
+        </footer>
+      </div>
+    </section>
+
     <section class="crm-metrics">
       <article><span>可见客户</span><b>{{ scopedCustomers.length }}</b><small>{{ canViewAll ? '全部客户信息' : '仅自己的客户信息' }}</small></article>
       <article><span>昨日成交</span><b>¥{{ salesStats.yesterday.toFixed(2) }}</b><small>昨日已成交金额</small></article>
@@ -546,7 +606,7 @@ async function handleLogout() {
 
       <div class="lead-record-table">
         <div class="lead-record-head">
-          <span>序号</span><span>日期</span><span>客户名称</span><span>客户联系方式</span><span>抖音账号来源</span><span>成交属性高中低无效</span><span>客户属性BC端</span><span>地址</span><span>客户情况沟通内容</span><span>数量(平方)</span><span>使用时间</span><span>负责人</span><span>状态</span><span>是否寄样品</span><span>样品规格</span><span>样品单号</span><span>操作</span>
+          <span>序号</span><span>日期</span><span>客户名称</span><span>客户联系方式</span><span>抖音账号来源</span><span>成交属性高中低无效</span><span>客户属性BC端</span><span>地址</span><span>客户情况沟通内容</span><span>数量(平方)</span><span>使用时间</span><span>负责人</span><span>状态</span><span>寄样</span><span>操作</span>
         </div>
         <article v-for="(customer, index) in filteredCustomers" :key="customer.id" @click="router.push(`/crm/customer/${customer.id}`)">
           <span>{{ index + 1 }}</span>
@@ -562,9 +622,10 @@ async function handleLogout() {
           <span>{{ customer.usageTime || '-' }}</span>
           <span>{{ customer.owner || '未分配' }}</span>
           <strong class="stage-badge">{{ stageLabels[customer.stage] }}</strong>
-          <span>{{ customer.sampleSent ? '是' : '否' }}</span>
-          <span>{{ customer.sampleSpec || '-' }}</span>
-          <span>{{ customer.sampleTrackingNo || '-' }}</span>
+          <span class="sample-cell">
+            <button @click.stop="openSampleDialog(customer)">{{ customer.sampleSent ? '已寄样' : '寄样' }}</button>
+            <a v-if="customer.sampleTrackingNo" :href="trackingUrl(customer.sampleTrackingNo)" target="_blank" rel="noopener" @click.stop>物流跟踪</a>
+          </span>
           <button v-if="canDeleteCustomers" class="delete-customer" @click.stop="deleteCustomer(customer.id)">删除</button>
           <span v-else>-</span>
         </article>
@@ -584,10 +645,18 @@ async function handleLogout() {
 .crm-hero button.logout-btn{border-color:rgba(255,255,255,.72);background:#fff;color:#183f68}
 .user-view{display:flex;align-items:center;gap:8px;color:#d9edff;font-size:13px;font-weight:800}
 .user-view select{min-height:38px;border:1px solid rgba(255,255,255,.36);border-radius:10px;background:#fff;color:#183f68;padding:7px 10px}
-.reminder-mask{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:rgba(15,34,55,.38);padding:20px}
+.reminder-mask,.modal-mask{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:rgba(15,34,55,.38);padding:20px}
 .reminder-dialog{width:min(760px,100%);max-height:80vh;overflow:auto;border-radius:16px;background:#fff;padding:20px;box-shadow:0 24px 70px rgba(15,34,55,.28)}
 .reminder-dialog header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
 .reminder-dialog header button,.reminder-actions button{min-height:36px;border:1px solid #d5dee9;border-radius:10px;background:#f8fafc;color:#183f68;padding:8px 12px;font-weight:900;cursor:pointer}
+.sample-dialog{width:min(460px,100%);display:grid;gap:12px;border-radius:16px;background:#fff;padding:20px;box-shadow:0 24px 70px rgba(15,34,55,.28)}
+.sample-dialog header,.sample-dialog footer{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.sample-dialog label{display:grid;gap:6px;color:#50627a;font-weight:900}
+.sample-dialog input{min-height:40px;border:1px solid #d5dee9;border-radius:10px;background:#f8fafc;padding:8px 12px;color:#142235}
+.sample-dialog .sample-check{display:flex;align-items:center;gap:8px}
+.sample-dialog .sample-check input{width:18px;height:18px;min-height:0}
+.sample-dialog button,.sample-dialog a{display:inline-flex;align-items:center;justify-content:center;min-height:36px;border:1px solid #d5dee9;border-radius:10px;background:#f8fafc;color:#183f68;padding:8px 12px;text-decoration:none;font-weight:900;cursor:pointer}
+.sample-dialog .primary{background:#246ed8;border-color:#246ed8;color:#fff}
 .reminder-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid #e1e9f2;border-radius:12px;background:#fbfdff;padding:14px;margin-bottom:10px}
 .reminder-row p{margin:4px 0;color:#64748b}
 .reminder-row span{color:#263b53}
@@ -641,7 +710,7 @@ h2{margin:0;font-size:22px}
 .intent-strip{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
 .intent-strip span{border-radius:999px;background:#eff6ff;color:#246ed8;padding:7px 11px;font-weight:900}
 .lead-record-table{overflow:auto;border:1px solid #dbe6f2;border-radius:12px;background:#fff}
-.lead-record-head,.lead-record-table article{display:grid;grid-template-columns:52px 96px 128px 130px 120px 120px 110px 130px 220px 92px 110px 110px 92px 92px 110px 120px 76px;min-width:1900px;align-items:stretch}
+.lead-record-head,.lead-record-table article{display:grid;grid-template-columns:52px 96px 128px 130px 120px 120px 110px 130px 220px 92px 110px 110px 92px 140px 76px;min-width:1720px;align-items:stretch}
 .lead-record-head{position:sticky;top:0;z-index:1;background:#9fe5df;color:#10243f;font-size:13px;font-weight:900}
 .lead-record-head span,.lead-record-table article span,.lead-record-table article strong{display:flex;align-items:center;min-height:46px;border-right:1px solid #7fc7c1;border-bottom:1px solid #dbe6f2;padding:8px;line-height:1.35}
 .lead-record-table article{background:#fbfdff;cursor:pointer}
@@ -649,6 +718,9 @@ h2{margin:0;font-size:22px}
 .lead-record-table article strong{color:#10243f}
 .lead-record-table .wrap-cell{white-space:normal}
 .stage-badge{justify-content:center;color:#246ed8!important;background:#eff6ff;font-weight:900}
+.sample-cell{display:flex!important;align-items:center;gap:6px}
+.sample-cell button,.sample-cell a{min-height:30px;border:1px solid #bdd5f2;border-radius:8px;background:#eff6ff;color:#246ed8;padding:5px 8px;text-decoration:none;font-weight:900;cursor:pointer}
+.sample-cell a{background:#fff;color:#183f68}
 .delete-customer{min-height:34px;border:1px solid #ffd3d3;border-radius:10px;background:#fff5f5;color:#d92929;padding:7px 12px;font-weight:900;cursor:pointer}
 .delete-customer:hover{background:#ffe8e8;border-color:#ffb9b9}
 @media(max-width:1000px){
