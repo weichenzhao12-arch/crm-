@@ -26,6 +26,7 @@ const reminderModal = ref({
   content: '',
   nextAction: '联系客户',
 })
+const activityTab = ref<'follow' | 'quote'>('follow')
 const reminderItems = computed(() => customer.value?.followUps.filter(follow => follow.reminderDate) || [])
 const followItems = computed(() => customer.value?.followUps.filter(follow => !follow.reminderDate) || [])
 
@@ -183,63 +184,70 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
           <label class="wide">备注<textarea v-model="customer.remark"></textarea></label>
         </article>
 
-        <article class="detail-panel">
-          <header><h2>报价记录</h2><button @click="newQuote">新建报价</button></header>
-          <div v-if="!customer.quotes.length" class="empty">暂无报价记录</div>
-          <div v-for="quote in customer.quotes" :key="quote.id" class="record-row">
-            <div class="deal-box">
-              <label class="won-check">
-                <input :checked="quote.isWon" type="checkbox" @change="quote.isWon ? clearWonQuote(quote) : setWonQuote(quote)">
-                已成交
-              </label>
-              <label>成交价<input :value="quote.dealAmount || quote.amount" type="number" @input="updateDealAmount(quote, $event)"></label>
-              <label>报价日期<input v-model="quote.date" type="date" @change="save"></label>
-              <div class="contract-upload">
-                <label class="file-chip" :class="{ filled: quote.contractFileName }">
-                  {{ quote.contractFileName || '上传合同' }}
-                  <input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,image/*,application/pdf" @change="uploadContract($event, quote)">
-                </label>
-              </div>
-            </div>
-            <div>
-              <b>{{ quote.title }}</b>
-              <p>{{ quote.date }} · {{ quote.status }}</p>
-              <a v-if="quote.quoteFileDataUrl" class="quote-file-link" :href="quote.quoteFileDataUrl" :download="quote.quoteFileName || `${quote.title}.rtf`">查看报价单</a>
-            </div>
-            <strong>¥{{ quote.amount.toFixed(2) }}</strong>
-          </div>
-        </article>
-
-        <article class="detail-panel follow-panel">
+        <article class="detail-panel activity-panel">
           <header>
-            <h2>跟进记录</h2>
+            <div class="activity-tabs">
+              <button :class="{ active: activityTab === 'follow' }" @click="activityTab = 'follow'">跟进记录</button>
+              <button :class="{ active: activityTab === 'quote' }" @click="activityTab = 'quote'">报价单</button>
+            </div>
             <div class="header-actions">
-              <button @click="openReminderModal">添加提醒</button>
-              <button @click="crm.addFollowUp(customer.id)">新增跟进</button>
+              <template v-if="activityTab === 'follow'">
+                <button @click="openReminderModal">添加提醒</button>
+                <button @click="crm.addFollowUp(customer.id)">新增跟进</button>
+              </template>
+              <button v-else @click="newQuote">新建报价</button>
             </div>
           </header>
 
-          <section class="reminder-section">
-            <h3>提醒事项</h3>
-            <div v-if="!reminderItems.length" class="empty compact">暂无提醒</div>
-            <div v-for="reminder in reminderItems" :key="reminder.id" class="reminder-edit-row">
-              <input v-model="reminder.reminderDate" type="date" @change="save">
-              <input v-model="reminder.reminderTime" type="time" @change="save">
-              <textarea v-model="reminder.content" @blur="save"></textarea>
-              <input v-model="reminder.nextAction" placeholder="提醒事项" @blur="save">
-              <button class="danger" @click="deleteFollowUp(reminder)">删除</button>
-            </div>
+          <section v-if="activityTab === 'follow'" class="activity-content">
+            <section class="reminder-section">
+              <h3>提醒事项</h3>
+              <div v-if="!reminderItems.length" class="empty compact">暂无提醒</div>
+              <div v-for="reminder in reminderItems" :key="reminder.id" class="reminder-edit-row">
+                <input v-model="reminder.reminderDate" type="date" @change="save">
+                <input v-model="reminder.reminderTime" type="time" @change="save">
+                <textarea v-model="reminder.content" @blur="save"></textarea>
+                <input v-model="reminder.nextAction" placeholder="提醒事项" @blur="save">
+                <button class="danger" @click="deleteFollowUp(reminder)">删除</button>
+              </div>
+            </section>
+
+            <section class="follow-section">
+              <h3>跟进内容</h3>
+              <div v-if="!followItems.length" class="empty compact">暂无跟进记录</div>
+              <div v-for="follow in followItems" :key="follow.id" class="follow-row">
+                <input v-model="follow.date" type="date">
+                <textarea v-model="follow.content" @blur="save"></textarea>
+                <input v-model="follow.nextAction" placeholder="下一步动作" @blur="save">
+                <button class="danger" @click="deleteFollowUp(follow)">删除</button>
+              </div>
+            </section>
           </section>
 
-          <section class="follow-section">
-            <h3>跟进内容</h3>
-          <div v-if="!followItems.length" class="empty compact">暂无跟进记录</div>
-          <div v-for="follow in followItems" :key="follow.id" class="follow-row">
-            <input v-model="follow.date" type="date">
-            <textarea v-model="follow.content" @blur="save"></textarea>
-            <input v-model="follow.nextAction" placeholder="下一步动作" @blur="save">
-            <button class="danger" @click="deleteFollowUp(follow)">删除</button>
-          </div>
+          <section v-else class="activity-content">
+            <div v-if="!customer.quotes.length" class="empty">暂无报价记录</div>
+            <div v-for="quote in customer.quotes" :key="quote.id" class="record-row">
+              <div class="deal-box">
+                <label class="won-check">
+                  <input :checked="quote.isWon" type="checkbox" @change="quote.isWon ? clearWonQuote(quote) : setWonQuote(quote)">
+                  已成交
+                </label>
+                <label>成交价<input :value="quote.dealAmount || quote.amount" type="number" @input="updateDealAmount(quote, $event)"></label>
+                <label>报价日期<input v-model="quote.date" type="date" @change="save"></label>
+                <div class="contract-upload">
+                  <label class="file-chip" :class="{ filled: quote.contractFileName }">
+                    {{ quote.contractFileName || '上传合同' }}
+                    <input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,image/*,application/pdf" @change="uploadContract($event, quote)">
+                  </label>
+                </div>
+              </div>
+              <div>
+                <b>{{ quote.title }}</b>
+                <p>{{ quote.date }} · {{ quote.status }}</p>
+                <a v-if="quote.quoteFileDataUrl" class="quote-file-link" :href="quote.quoteFileDataUrl" :download="quote.quoteFileName || `${quote.title}.rtf`">查看报价单</a>
+              </div>
+              <strong>¥{{ quote.amount.toFixed(2) }}</strong>
+            </div>
           </section>
         </article>
       </section>
@@ -283,6 +291,12 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
 .detail-panel header span{border-radius:999px;background:#eff6ff;color:#246ed8;padding:7px 10px;font-weight:800}
 .header-actions{display:flex;gap:8px}
 .detail-panel button.danger{border-color:#ffd1d1;background:#fff5f5;color:#c62828}
+.activity-panel{min-height:560px;display:flex;flex-direction:column}
+.activity-panel header{align-items:center}
+.activity-tabs{display:flex;gap:4px;border:1px solid #dbe6f2;border-radius:999px;background:#f4f8fc;padding:4px}
+.activity-tabs button{min-height:34px;border:0;border-radius:999px;background:transparent;color:#50627a;padding:7px 16px;font-weight:900;cursor:pointer}
+.activity-tabs button.active{background:#246ed8;color:#fff;box-shadow:0 8px 18px rgba(36,110,216,.22)}
+.activity-content{flex:1;overflow:auto;padding-right:2px}
 .customer-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .customer-form header,.customer-form .wide{grid-column:1/-1}
 label{display:grid;gap:6px;color:#50627a;font-weight:800}
@@ -291,7 +305,7 @@ textarea{min-height:76px;resize:vertical}
 .record-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;border:1px solid #e1e9f2;border-radius:12px;background:#fbfdff;padding:14px;margin-bottom:10px}
 .record-row p{margin:5px 0 0;color:#64748b}
 .record-row strong{color:#246ed8}
-.deal-box{grid-column:1/-1;display:grid;grid-template-columns:80px minmax(120px,1fr) minmax(130px,1fr);gap:10px;align-items:center;border-top:1px solid #e1e9f2;padding-top:10px}
+.deal-box{grid-column:1/-1;display:grid;grid-template-columns:80px minmax(120px,1fr);gap:10px;align-items:center;border-top:1px solid #e1e9f2;padding-top:10px}
 .won-check{display:flex;align-items:center;gap:6px}
 .won-check input{min-height:auto}
 .file-chip{display:inline-flex;align-items:center;justify-content:center;min-height:36px;border:1px dashed #9bb7d3;border-radius:10px;background:#f8fafc;color:#183f68;padding:7px 9px;cursor:pointer;font-size:13px;white-space:nowrap}
@@ -300,11 +314,9 @@ textarea{min-height:76px;resize:vertical}
 .contract-upload{grid-column:1/-1;display:flex;justify-content:flex-end}
 .contract-upload .file-chip{min-width:118px}
 .quote-file-link{display:inline-flex;margin-top:6px;color:#246ed8;font-weight:900;text-decoration:none}
-.follow-panel{grid-column:1/-1}
 .reminder-section{border-bottom:1px solid #e1e9f2;margin-bottom:16px;padding-bottom:16px}
 .reminder-section h3,.follow-section h3{margin:0 0 10px;font-size:16px;color:#183f68}
-.reminder-edit-row{display:grid;grid-template-columns:150px 120px minmax(240px,1fr) 220px 70px;gap:10px;align-items:start;border:1px solid #e1e9f2;border-radius:12px;background:#fbfdff;padding:12px;margin-bottom:10px}
-.follow-row{display:grid;grid-template-columns:150px minmax(300px,1fr) 260px 70px;gap:10px;align-items:start;border:1px solid #e1e9f2;border-radius:12px;background:#fbfdff;padding:12px;margin-bottom:10px}
+.reminder-edit-row,.follow-row{display:grid;grid-template-columns:1fr;gap:10px;align-items:start;border:1px solid #e1e9f2;border-radius:12px;background:#fbfdff;padding:12px;margin-bottom:10px}
 .empty{border:1px dashed #b8c8d8;border-radius:12px;background:#f8fbff;color:#64748b;padding:20px;text-align:center}
 .empty.compact{padding:12px;margin-bottom:10px}
 .modal-mask{position:fixed;inset:0;z-index:30;display:grid;place-items:center;background:rgba(15,34,55,.38);padding:20px}
