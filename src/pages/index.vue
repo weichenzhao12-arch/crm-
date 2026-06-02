@@ -881,6 +881,55 @@ function textDataUrl(content: string, mime = 'application/rtf;charset=utf-8') {
   return `data:${mime};base64,${btoa(unescape(encodeURIComponent(content)))}`
 }
 
+function loadHtml2Pdf() {
+  const existing = (window as any).html2pdf
+  if (existing)
+    return Promise.resolve(existing)
+
+  return new Promise<any>((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = 'https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.3/dist/html2pdf.bundle.min.js'
+    script.onload = () => resolve((window as any).html2pdf)
+    script.onerror = () => reject(new Error('PDF 生成工具加载失败'))
+    document.head.appendChild(script)
+  })
+}
+
+async function quotePdfDataUrl(fileName: string) {
+  const html2pdf = await loadHtml2Pdf()
+  const frame = document.createElement('iframe')
+  frame.style.position = 'fixed'
+  frame.style.left = '-10000px'
+  frame.style.top = '0'
+  frame.style.width = '210mm'
+  frame.style.height = '297mm'
+  frame.style.border = '0'
+  document.body.appendChild(frame)
+
+  try {
+    const doc = frame.contentDocument || frame.contentWindow?.document
+    if (!doc)
+      throw new Error('报价单页面创建失败')
+    doc.open()
+    doc.write(quoteHtml())
+    doc.close()
+    await new Promise(resolve => setTimeout(resolve, 300))
+    return await html2pdf()
+      .set({
+        filename: fileName,
+        margin: 0,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      })
+      .from(doc.body)
+      .outputPdf('datauristring')
+  }
+  finally {
+    frame.remove()
+  }
+}
+
 function syncQuoteToCustomer(status = '已导出', attachment?: { name: string, dataUrl: string }) {
   if (!linkedCustomerId.value)
     return
@@ -918,12 +967,18 @@ function exportWord() {
   URL.revokeObjectURL(url)
 }
 
-function printPdf() {
-  const fileName = `${meta.value.customerName || '客户'}-报价单-${Date.now()}.html`
-  syncQuoteToCustomer('已打印/PDF', {
-    name: fileName,
-    dataUrl: textDataUrl(quoteHtml(), 'text/html;charset=utf-8'),
-  })
+async function printPdf() {
+  const fileName = `${meta.value.customerName || '客户'}-报价单-${Date.now()}.pdf`
+  try {
+    syncQuoteToCustomer('已打印/PDF', {
+      name: fileName,
+      dataUrl: await quotePdfDataUrl(fileName),
+    })
+  }
+  catch {
+    syncQuoteToCustomer('PDF生成失败，请重试')
+    window.alert('PDF生成失败，请检查网络后再试一次。')
+  }
   view.value = 'print'
   setTimeout(() => window.print(), 60)
 }
