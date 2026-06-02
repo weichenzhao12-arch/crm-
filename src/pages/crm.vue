@@ -610,7 +610,7 @@ async function handleLogout() {
 
       <div class="lead-record-table">
         <div class="lead-record-head">
-          <span>序号</span><span>日期</span><span>客户名称</span><span>客户联系方式</span><span>抖音账号来源</span><span>成交属性高中低无效</span><span>客户属性BC端</span><span>地址</span><span>客户情况沟通内容</span><span>数量(平方)</span><span>使用时间</span><span>负责人</span><span>状态</span><span>寄样</span><span>操作</span>
+          <span>序号</span><span>日期</span><span>客户名称</span><span>客户联系方式</span><span>抖音账号来源</span><span>成交属性高中低无效</span><span>客户属性BC端</span><span>地址</span><span>客户情况沟通内容</span><span>数量(平方)</span><span>使用时间</span><span>负责人</span><span>状态</span>
         </div>
         <article v-for="(customer, index) in previewCustomers" :key="customer.id" @click="router.push(`/crm/customer/${customer.id}`)">
           <span>{{ index + 1 }}</span>
@@ -626,12 +626,6 @@ async function handleLogout() {
           <span>{{ customer.usageTime || '-' }}</span>
           <span>{{ customer.owner || '未分配' }}</span>
           <strong class="stage-badge">{{ stageLabels[customer.stage] }}</strong>
-          <span class="sample-cell">
-            <button @click.stop="openSampleDialog(customer)">{{ customer.sampleSent ? '已寄样' : '寄样' }}</button>
-            <a v-if="customer.sampleTrackingNo" :href="trackingUrl(customer.sampleTrackingNo)" target="_blank" rel="noopener" @click.stop>物流跟踪</a>
-          </span>
-          <button v-if="canDeleteCustomers" class="delete-customer" @click.stop="deleteCustomer(customer.id)">删除</button>
-          <span v-else>-</span>
         </article>
         <div v-if="!previewCustomers.length" class="empty-preview">暂无符合条件的客户</div>
       </div>
@@ -715,10 +709,10 @@ h2{margin:0;font-size:22px}
 .customer-tabs button.active{background:#246ed8;color:#fff;box-shadow:0 8px 18px rgba(36,110,216,.2)}
 .intent-strip{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
 .intent-strip span{border-radius:999px;background:#eff6ff;color:#246ed8;padding:7px 11px;font-weight:900}
-.lead-record-table{overflow:auto;border:1px solid #dbe6f2;border-radius:12px;background:#fff}
-.lead-record-head,.lead-record-table article{display:grid;grid-template-columns:52px 96px 128px 130px 120px 120px 110px 130px 220px 92px 110px 110px 92px 140px 76px;min-width:1720px;align-items:stretch}
+.lead-record-table{overflow:hidden;border:1px solid #dbe6f2;border-radius:12px;background:#fff}
+.lead-record-head,.lead-record-table article{display:grid;grid-template-columns:42px 78px minmax(86px,1fr) minmax(96px,1.05fr) minmax(86px,.9fr) minmax(88px,.9fr) minmax(76px,.75fr) minmax(92px,.9fr) minmax(140px,1.45fr) 74px 82px 84px 64px;align-items:stretch}
 .lead-record-head{position:sticky;top:0;z-index:1;background:#9fe5df;color:#10243f;font-size:13px;font-weight:900}
-.lead-record-head span,.lead-record-table article span,.lead-record-table article strong{display:flex;align-items:center;min-height:46px;border-right:1px solid #7fc7c1;border-bottom:1px solid #dbe6f2;padding:8px;line-height:1.35}
+.lead-record-head span,.lead-record-table article span,.lead-record-table article strong{display:flex;align-items:center;min-width:0;min-height:46px;border-right:1px solid #7fc7c1;border-bottom:1px solid #dbe6f2;padding:7px;line-height:1.35;overflow:hidden;overflow-wrap:anywhere}
 .lead-record-table article{background:#fbfdff;cursor:pointer}
 .lead-record-table article:hover{background:#f0f8ff}
 .lead-record-table article strong{color:#10243f}
@@ -729,7 +723,7 @@ h2{margin:0;font-size:22px}
 .sample-cell a{background:#fff;color:#183f68}
 .delete-customer{min-height:34px;border:1px solid #ffd3d3;border-radius:10px;background:#fff5f5;color:#d92929;padding:7px 12px;font-weight:900;cursor:pointer}
 .delete-customer:hover{background:#ffe8e8;border-color:#ffb9b9}
-.empty-preview{min-width:1720px;padding:22px;text-align:center;color:#64748b;font-weight:900}
+.empty-preview{padding:22px;text-align:center;color:#64748b;font-weight:900}
 @media(max-width:1000px){
   .crm-hero,.crm-panel header,.chart-panel header,.lead-panel header,.ranking-panel header{align-items:flex-start;flex-direction:column}
   .crm-metrics,.crm-grid{grid-template-columns:1fr 1fr}
