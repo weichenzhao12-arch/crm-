@@ -265,6 +265,7 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
       <h1>客户不存在</h1>
       <RouterLink to="/crm/customers">返回客户管理</RouterLink>
     </section>
+    <RouterLink class="floating-back" to="/crm/customers">返回客户管理</RouterLink>
   </main>
 </template>
 
@@ -313,9 +314,12 @@ textarea{min-height:76px;resize:vertical}
 .modal-actions{display:flex;justify-content:flex-end;gap:10px}
 .modal-actions .primary{background:#246ed8;color:#fff;border-color:#246ed8}
 .not-found{max-width:600px;margin:100px auto;text-align:center}
+.floating-back{position:fixed;right:28px;bottom:28px;z-index:25;display:inline-flex;align-items:center;justify-content:center;min-height:44px;border:1px solid #246ed8;border-radius:999px;background:#246ed8;color:#fff;padding:10px 18px;text-decoration:none;font-weight:900;box-shadow:0 14px 34px rgba(36,110,216,.28)}
+.floating-back:hover{background:#1d5fc1;border-color:#1d5fc1}
 @media(max-width:1000px){
   .detail-hero{align-items:flex-start;flex-direction:column}
   .detail-grid,.customer-form,.follow-row,.reminder-edit-row,.modal-box{grid-template-columns:1fr}
+  .floating-back{right:16px;bottom:16px;min-height:40px;padding:8px 14px}
 }
 </style>
 
