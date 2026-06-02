@@ -116,6 +116,8 @@ const filteredCustomers = computed(() => scopedCustomers.value.filter((customer)
     && (!keyword.value || text.includes(keyword.value.toLowerCase()))
 }))
 
+const previewCustomers = computed(() => filteredCustomers.value.slice(0, 5))
+
 function dateOnly(value: Date) {
   return value.toISOString().slice(0, 10)
 }
@@ -578,11 +580,13 @@ async function handleLogout() {
 
     <section class="crm-panel">
       <header>
-        <h2>客户列表</h2>
+        <div>
+          <h2>客户列表预览</h2>
+          <small>首页显示前 5 条，完整表格请进入客户列表页面</small>
+        </div>
         <div class="crm-tools">
           <input v-model="keyword" placeholder="搜索客户、联系人、电话、微信、场景">
-          <button @click="exportLeadTable">导出客资</button>
-          <label v-if="canManageLeads" class="import-leads">导入客资<input type="file" accept=".xlsx,.xls" @change="importLeadTable"></label>
+          <RouterLink class="view-all-link" to="/crm/customers">查看完整客户列表</RouterLink>
         </div>
       </header>
 
@@ -608,7 +612,7 @@ async function handleLogout() {
         <div class="lead-record-head">
           <span>序号</span><span>日期</span><span>客户名称</span><span>客户联系方式</span><span>抖音账号来源</span><span>成交属性高中低无效</span><span>客户属性BC端</span><span>地址</span><span>客户情况沟通内容</span><span>数量(平方)</span><span>使用时间</span><span>负责人</span><span>状态</span><span>寄样</span><span>操作</span>
         </div>
-        <article v-for="(customer, index) in filteredCustomers" :key="customer.id" @click="router.push(`/crm/customer/${customer.id}`)">
+        <article v-for="(customer, index) in previewCustomers" :key="customer.id" @click="router.push(`/crm/customer/${customer.id}`)">
           <span>{{ index + 1 }}</span>
           <span>{{ customer.date }}</span>
           <strong>{{ customer.name }}</strong>
@@ -629,6 +633,7 @@ async function handleLogout() {
           <button v-if="canDeleteCustomers" class="delete-customer" @click.stop="deleteCustomer(customer.id)">删除</button>
           <span v-else>-</span>
         </article>
+        <div v-if="!previewCustomers.length" class="empty-preview">暂无符合条件的客户</div>
       </div>
     </section>
   </main>
@@ -676,6 +681,7 @@ async function handleLogout() {
 .ranking-panel{min-height:240px;display:flex;flex-direction:column}
 .chart-panel header,.lead-panel header,.ranking-panel header,.crm-panel header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
 h2{margin:0;font-size:22px}
+.crm-panel small{display:block;margin-top:5px;color:#64748b;font-weight:800}
 .chart-panel header span,.lead-panel header span{color:#64748b;font-weight:800}
 .rank-switch{display:flex;gap:6px;border:1px solid #dbe6f2;border-radius:999px;background:#f8fafc;padding:4px}
 .rank-switch button{border:0;border-radius:999px;background:transparent;color:#50627a;padding:7px 12px;font-weight:900;cursor:pointer}
@@ -700,7 +706,7 @@ h2{margin:0;font-size:22px}
 .crm-panel{max-width:1500px;margin:0 auto}
 .crm-tools{display:flex;align-items:center;gap:10px;min-width:360px}
 .crm-tools input{flex:1}
-.crm-tools button,.crm-tools label{display:inline-flex;align-items:center;justify-content:center;background:#246ed8;border-color:#246ed8;color:#fff;font-weight:900;white-space:nowrap;cursor:pointer}
+.crm-tools button,.crm-tools label,.crm-tools .view-all-link{display:inline-flex;align-items:center;justify-content:center;min-height:40px;border:1px solid #246ed8;border-radius:10px;background:#246ed8;color:#fff;padding:8px 12px;text-decoration:none;font-weight:900;white-space:nowrap;cursor:pointer}
 .crm-tools label input{display:none}
 .customer-filter-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:4px 0 12px;padding:12px;border:1px solid #dbe6f2;border-radius:14px;background:linear-gradient(180deg,#f8fbff,#f1f7ff)}
 .customer-filter-bar b{color:#183f68;font-size:15px;white-space:nowrap}
@@ -723,6 +729,7 @@ h2{margin:0;font-size:22px}
 .sample-cell a{background:#fff;color:#183f68}
 .delete-customer{min-height:34px;border:1px solid #ffd3d3;border-radius:10px;background:#fff5f5;color:#d92929;padding:7px 12px;font-weight:900;cursor:pointer}
 .delete-customer:hover{background:#ffe8e8;border-color:#ffb9b9}
+.empty-preview{min-width:1720px;padding:22px;text-align:center;color:#64748b;font-weight:900}
 @media(max-width:1000px){
   .crm-hero,.crm-panel header,.chart-panel header,.lead-panel header,.ranking-panel header{align-items:flex-start;flex-direction:column}
   .crm-metrics,.crm-grid{grid-template-columns:1fr 1fr}

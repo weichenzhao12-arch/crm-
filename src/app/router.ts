@@ -4,6 +4,7 @@ import BlankLayout from '~/layouts/blank.vue'
 import AdminPage from '~/pages/admin.vue'
 import CatchAllPage from '~/pages/[...all].vue'
 import CrmCustomerPage from '~/pages/crm/customer/[id].vue'
+import CrmCustomersPage from '~/pages/crm/customers.vue'
 import CrmPage from '~/pages/crm.vue'
 import DemoApiPage from '~/pages/demo-api.vue'
 import HomePage from '~/pages/index.vue'
@@ -46,6 +47,11 @@ export function createAppRouter() {
             path: 'crm/customer/:id',
             component: CrmCustomerPage,
             meta: { title: '客户详情', layout: 'default' },
+          },
+          {
+            path: 'crm/customers',
+            component: CrmCustomersPage,
+            meta: { title: '客户列表', layout: 'default' },
           },
         ],
       },
