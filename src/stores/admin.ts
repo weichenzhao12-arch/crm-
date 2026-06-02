@@ -60,7 +60,7 @@ function permissionsForRole(role: AdminRole): AdminPermission {
       manageMaterials: false,
       importExcel: false,
       manageUsers: false,
-      exportQuote: true,
+      exportQuote: false,
       temporaryEdit: true,
     }
   }
@@ -69,7 +69,7 @@ function permissionsForRole(role: AdminRole): AdminPermission {
     manageMaterials: false,
     importExcel: false,
     manageUsers: false,
-    exportQuote: true,
+    exportQuote: false,
     temporaryEdit: false,
   }
 }

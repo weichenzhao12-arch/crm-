@@ -72,6 +72,7 @@ const leadTableColumns = [
 const loginUser = computed(() => admin.currentUser)
 const canManageLeads = computed(() => loginUser.value?.role === 'owner' || loginUser.value?.role === 'manager' || Boolean(loginUser.value?.permissions.manageUsers))
 const canDeleteCustomers = computed(() => loginUser.value?.role === 'owner' || loginUser.value?.role === 'manager')
+const canExportCustomers = computed(() => loginUser.value?.role === 'owner' || loginUser.value?.role === 'manager' || Boolean(loginUser.value?.permissions.exportQuote))
 const canViewAll = computed(() => canManageLeads.value)
 const activeUser = computed(() => canManageLeads.value && selectedUserId.value !== 'all' ? users.value.find(user => user.id === selectedUserId.value) || loginUser.value : loginUser.value)
 const salesUsers = computed(() => users.value.filter(user => user.enabled && user.role !== 'owner' && user.role !== 'viewer'))
@@ -245,11 +246,20 @@ function rowToCustomer(row: Record<string, any>, index: number) {
 }
 
 function exportLeadTable() {
+  if (!canExportCustomers.value)
+    return
   const rows = filteredCustomers.value.map(customerToLeadRow)
   const worksheet = XLSX.utils.json_to_sheet(rows.length ? rows : [Object.fromEntries(leadTableColumns.map(column => [column, '']))], { header: leadTableColumns })
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, worksheet, '客资记录')
   XLSX.writeFile(workbook, `客资记录-${dateOnly(new Date())}.xlsx`)
+}
+
+function downloadLeadTemplate() {
+  const worksheet = XLSX.utils.json_to_sheet([Object.fromEntries(leadTableColumns.map(column => [column, '']))], { header: leadTableColumns })
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, worksheet, '客资导入模板')
+  XLSX.writeFile(workbook, '客资导入模板.xlsx')
 }
 
 function importLeadTable(event: Event) {
@@ -335,8 +345,11 @@ function batchTransferCustomers() {
       <nav>
         <RouterLink to="/crm">返回首页</RouterLink>
         <button @click="addCustomer">新增客户</button>
-        <button @click="exportLeadTable">导出客资</button>
-        <label v-if="canManageLeads">导入客资<input type="file" accept=".xlsx,.xls" @change="importLeadTable"></label>
+        <label>导入客资<input type="file" accept=".xlsx,.xls" @change="importLeadTable"></label>
+
+        <button v-if="canExportCustomers" @click="exportLeadTable">导出客资</button>
+
+        <button v-else @click="downloadLeadTemplate">下载模板</button>
       </nav>
     </section>
 
