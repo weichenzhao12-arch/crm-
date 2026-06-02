@@ -586,7 +586,7 @@ async function handleLogout() {
         </div>
         <div class="crm-tools">
           <input v-model="keyword" placeholder="搜索客户、联系人、电话、微信、场景">
-          <RouterLink class="view-all-link" to="/crm/customers">查看完整客户列表</RouterLink>
+          <RouterLink class="view-all-link" to="/crm/customers">客户管理</RouterLink>
         </div>
       </header>
 
