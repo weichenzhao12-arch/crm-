@@ -202,8 +202,8 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
             </div>
             <div class="header-actions">
               <template v-if="activityTab === 'follow'">
-                <button @click="openReminderModal">添加提醒</button>
-                <button @click="crm.addFollowUp(customer.id)">新增跟进</button>
+                <button class="action-button" @click="openReminderModal"><span>+</span>添加提醒</button>
+                <button class="action-button primary" @click="crm.addFollowUp(customer.id)"><span>+</span>新增跟进</button>
               </template>
               <button v-else @click="newQuote">新建报价</button>
             </div>
@@ -303,6 +303,10 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
 .detail-panel h2{margin:0;font-size:22px}
 .detail-panel header span{border-radius:999px;background:#eff6ff;color:#246ed8;padding:7px 10px;font-weight:800}
 .header-actions{display:flex;gap:8px}
+.header-actions .action-button{display:inline-flex;align-items:center;gap:6px;border-color:#c7daf0;background:#f4f9ff;color:#185b99;box-shadow:0 6px 14px rgba(30,86,140,.08)}
+.header-actions .action-button.primary{border-color:#246ed8;background:#246ed8;color:#fff;box-shadow:0 8px 18px rgba(36,110,216,.22)}
+.header-actions .action-button span{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:rgba(36,110,216,.12);font-size:16px;line-height:1}
+.header-actions .action-button.primary span{background:rgba(255,255,255,.22)}
 .detail-panel button.danger{border-color:#ffd1d1;background:#fff5f5;color:#c62828}
 .activity-panel{height:720px;min-height:560px;display:flex;flex-direction:column}
 .activity-panel header{align-items:center}
