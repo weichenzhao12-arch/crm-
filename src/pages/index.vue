@@ -22,6 +22,7 @@ const CURRENCY = '¥'
 const quote = useQuoteStore()
 const crm = useCrmStore()
 const route = useRoute()
+const router = useRouter()
 const { pricing, meta, charges, lines, categories } = storeToRefs(quote)
 
 watch(pricing, () => quote.savePricing(), { deep: true })
@@ -894,6 +895,13 @@ function syncQuoteToCustomer(status = '已导出', attachment?: { name: string, 
   })
 }
 
+function returnToCustomer() {
+  if (!linkedCustomerId.value)
+    return
+  syncQuoteToCustomer('已保存报价')
+  router.push(`/crm/customer/${linkedCustomerId.value}?tab=quote`)
+}
+
 function exportWord() {
   const rtf = quoteRtf()
   const fileName = `${meta.value.customerName || '客户'}-报价单-${Date.now()}.rtf`
@@ -932,7 +940,7 @@ function printPdf() {
         <button :class="{ active: view === 'quote' }" @click="view = 'quote'">计算</button>
         <button :class="{ active: view === 'print' }" @click="view = 'print'">报价单</button>
         <button :class="{ active: view === 'settings' }" @click="view = 'settings'">数据维护</button>
-        <RouterLink v-if="linkedCustomerId" class="admin-link primary" :to="`/crm/customer/${linkedCustomerId}`">返回当前客户</RouterLink>
+        <button v-if="linkedCustomerId" class="admin-link primary" @click="returnToCustomer">返回当前客户</button>
         <RouterLink class="admin-link" to="/">返回CRM</RouterLink>
         <RouterLink class="admin-link" to="/admin">管理后台</RouterLink>
       </nav>

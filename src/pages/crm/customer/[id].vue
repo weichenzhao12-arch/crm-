@@ -26,9 +26,14 @@ const reminderModal = ref({
   content: '',
   nextAction: '联系客户',
 })
-const activityTab = ref<'follow' | 'quote'>('follow')
+const activityTab = ref<'follow' | 'quote'>(route.query.tab === 'quote' ? 'quote' : 'follow')
 const reminderItems = computed(() => customer.value?.followUps.filter(follow => follow.reminderDate) || [])
 const followItems = computed(() => customer.value?.followUps.filter(follow => !follow.reminderDate) || [])
+
+watch(() => route.query.tab, (tab) => {
+  if (tab === 'quote')
+    activityTab.value = 'quote'
+})
 
 const stageLabels = {
   new: '新客资',
