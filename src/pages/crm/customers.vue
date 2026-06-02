@@ -22,7 +22,8 @@ const { users } = storeToRefs(admin)
 
 const keyword = ref('')
 const stageFilter = ref('全部')
-const selectedUserId = ref(admin.currentUser?.id || 'owner')
+const selectedUserId = ref('all')
+const transferTargetUserId = ref('')
 const sampleDialogCustomerId = ref('')
 const sampleForm = ref({
   sampleSent: false,
@@ -72,12 +73,16 @@ const loginUser = computed(() => admin.currentUser)
 const canManageLeads = computed(() => loginUser.value?.role === 'owner' || loginUser.value?.role === 'manager' || Boolean(loginUser.value?.permissions.manageUsers))
 const canDeleteCustomers = computed(() => loginUser.value?.role === 'owner' || loginUser.value?.role === 'manager')
 const canViewAll = computed(() => canManageLeads.value)
-const activeUser = computed(() => canManageLeads.value ? users.value.find(user => user.id === selectedUserId.value) || loginUser.value : loginUser.value)
+const activeUser = computed(() => canManageLeads.value && selectedUserId.value !== 'all' ? users.value.find(user => user.id === selectedUserId.value) || loginUser.value : loginUser.value)
 const salesUsers = computed(() => users.value.filter(user => user.enabled && user.role !== 'owner' && user.role !== 'viewer'))
 
-const scopedCustomers = computed(() => canViewAll.value
-  ? customers.value
-  : customers.value.filter(customer => customer.assignedToUserId === activeUser.value?.id))
+const scopedCustomers = computed(() => {
+  if (!canViewAll.value)
+    return customers.value.filter(customer => customer.assignedToUserId === activeUser.value?.id)
+  if (selectedUserId.value !== 'all')
+    return customers.value.filter(customer => customer.assignedToUserId === selectedUserId.value)
+  return customers.value
+})
 
 const filteredCustomers = computed(() => scopedCustomers.value.filter((customer) => {
   const text = [
@@ -290,6 +295,25 @@ function batchDeleteCustomers() {
   selectedCustomerIds.value = []
   crm.save()
 }
+
+function batchTransferCustomers() {
+  if (!canManageLeads.value || !selectedCustomerIds.value.length || !transferTargetUserId.value)
+    return
+  const targetUser = users.value.find(user => user.id === transferTargetUserId.value)
+  if (!targetUser)
+    return
+  if (!window.confirm(`确定把已选中的 ${selectedCustomerIds.value.length} 条客资转移给 ${targetUser.displayName || targetUser.account} 吗？`))
+    return
+  const selectedIds = new Set(selectedCustomerIds.value)
+  customers.value.forEach((customer) => {
+    if (selectedIds.has(customer.id)) {
+      customer.assignedToUserId = targetUser.id
+      customer.owner = targetUser.displayName || targetUser.account
+    }
+  })
+  selectedCustomerIds.value = []
+  crm.save()
+}
 </script>
 
 <template>
@@ -346,6 +370,7 @@ function batchDeleteCustomers() {
       <div class="filter-bar">
         <label v-if="canManageLeads">当前视角
           <select v-model="selectedUserId">
+            <option value="all">全部客户</option>
             <option v-for="user in users" :key="user.id" :value="user.id">{{ user.displayName || user.account }}</option>
           </select>
         </label>
@@ -355,6 +380,13 @@ function batchDeleteCustomers() {
             全选
           </label>
           <button :disabled="!selectedCount" @click="batchDeleteCustomers">批量删除 {{ selectedCount ? `(${selectedCount})` : '' }}</button>
+        </div>
+        <div v-if="canDeleteCustomers" class="transfer-tools">
+          <select v-model="transferTargetUserId">
+            <option value="">转移给</option>
+            <option v-for="user in salesUsers" :key="user.id" :value="user.id">{{ user.displayName || user.account }}</option>
+          </select>
+          <button :disabled="!selectedCount || !transferTargetUserId" @click="batchTransferCustomers">批量转移</button>
         </div>
         <div class="customer-tabs">
           <button
@@ -421,11 +453,13 @@ h2{margin:0;font-size:22px}
 .customers-tools input{flex:1;min-width:340px}
 .filter-bar{justify-content:space-between;margin-bottom:12px;padding:12px;border:1px solid #dbe6f2;border-radius:14px;background:linear-gradient(180deg,#f8fbff,#f1f7ff)}
 .filter-bar label{display:flex;align-items:center;gap:8px;color:#183f68;font-weight:900}
-.batch-tools{display:flex;align-items:center;gap:8px}
+.batch-tools,.transfer-tools{display:flex;align-items:center;gap:8px}
 .batch-tools .select-all{display:flex;align-items:center;gap:6px;color:#183f68;font-weight:900}
 .batch-tools .select-all input,.select-cell input{width:16px;height:16px;min-height:0}
 .batch-tools button{min-height:34px;border:1px solid #ffd3d3;border-radius:10px;background:#fff5f5;color:#d92929;padding:7px 12px;font-weight:900;cursor:pointer}
-.batch-tools button:disabled{opacity:.45;cursor:not-allowed}
+.transfer-tools select{min-height:34px;border:1px solid #d5dee9;border-radius:10px;background:#fff;color:#142235;padding:6px 10px;font-weight:800}
+.transfer-tools button{min-height:34px;border:1px solid #246ed8;border-radius:10px;background:#246ed8;color:#fff;padding:7px 12px;font-weight:900;cursor:pointer}
+.batch-tools button:disabled,.transfer-tools button:disabled{opacity:.45;cursor:not-allowed}
 .customer-tabs{border:1px solid #dbe6f2;border-radius:12px;background:#f8fafc;padding:4px}
 .customer-tabs button{min-height:32px;border:0;border-radius:9px;background:transparent;color:#50627a;padding:6px 12px;font-weight:900;cursor:pointer;white-space:nowrap}
 .customer-tabs button.active{background:#246ed8;color:#fff;box-shadow:0 8px 18px rgba(36,110,216,.2)}
