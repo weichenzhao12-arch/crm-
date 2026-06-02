@@ -319,7 +319,7 @@ function changeOwnPassword() {
       </div>
       <div class="admin-table user-admin-table">
         <div class="admin-head">
-          <span>账号</span><span>姓名</span><span>角色</span><span>启用</span><span>产品</span><span>辅料</span><span>导入</span><span>用户</span><span>导出</span><span>临时改价</span>
+          <span>账号</span><span>姓名</span><span>角色</span><span>启用</span><span>产品管理</span><span>辅料管理</span><span>数据导入管理</span><span>账号/客户管理</span><span>报价/客户导出</span><span>报价临时改价</span>
           <button class="password-toggle" type="button" @click="showUserPasswords = !showUserPasswords">{{ showUserPasswords ? '隐藏密码' : '显示密码' }}</button><span></span>
         </div>
         <article v-for="user in users" :key="user.id">
@@ -369,7 +369,7 @@ function changeOwnPassword() {
 .admin-table article:last-child{border-bottom:0}
 .product-admin-table .admin-head,.product-admin-table article{grid-template-columns:36px 120px 110px 130px 82px 92px 82px 92px 82px 120px 92px 180px 150px 140px 70px}
 .material-admin-table .admin-head,.material-admin-table article{grid-template-columns:36px 140px 150px 1fr 92px 110px 150px 220px 70px}
-.user-admin-table .admin-head,.user-admin-table article{grid-template-columns:110px 110px 110px repeat(7,70px) 110px 70px}
+.user-admin-table .admin-head,.user-admin-table article{grid-template-columns:110px 110px 110px 70px repeat(6,120px) 70px}
 .admin-table input,.admin-table select,.admin-table textarea,.password-box input{min-width:0;min-height:36px;border:1px solid #d5dee9;border-radius:8px;background:#f8fafc;padding:7px 9px}
 .admin-table input[type="checkbox"]{width:18px;height:18px;min-height:0;justify-self:center}
 .admin-table textarea{min-height:38px;resize:vertical}
