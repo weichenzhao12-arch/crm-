@@ -141,6 +141,7 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
           <h1>{{ customer.name }}</h1>
         </div>
         <nav>
+          <RouterLink to="/crm/customers">返回客户管理</RouterLink>
           <RouterLink to="/">返回 CRM</RouterLink>
           <button @click="newQuote">新建报价</button>
           <button @click="save">保存客户</button>
@@ -262,7 +263,7 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
     </template>
     <section v-else class="detail-panel not-found">
       <h1>客户不存在</h1>
-      <RouterLink to="/">返回 CRM</RouterLink>
+      <RouterLink to="/crm/customers">返回客户管理</RouterLink>
     </section>
   </main>
 </template>
