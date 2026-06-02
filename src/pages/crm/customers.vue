@@ -31,6 +31,23 @@ const sampleForm = ref({
   sampleTrackingNo: '',
 })
 const selectedCustomerIds = ref<string[]>([])
+const newCustomerDialogOpen = ref(false)
+const newCustomerInitialSnapshot = ref('')
+const newCustomerForm = ref({
+  date: '',
+  name: '',
+  phone: '',
+  sourceAccount: '',
+  dealAttribute: '',
+  customerAttribute: '',
+  region: '',
+  area: 0,
+  usageTime: '',
+  intentLevel: 'C' as IntentLevel,
+  assignedToUserId: '',
+  communication: '',
+  remark: '',
+})
 
 onMounted(() => {
   crm.loadCloudCustomers()
@@ -118,6 +135,7 @@ const allFilteredSelected = computed(() =>
   filteredCustomerIds.value.length > 0
   && filteredCustomerIds.value.every(id => selectedCustomerIds.value.includes(id)),
 )
+const newCustomerDirty = computed(() => JSON.stringify(newCustomerForm.value) !== newCustomerInitialSnapshot.value)
 
 watch(filteredCustomerIds, (ids) => {
   selectedCustomerIds.value = selectedCustomerIds.value.filter(id => ids.includes(id))
@@ -283,12 +301,66 @@ function importLeadTable(event: Event) {
   reader.readAsArrayBuffer(file)
 }
 
+function defaultNewCustomerAssignee() {
+  if (!canManageLeads.value)
+    return activeUser.value?.id || 'owner'
+  if (selectedUserId.value !== 'all')
+    return selectedUserId.value
+  return salesUsers.value[0]?.id || activeUser.value?.id || 'owner'
+}
+
+function resetNewCustomerForm() {
+  newCustomerForm.value = {
+    date: dateOnly(new Date()),
+    name: '',
+    phone: '',
+    sourceAccount: '',
+    dealAttribute: '',
+    customerAttribute: '',
+    region: '',
+    area: 0,
+    usageTime: '',
+    intentLevel: 'C',
+    assignedToUserId: defaultNewCustomerAssignee(),
+    communication: '',
+    remark: '',
+  }
+  newCustomerInitialSnapshot.value = JSON.stringify(newCustomerForm.value)
+}
+
 function addCustomer() {
-  const id = crm.addCustomer({
-    assignedToUserId: activeUser.value?.id || 'owner',
-    owner: activeUser.value?.displayName || '',
+  resetNewCustomerForm()
+  newCustomerDialogOpen.value = true
+}
+
+function closeNewCustomerDialog() {
+  if (newCustomerDirty.value && !window.confirm('客户资料还没有保存，确定关闭吗？关闭后这条客户不会添加成功。'))
+    return
+  newCustomerDialogOpen.value = false
+}
+
+function saveNewCustomer() {
+  const targetUser = users.value.find(user => user.id === newCustomerForm.value.assignedToUserId) || activeUser.value
+  crm.addCustomer({
+    date: newCustomerForm.value.date,
+    name: newCustomerForm.value.name.trim() || '新客户',
+    phone: newCustomerForm.value.phone.trim(),
+    sourceAccount: newCustomerForm.value.sourceAccount.trim(),
+    dealAttribute: newCustomerForm.value.dealAttribute.trim(),
+    customerAttribute: newCustomerForm.value.customerAttribute.trim(),
+    region: newCustomerForm.value.region.trim(),
+    area: Number(newCustomerForm.value.area) || 0,
+    usageTime: newCustomerForm.value.usageTime.trim(),
+    intentLevel: newCustomerForm.value.intentLevel,
+    communication: newCustomerForm.value.communication.trim(),
+    remark: newCustomerForm.value.remark.trim(),
+    assignedToUserId: targetUser?.id || 'owner',
+    owner: targetUser?.displayName || targetUser?.account || '',
+    createdByUserId: activeUser.value?.id || 'owner',
+    stage: 'new',
   })
-  router.push(`/crm/customer/${id}`)
+  newCustomerInitialSnapshot.value = JSON.stringify(newCustomerForm.value)
+  newCustomerDialogOpen.value = false
 }
 
 function deleteCustomer(customerId: string) {
@@ -373,6 +445,52 @@ function batchTransferCustomers() {
         <footer>
           <button @click="closeSampleDialog">取消</button>
           <button class="primary" @click="saveSampleInfo">保存</button>
+        </footer>
+      </div>
+    </section>
+
+    <section v-if="newCustomerDialogOpen" class="modal-mask">
+      <div class="customer-create-dialog">
+        <header>
+          <div>
+            <h2>新建客户</h2>
+            <p>点击保存后才会正式添加客户</p>
+          </div>
+          <button @click="closeNewCustomerDialog">关闭</button>
+        </header>
+
+        <div class="create-form">
+          <label>日期<input v-model="newCustomerForm.date" type="date"></label>
+          <label>客户名称<input v-model="newCustomerForm.name" placeholder="新客户"></label>
+          <label>客户联系方式<input v-model="newCustomerForm.phone" placeholder="电话 / 微信 / 其他联系方式"></label>
+          <label>抖音账号来源<input v-model="newCustomerForm.sourceAccount"></label>
+          <label>成交属性高中低无效<input v-model="newCustomerForm.dealAttribute" placeholder="高 / 中 / 低 / 无效"></label>
+          <label>客户属性BC端<input v-model="newCustomerForm.customerAttribute" placeholder="B端 / C端"></label>
+          <label>地址<input v-model="newCustomerForm.region"></label>
+          <label>数量(平方)<input v-model.number="newCustomerForm.area" type="number" min="0"></label>
+          <label>使用时间<input v-model="newCustomerForm.usageTime"></label>
+          <label>意向等级
+            <select v-model="newCustomerForm.intentLevel">
+              <option value="A">A 高意向</option>
+              <option value="B">B 较高</option>
+              <option value="C">C 普通</option>
+              <option value="D">D 待培养</option>
+              <option value="E">E 低意向</option>
+              <option value="F">F 无效/暂缓</option>
+            </select>
+          </label>
+          <label v-if="canManageLeads">分配给
+            <select v-model="newCustomerForm.assignedToUserId">
+              <option v-for="user in salesUsers" :key="user.id" :value="user.id">{{ user.displayName || user.account }}</option>
+            </select>
+          </label>
+          <label class="wide">客户情况沟通内容<textarea v-model="newCustomerForm.communication"></textarea></label>
+          <label class="wide">备注<textarea v-model="newCustomerForm.remark"></textarea></label>
+        </div>
+
+        <footer>
+          <button @click="closeNewCustomerDialog">取消</button>
+          <button class="primary" @click="saveNewCustomer">保存客户</button>
         </footer>
       </div>
     </section>
@@ -510,10 +628,23 @@ h2{margin:0;font-size:22px}
 .sample-dialog .sample-check input{width:18px;height:18px;min-height:0}
 .sample-dialog button,.sample-dialog a{display:inline-flex;align-items:center;justify-content:center;min-height:36px;border:1px solid #d5dee9;border-radius:10px;background:#f8fafc;color:#183f68;padding:8px 12px;text-decoration:none;font-weight:900;cursor:pointer}
 .sample-dialog .primary{background:#246ed8;border-color:#246ed8;color:#fff}
+.customer-create-dialog{width:min(780px,100%);max-height:86vh;display:flex;flex-direction:column;gap:14px;border-radius:16px;background:#fff;padding:20px;box-shadow:0 24px 70px rgba(15,34,55,.28)}
+.customer-create-dialog header,.customer-create-dialog footer{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.customer-create-dialog h2{margin:0}
+.customer-create-dialog p{margin:5px 0 0;color:#64748b;font-weight:800}
+.customer-create-dialog header button,.customer-create-dialog footer button{min-height:38px;border:1px solid #d5dee9;border-radius:10px;background:#f8fafc;color:#183f68;padding:8px 14px;font-weight:900;cursor:pointer}
+.customer-create-dialog footer{justify-content:flex-end;margin-top:2px}
+.customer-create-dialog footer .primary{background:#246ed8;border-color:#246ed8;color:#fff}
+.create-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;overflow:auto;padding-right:4px}
+.create-form label{display:grid;gap:6px;color:#50627a;font-weight:900}
+.create-form input,.create-form select,.create-form textarea{min-height:40px;border:1px solid #d5dee9;border-radius:10px;background:#f8fafc;padding:8px 12px;color:#142235}
+.create-form textarea{min-height:88px;resize:vertical}
+.create-form .wide{grid-column:1/-1}
 @media(max-width:1000px){
   .customers-hero,.customers-panel header,.filter-bar{align-items:flex-start;flex-direction:column}
   .customers-tools{min-width:0;width:100%}
   .customers-tools input{width:100%;min-width:0}
   .customer-tabs{width:100%;overflow:auto}
+  .create-form{grid-template-columns:1fr}
 }
 </style>
