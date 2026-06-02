@@ -50,6 +50,16 @@ function today() {
   return new Date().toISOString().slice(0, 10)
 }
 
+function followYear(dateText: string) {
+  return (dateText || today()).slice(0, 4)
+}
+
+function followMonthDay(dateText: string) {
+  const value = dateText || today()
+  const [, month = '', day = ''] = value.match(/^\d{4}-(\d{1,2})-(\d{1,2})/) || []
+  return month && day ? `${Number(month)}月${Number(day)}号` : value
+}
+
 function openReminderModal() {
   reminderModal.value = {
     open: true,
@@ -204,9 +214,12 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
               <h3>跟进内容</h3>
               <div v-if="!followItems.length" class="empty compact">暂无跟进记录</div>
               <div v-for="follow in followItems" :key="follow.id" class="follow-row">
-                <input v-model="follow.date" type="date">
-                <textarea v-model="follow.content" @blur="save"></textarea>
-                <input v-model="follow.nextAction" placeholder="下一步动作" @blur="save">
+                <label class="follow-date-tile">
+                  <input v-model="follow.date" type="date" @change="save">
+                  <span>{{ followYear(follow.date) }}</span>
+                  <b>{{ followMonthDay(follow.date) }}</b>
+                </label>
+                <textarea v-model="follow.content" placeholder="新增跟进记录" @blur="save"></textarea>
                 <button class="danger" @click="deleteFollowUp(follow)">删除</button>
               </div>
             </section>
@@ -284,19 +297,19 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
 .detail-hero h1{margin:0;font-size:34px}
 .detail-hero nav{display:flex;flex-wrap:wrap;gap:10px}
 .detail-hero a,.detail-hero button,.detail-panel button{min-height:40px;border:1px solid rgba(255,255,255,.36);border-radius:10px;background:#fff;color:#183f68;padding:9px 14px;text-decoration:none;font-weight:800;cursor:pointer}
-.detail-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(360px,.8fr);gap:18px;max-width:1500px;margin:0 auto}
+.detail-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(360px,.8fr);align-items:start;gap:18px;max-width:1500px;margin:0 auto}
 .detail-panel{border:1px solid #d7e2ee;border-radius:16px;background:#fff;padding:20px;box-shadow:0 12px 34px rgba(38,59,84,.075)}
 .detail-panel header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
 .detail-panel h2{margin:0;font-size:22px}
 .detail-panel header span{border-radius:999px;background:#eff6ff;color:#246ed8;padding:7px 10px;font-weight:800}
 .header-actions{display:flex;gap:8px}
 .detail-panel button.danger{border-color:#ffd1d1;background:#fff5f5;color:#c62828}
-.activity-panel{min-height:560px;display:flex;flex-direction:column}
+.activity-panel{height:720px;min-height:560px;display:flex;flex-direction:column}
 .activity-panel header{align-items:center}
 .activity-tabs{display:flex;gap:4px;border:1px solid #dbe6f2;border-radius:999px;background:#f4f8fc;padding:4px}
 .activity-tabs button{min-height:34px;border:0;border-radius:999px;background:transparent;color:#50627a;padding:7px 16px;font-weight:900;cursor:pointer}
 .activity-tabs button.active{background:#246ed8;color:#fff;box-shadow:0 8px 18px rgba(36,110,216,.22)}
-.activity-content{flex:1;overflow:auto;padding-right:2px}
+.activity-content{flex:1;min-height:0;overflow:auto;overflow-x:hidden;padding-right:6px}
 .customer-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .customer-form header,.customer-form .wide{grid-column:1/-1}
 label{display:grid;gap:6px;color:#50627a;font-weight:800}
@@ -316,7 +329,14 @@ textarea{min-height:76px;resize:vertical}
 .quote-file-link{display:inline-flex;margin-top:6px;color:#246ed8;font-weight:900;text-decoration:none}
 .follow-section{border-bottom:1px solid #e1e9f2;margin-bottom:16px;padding-bottom:16px}
 .reminder-section h3,.follow-section h3{margin:0 0 10px;font-size:16px;color:#183f68}
-.reminder-edit-row,.follow-row{display:grid;grid-template-columns:1fr;gap:10px;align-items:start;border:1px solid #e1e9f2;border-radius:12px;background:#fbfdff;padding:12px;margin-bottom:10px}
+.reminder-edit-row{display:grid;grid-template-columns:1fr;gap:10px;align-items:start;border:1px solid #e1e9f2;border-radius:12px;background:#fbfdff;padding:12px;margin-bottom:10px}
+.follow-row{display:grid;grid-template-columns:74px minmax(0,1fr);gap:10px;align-items:start;border:1px solid #e1e9f2;border-radius:12px;background:#fbfdff;padding:12px;margin-bottom:10px}
+.follow-row textarea{min-height:88px}
+.follow-row .danger{grid-column:2}
+.follow-date-tile{position:relative;width:74px;height:74px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;border:1px solid #cfe0f1;border-radius:12px;background:linear-gradient(180deg,#f8fbff,#edf5ff);color:#183f68;text-align:center;overflow:hidden}
+.follow-date-tile span{font-size:13px;font-weight:900;line-height:1}
+.follow-date-tile b{font-size:15px;line-height:1.2}
+.follow-date-tile input{position:absolute;inset:0;width:100%;height:100%;min-height:0;opacity:0;cursor:pointer}
 .empty{border:1px dashed #b8c8d8;border-radius:12px;background:#f8fbff;color:#64748b;padding:20px;text-align:center}
 .empty.compact{padding:12px;margin-bottom:10px}
 .modal-mask{position:fixed;inset:0;z-index:30;display:grid;place-items:center;background:rgba(15,34,55,.38);padding:20px}

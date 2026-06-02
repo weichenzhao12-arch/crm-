@@ -206,10 +206,10 @@ function stripDatePrefix(value: string) {
 function formatFollowUpCell(follow?: CrmCustomer['followUps'][number]) {
   if (!follow)
     return ''
-  const content = firstText(follow.content, follow.nextAction)
+  const content = firstText(follow.content)
   if (!content)
     return ''
-  return `${follow.date || dateOnly(new Date())} ${content}${follow.nextAction ? `；下次：${follow.nextAction}` : ''}`
+  return `${follow.date || dateOnly(new Date())} ${content}`
 }
 
 function rowFollowUps(row: Record<string, any>, fallbackDate: string) {
@@ -226,6 +226,14 @@ function rowFollowUps(row: Record<string, any>, fallbackDate: string) {
       }
     })
     .filter(Boolean) as CrmCustomer['followUps']
+}
+
+function hasImportableLeadRow(row: Record<string, any>) {
+  return Boolean(
+    rowText(row, '客户名称', 'name')
+    || rowText(row, '客户联系方式', '联系方式', 'phone', 'contact')
+    || rowText(row, '微信', 'wechat'),
+  )
 }
 
 function normalizeStage(value: string) {
@@ -380,7 +388,9 @@ function importLeadTable(event: Event) {
     const workbook = XLSX.read(reader.result, { type: 'array' })
     const sheet = workbook.Sheets[workbook.SheetNames[0]]
     const rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { raw: false, defval: '' })
-    const imported = rows.map(rowToCustomer).filter(customer => customer.name || customer.phone || customer.wechat)
+    const imported = rows
+      .filter(hasImportableLeadRow)
+      .map(rowToCustomer)
     if (imported.length) {
       customers.value = [...imported, ...customers.value]
       crm.save()
