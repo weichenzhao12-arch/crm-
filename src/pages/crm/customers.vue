@@ -292,7 +292,7 @@ function deleteCustomer(customerId: string) {
           已寄样
         </label>
         <label>样品规格
-          <input v-model="sampleForm.sampleSpec" placeholder="填写样品规格">
+          <textarea v-model="sampleForm.sampleSpec" placeholder="填写样品规格"></textarea>
         </label>
         <label>样品单号
           <input v-model="sampleForm.sampleTrackingNo" placeholder="填写物流单号">
@@ -404,7 +404,8 @@ h2{margin:0;font-size:22px}
 .sample-dialog{width:min(460px,100%);display:grid;gap:12px;border-radius:16px;background:#fff;padding:20px;box-shadow:0 24px 70px rgba(15,34,55,.28)}
 .sample-dialog header,.sample-dialog footer{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .sample-dialog label{display:grid;gap:6px;color:#50627a;font-weight:900}
-.sample-dialog input{min-height:40px;border:1px solid #d5dee9;border-radius:10px;background:#f8fafc;padding:8px 12px;color:#142235}
+.sample-dialog input,.sample-dialog textarea{min-height:40px;border:1px solid #d5dee9;border-radius:10px;background:#f8fafc;padding:8px 12px;color:#142235}
+.sample-dialog textarea{min-height:96px;resize:vertical}
 .sample-dialog .sample-check{display:flex;align-items:center;gap:8px}
 .sample-dialog .sample-check input{width:18px;height:18px;min-height:0}
 .sample-dialog button,.sample-dialog a{display:inline-flex;align-items:center;justify-content:center;min-height:36px;border:1px solid #d5dee9;border-radius:10px;background:#f8fafc;color:#183f68;padding:8px 12px;text-decoration:none;font-weight:900;cursor:pointer}
