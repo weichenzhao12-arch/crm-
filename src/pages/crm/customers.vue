@@ -76,11 +76,19 @@ const canViewAll = computed(() => canManageLeads.value)
 const activeUser = computed(() => canManageLeads.value && selectedUserId.value !== 'all' ? users.value.find(user => user.id === selectedUserId.value) || loginUser.value : loginUser.value)
 const salesUsers = computed(() => users.value.filter(user => user.enabled && user.role !== 'owner' && user.role !== 'viewer'))
 
+function customerBelongsToUser(customer: CrmCustomer, userId?: string) {
+  if (!userId)
+    return false
+  const user = users.value.find(item => item.id === userId)
+  const names = [user?.displayName, user?.account, user?.id].map(value => String(value || '').trim()).filter(Boolean)
+  return customer.assignedToUserId === userId || names.includes(String(customer.owner || '').trim())
+}
+
 const scopedCustomers = computed(() => {
   if (!canViewAll.value)
-    return customers.value.filter(customer => customer.assignedToUserId === activeUser.value?.id)
+    return customers.value.filter(customer => customerBelongsToUser(customer, activeUser.value?.id))
   if (selectedUserId.value !== 'all')
-    return customers.value.filter(customer => customer.assignedToUserId === selectedUserId.value)
+    return customers.value.filter(customer => customerBelongsToUser(customer, selectedUserId.value))
   return customers.value
 })
 
