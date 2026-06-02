@@ -148,7 +148,6 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
     <template v-if="customer">
       <section class="detail-hero">
         <div>
-          <p>客户详情</p>
           <h1>{{ customer.name }}</h1>
         </div>
         <nav>
