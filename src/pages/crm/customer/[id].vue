@@ -188,7 +188,7 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
           <header>
             <div class="activity-tabs">
               <button :class="{ active: activityTab === 'follow' }" @click="activityTab = 'follow'">跟进记录</button>
-              <button :class="{ active: activityTab === 'quote' }" @click="activityTab = 'quote'">报价单</button>
+              <button :class="{ active: activityTab === 'quote' }" @click="activityTab = 'quote'">报价记录</button>
             </div>
             <div class="header-actions">
               <template v-if="activityTab === 'follow'">
