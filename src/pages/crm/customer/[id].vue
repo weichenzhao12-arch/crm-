@@ -306,15 +306,15 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
 .detail-panel header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
 .detail-panel h2{margin:0;font-size:22px}
 .detail-panel header span{border-radius:999px;background:#eff6ff;color:#246ed8;padding:7px 10px;font-weight:800}
-.header-actions{display:flex;gap:8px}
+.header-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
 .header-actions .action-button{display:inline-flex;align-items:center;gap:6px;border-color:#c7daf0;background:#f4f9ff;color:#185b99;box-shadow:0 6px 14px rgba(30,86,140,.08)}
 .header-actions .action-button.primary{border-color:#246ed8;background:#246ed8;color:#fff;box-shadow:0 8px 18px rgba(36,110,216,.22)}
 .header-actions .action-button span{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:rgba(36,110,216,.12);font-size:16px;line-height:1}
 .header-actions .action-button.primary span{background:rgba(255,255,255,.22)}
 .detail-panel button.danger{border-color:#ffd1d1;background:#fff5f5;color:#c62828}
 .activity-panel{height:720px;min-height:560px;display:flex;flex-direction:column}
-.activity-panel header{align-items:center}
-.activity-tabs{display:flex;gap:4px;border:1px solid #dbe6f2;border-radius:999px;background:#f4f8fc;padding:4px}
+.activity-panel header{position:sticky;top:0;z-index:6;align-items:center;flex-shrink:0;border-bottom:1px solid #e1e9f2;background:#fff;padding-bottom:12px}
+.activity-tabs{display:flex;flex-shrink:0;gap:4px;border:1px solid #dbe6f2;border-radius:999px;background:#f4f8fc;padding:4px}
 .activity-tabs button{min-height:34px;border:0;border-radius:999px;background:transparent;color:#50627a;padding:7px 16px;font-weight:900;cursor:pointer}
 .activity-tabs button.active{background:#246ed8;color:#fff;box-shadow:0 8px 18px rgba(36,110,216,.22)}
 .activity-content{flex:1;min-height:0;overflow:auto;overflow-x:hidden;padding-right:6px}
