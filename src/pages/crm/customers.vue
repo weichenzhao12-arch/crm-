@@ -75,16 +75,23 @@ const leadTableColumns = [
   '客户名称',
   '客户联系方式',
   '抖音账号来源',
-  '成交属性高中低无效',
-  '客户属性BC端',
+  '成交属性\n高中低无效',
+  '客户属性\nBC端',
   '地址',
-  '客户情况沟通内容',
-  '数量(平方)',
+  '客户情况\n沟通内容',
+  '数量\n（平方）',
   '使用时间',
+  '销售第一次跟踪反馈\n（时间、沟通情况）',
+  '销售第二次跟踪反馈\n（时间、沟通情况）',
+  '销售第三次跟踪反馈\n（时间、沟通情况）',
+  '销售第四次跟踪反馈\n（时间、沟通情况）',
+  '销售第五次跟踪反馈\n（时间、沟通情况）',
   '是否寄样品',
   '样品规格',
   '样品单号',
 ]
+
+const followUpColumns = leadTableColumns.filter(column => column.includes('跟踪反馈'))
 
 const loginUser = computed(() => admin.currentUser)
 const canManageLeads = computed(() => loginUser.value?.role === 'owner' || loginUser.value?.role === 'manager' || Boolean(loginUser.value?.permissions.manageUsers))
@@ -149,6 +156,78 @@ function firstText(...values: unknown[]) {
   return values.map(value => String(value ?? '').trim()).find(Boolean) || ''
 }
 
+function normalizeColumnName(value: string) {
+  return value.replace(/[\s\n\r（）()、，,]/g, '').toLowerCase()
+}
+
+function rowText(row: Record<string, any>, ...names: string[]) {
+  const normalizedEntries = Object.entries(row).map(([key, value]) => [normalizeColumnName(key), value] as const)
+  for (const name of names) {
+    if (row[name] !== undefined)
+      return firstText(row[name])
+    const normalizedName = normalizeColumnName(name)
+    const matched = normalizedEntries.find(([key]) => key === normalizedName)
+    if (matched)
+      return firstText(matched[1])
+  }
+  return ''
+}
+
+function normalizeDateText(value: unknown, fallback = dateOnly(new Date())) {
+  if (value instanceof Date && !Number.isNaN(value.getTime()))
+    return dateOnly(value)
+  if (typeof value === 'number' && value > 0) {
+    const parsed = XLSX.SSF.parse_date_code(value)
+    if (parsed)
+      return `${parsed.y}-${String(parsed.m).padStart(2, '0')}-${String(parsed.d).padStart(2, '0')}`
+  }
+
+  const text = firstText(value)
+  const yearMatch = text.match(/(20\d{2}|19\d{2})[年./-]\s*(\d{1,2})[月./-]\s*(\d{1,2})/)
+  if (yearMatch)
+    return `${yearMatch[1]}-${yearMatch[2].padStart(2, '0')}-${yearMatch[3].padStart(2, '0')}`
+
+  const shortMatch = text.match(/(^|\D)(\d{1,2})[月./-]\s*(\d{1,2})(日)?/)
+  if (shortMatch) {
+    const year = fallback.slice(0, 4) || String(new Date().getFullYear())
+    return `${year}-${shortMatch[2].padStart(2, '0')}-${shortMatch[3].padStart(2, '0')}`
+  }
+
+  return fallback
+}
+
+function stripDatePrefix(value: string) {
+  return value
+    .replace(/^\s*(20\d{2}|19\d{2})[年./-]\s*\d{1,2}[月./-]\s*\d{1,2}日?\s*[:：,，、-]?\s*/, '')
+    .replace(/^\s*\d{1,2}[月./-]\s*\d{1,2}日?\s*[:：,，、-]?\s*/, '')
+    .trim()
+}
+
+function formatFollowUpCell(follow?: CrmCustomer['followUps'][number]) {
+  if (!follow)
+    return ''
+  const content = firstText(follow.content, follow.nextAction)
+  if (!content)
+    return ''
+  return `${follow.date || dateOnly(new Date())} ${content}${follow.nextAction ? `；下次：${follow.nextAction}` : ''}`
+}
+
+function rowFollowUps(row: Record<string, any>, fallbackDate: string) {
+  return followUpColumns
+    .map((column, index) => {
+      const text = rowText(row, column, column.replace(/\n/g, ''), `销售第${index + 1}次跟踪反馈`)
+      if (!text)
+        return null
+      return {
+        id: `follow-import-${Date.now()}-${index}-${Math.random().toString(16).slice(2)}`,
+        date: normalizeDateText(text, fallbackDate),
+        content: stripDatePrefix(text) || text,
+        nextAction: '',
+      }
+    })
+    .filter(Boolean) as CrmCustomer['followUps']
+}
+
 function normalizeStage(value: string) {
   if (value.includes('成交'))
     return 'won'
@@ -209,18 +288,24 @@ function saveSampleInfo() {
 }
 
 function customerToLeadRow(customer: CrmCustomer, index: number) {
+  const normalFollowUps = customer.followUps.filter(follow => !follow.reminderDate)
+  const followUpCells = Object.fromEntries(
+    followUpColumns.map((column, columnIndex) => [column, formatFollowUpCell(normalFollowUps[columnIndex])]),
+  )
+
   return {
     序号: index + 1,
     日期: customer.date,
     客户名称: customer.name,
     客户联系方式: customerContact(customer),
     抖音账号来源: customer.sourceAccount,
-    成交属性高中低无效: customer.dealAttribute,
-    客户属性BC端: customer.customerAttribute,
+    '成交属性\n高中低无效': customer.dealAttribute,
+    '客户属性\nBC端': customer.customerAttribute,
     地址: customer.region,
-    客户情况沟通内容: customer.communication || customer.remark,
-    '数量(平方)': customer.area || '',
+    '客户情况\n沟通内容': customer.communication || customer.remark,
+    '数量\n（平方）': customer.area || '',
     使用时间: customer.usageTime,
+    ...followUpCells,
     是否寄样品: customer.sampleSent ? '是' : '否',
     样品规格: customer.sampleSpec,
     样品单号: customer.sampleTrackingNo,
@@ -228,37 +313,39 @@ function customerToLeadRow(customer: CrmCustomer, index: number) {
 }
 
 function rowToCustomer(row: Record<string, any>, index: number) {
-  const contactText = firstText(row.客户联系方式, row.联系方式, row.phone, row.contact)
+  const contactText = rowText(row, '客户联系方式', '联系方式', 'phone', 'contact')
   const assignedUser = canManageLeads.value
     ? users.value.find(user => user.id === selectedUserId.value) || salesUsers.value[0] || activeUser.value
     : activeUser.value
+  const rowDate = normalizeDateText(rowText(row, '日期', 'date'))
+  const followUps = rowFollowUps(row, rowDate)
 
   return {
     id: `import-${Date.now()}-${index}-${Math.random().toString(16).slice(2)}`,
-    date: firstText(row.日期, row.date) || dateOnly(new Date()),
-    name: firstText(row.客户名称, row.name, contactText) || '未命名客户',
-    contact: firstText(row.联系人, row.contact),
+    date: rowDate,
+    name: rowText(row, '客户名称', 'name') || contactText || '未命名客户',
+    contact: rowText(row, '联系人', 'contact'),
     phone: contactText,
-    wechat: firstText(row.微信, row.wechat),
-    sourceAccount: firstText(row.抖音账号来源, row.来源, row.sourceAccount),
-    dealAttribute: firstText(row.成交属性高中低无效, row.成交属性, row.dealAttribute),
-    customerAttribute: firstText(row.客户属性BC端, row.客户属性, row.customerAttribute),
-    region: firstText(row.地址, row.region),
-    projectType: firstText(row.意向使用场景, row.使用场景, row.projectType, row.scenario) || '待确认',
-    scenario: firstText(row.意向使用场景, row.使用场景, row.scenario, row.projectType) || '待确认',
-    intentLevel: normalizeIntent(firstText(row.意向等级, row.intentLevel, row.成交属性高中低无效)),
-    area: Number(firstText(row['数量(平方)'], row.数量, row.面积, row.area)) || 0,
-    usageTime: firstText(row.使用时间, row.usageTime),
-    communication: firstText(row.客户情况沟通内容, row.沟通内容, row.communication),
-    sampleSent: ['是', '已寄', 'true', '1'].includes(firstText(row.是否寄样品, row.sampleSent).toLowerCase()),
-    sampleSpec: firstText(row.样品规格, row.sampleSpec),
-    sampleTrackingNo: firstText(row.样品单号, row.sampleTrackingNo),
-    stage: normalizeStage(firstText(row.客户状态, row.stage)),
+    wechat: rowText(row, '微信', 'wechat'),
+    sourceAccount: rowText(row, '抖音账号来源', '来源', 'sourceAccount'),
+    dealAttribute: rowText(row, '成交属性高中低无效', '成交属性\n高中低无效', '成交属性', 'dealAttribute'),
+    customerAttribute: rowText(row, '客户属性BC端', '客户属性\nBC端', '客户属性', 'customerAttribute'),
+    region: rowText(row, '地址', 'region'),
+    projectType: rowText(row, '意向使用场景', '使用场景', 'projectType', 'scenario') || '待确认',
+    scenario: rowText(row, '意向使用场景', '使用场景', 'scenario', 'projectType') || '待确认',
+    intentLevel: normalizeIntent(rowText(row, '意向等级', 'intentLevel', '成交属性高中低无效', '成交属性\n高中低无效')),
+    area: Number(rowText(row, '数量\n（平方）', '数量(平方)', '数量', '面积', 'area')) || 0,
+    usageTime: rowText(row, '使用时间', 'usageTime'),
+    communication: rowText(row, '客户情况\n沟通内容', '客户情况沟通内容', '沟通内容', 'communication'),
+    sampleSent: ['是', '已寄', 'true', '1'].includes(rowText(row, '是否寄样品', 'sampleSent').toLowerCase()),
+    sampleSpec: rowText(row, '样品规格', 'sampleSpec'),
+    sampleTrackingNo: rowText(row, '样品单号', 'sampleTrackingNo'),
+    stage: followUps.length ? 'follow' : normalizeStage(rowText(row, '客户状态', 'stage')),
     owner: assignedUser?.displayName || '',
     assignedToUserId: assignedUser?.id || 'owner',
     createdByUserId: activeUser.value?.id || 'owner',
-    remark: firstText(row.备注, row.remark),
-    followUps: [],
+    remark: rowText(row, '备注', 'remark'),
+    followUps,
     quotes: [],
   }
 }
@@ -268,6 +355,7 @@ function exportLeadTable() {
     return
   const rows = filteredCustomers.value.map(customerToLeadRow)
   const worksheet = XLSX.utils.json_to_sheet(rows.length ? rows : [Object.fromEntries(leadTableColumns.map(column => [column, '']))], { header: leadTableColumns })
+  worksheet['!cols'] = leadTableColumns.map(column => ({ wch: column.includes('跟踪反馈') ? 32 : 14 }))
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, worksheet, '客资记录')
   XLSX.writeFile(workbook, `客资记录-${dateOnly(new Date())}.xlsx`)
@@ -275,6 +363,7 @@ function exportLeadTable() {
 
 function downloadLeadTemplate() {
   const worksheet = XLSX.utils.json_to_sheet([Object.fromEntries(leadTableColumns.map(column => [column, '']))], { header: leadTableColumns })
+  worksheet['!cols'] = leadTableColumns.map(column => ({ wch: column.includes('跟踪反馈') ? 32 : 14 }))
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, worksheet, '客资导入模板')
   XLSX.writeFile(workbook, '客资导入模板.xlsx')
@@ -290,7 +379,7 @@ function importLeadTable(event: Event) {
   reader.onload = () => {
     const workbook = XLSX.read(reader.result, { type: 'array' })
     const sheet = workbook.Sheets[workbook.SheetNames[0]]
-    const rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet)
+    const rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { raw: false, defval: '' })
     const imported = rows.map(rowToCustomer).filter(customer => customer.name || customer.phone || customer.wechat)
     if (imported.length) {
       customers.value = [...imported, ...customers.value]
