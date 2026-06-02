@@ -200,6 +200,17 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
           </header>
 
           <section v-if="activityTab === 'follow'" class="activity-content">
+            <section class="follow-section">
+              <h3>跟进内容</h3>
+              <div v-if="!followItems.length" class="empty compact">暂无跟进记录</div>
+              <div v-for="follow in followItems" :key="follow.id" class="follow-row">
+                <input v-model="follow.date" type="date">
+                <textarea v-model="follow.content" @blur="save"></textarea>
+                <input v-model="follow.nextAction" placeholder="下一步动作" @blur="save">
+                <button class="danger" @click="deleteFollowUp(follow)">删除</button>
+              </div>
+            </section>
+
             <section class="reminder-section">
               <h3>提醒事项</h3>
               <div v-if="!reminderItems.length" class="empty compact">暂无提醒</div>
@@ -209,17 +220,6 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
                 <textarea v-model="reminder.content" @blur="save"></textarea>
                 <input v-model="reminder.nextAction" placeholder="提醒事项" @blur="save">
                 <button class="danger" @click="deleteFollowUp(reminder)">删除</button>
-              </div>
-            </section>
-
-            <section class="follow-section">
-              <h3>跟进内容</h3>
-              <div v-if="!followItems.length" class="empty compact">暂无跟进记录</div>
-              <div v-for="follow in followItems" :key="follow.id" class="follow-row">
-                <input v-model="follow.date" type="date">
-                <textarea v-model="follow.content" @blur="save"></textarea>
-                <input v-model="follow.nextAction" placeholder="下一步动作" @blur="save">
-                <button class="danger" @click="deleteFollowUp(follow)">删除</button>
               </div>
             </section>
           </section>
@@ -314,7 +314,7 @@ textarea{min-height:76px;resize:vertical}
 .contract-upload{grid-column:1/-1;display:flex;justify-content:flex-end}
 .contract-upload .file-chip{min-width:118px}
 .quote-file-link{display:inline-flex;margin-top:6px;color:#246ed8;font-weight:900;text-decoration:none}
-.reminder-section{border-bottom:1px solid #e1e9f2;margin-bottom:16px;padding-bottom:16px}
+.follow-section{border-bottom:1px solid #e1e9f2;margin-bottom:16px;padding-bottom:16px}
 .reminder-section h3,.follow-section h3{margin:0 0 10px;font-size:16px;color:#183f68}
 .reminder-edit-row,.follow-row{display:grid;grid-template-columns:1fr;gap:10px;align-items:start;border:1px solid #e1e9f2;border-radius:12px;background:#fbfdff;padding:12px;margin-bottom:10px}
 .empty{border:1px dashed #b8c8d8;border-radius:12px;background:#f8fbff;color:#64748b;padding:20px;text-align:center}

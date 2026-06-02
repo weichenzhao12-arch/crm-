@@ -29,6 +29,7 @@ const sampleForm = ref({
   sampleSpec: '',
   sampleTrackingNo: '',
 })
+const selectedCustomerIds = ref<string[]>([])
 
 onMounted(() => {
   crm.loadCloudCustomers()
@@ -96,6 +97,17 @@ const filteredCustomers = computed(() => scopedCustomers.value.filter((customer)
     || customer.stage === stageFilter.value
   return stageMatched && (!keyword.value || text.includes(keyword.value.toLowerCase()))
 }))
+
+const filteredCustomerIds = computed(() => filteredCustomers.value.map(customer => customer.id))
+const selectedCount = computed(() => selectedCustomerIds.value.length)
+const allFilteredSelected = computed(() =>
+  filteredCustomerIds.value.length > 0
+  && filteredCustomerIds.value.every(id => selectedCustomerIds.value.includes(id)),
+)
+
+watch(filteredCustomerIds, (ids) => {
+  selectedCustomerIds.value = selectedCustomerIds.value.filter(id => ids.includes(id))
+})
 
 function dateOnly(value: Date) {
   return value.toISOString().slice(0, 10)
@@ -263,6 +275,21 @@ function deleteCustomer(customerId: string) {
     return
   crm.removeCustomer(customerId)
 }
+
+function toggleAllFilteredCustomers(event: Event) {
+  selectedCustomerIds.value = (event.target as HTMLInputElement).checked ? [...filteredCustomerIds.value] : []
+}
+
+function batchDeleteCustomers() {
+  if (!canDeleteCustomers.value || !selectedCustomerIds.value.length)
+    return
+  if (!window.confirm(`确定删除已选中的 ${selectedCustomerIds.value.length} 条客资吗？删除后无法恢复。`))
+    return
+  const selectedIds = new Set(selectedCustomerIds.value)
+  customers.value = customers.value.filter(customer => !selectedIds.has(customer.id))
+  selectedCustomerIds.value = []
+  crm.save()
+}
 </script>
 
 <template>
@@ -322,6 +349,13 @@ function deleteCustomer(customerId: string) {
             <option v-for="user in users" :key="user.id" :value="user.id">{{ user.displayName || user.account }}</option>
           </select>
         </label>
+        <div v-if="canDeleteCustomers" class="batch-tools">
+          <label class="select-all">
+            <input :checked="allFilteredSelected" type="checkbox" @change="toggleAllFilteredCustomers">
+            全选
+          </label>
+          <button :disabled="!selectedCount" @click="batchDeleteCustomers">批量删除 {{ selectedCount ? `(${selectedCount})` : '' }}</button>
+        </div>
         <div class="customer-tabs">
           <button
             v-for="filter in customerFilters"
@@ -334,11 +368,15 @@ function deleteCustomer(customerId: string) {
         </div>
       </div>
 
-      <div class="lead-record-table">
+      <div class="lead-record-table" :class="{ 'with-select': canDeleteCustomers }">
         <div class="lead-record-head">
+          <span v-if="canDeleteCustomers">选择</span>
           <span>序号</span><span>日期</span><span>客户名称</span><span>客户联系方式</span><span>抖音账号来源</span><span>成交属性高中低无效</span><span>客户属性BC端</span><span>地址</span><span>客户情况沟通内容</span><span>数量(平方)</span><span>使用时间</span><span>负责人</span><span>状态</span><span>寄样</span><span>操作</span>
         </div>
         <article v-for="(customer, index) in filteredCustomers" :key="customer.id" @click="router.push(`/crm/customer/${customer.id}`)">
+          <span v-if="canDeleteCustomers" class="select-cell">
+            <input v-model="selectedCustomerIds" :value="customer.id" type="checkbox" @click.stop>
+          </span>
           <span>{{ index + 1 }}</span>
           <span>{{ customer.date }}</span>
           <strong>{{ customer.name }}</strong>
@@ -383,11 +421,17 @@ h2{margin:0;font-size:22px}
 .customers-tools input{flex:1;min-width:340px}
 .filter-bar{justify-content:space-between;margin-bottom:12px;padding:12px;border:1px solid #dbe6f2;border-radius:14px;background:linear-gradient(180deg,#f8fbff,#f1f7ff)}
 .filter-bar label{display:flex;align-items:center;gap:8px;color:#183f68;font-weight:900}
+.batch-tools{display:flex;align-items:center;gap:8px}
+.batch-tools .select-all{display:flex;align-items:center;gap:6px;color:#183f68;font-weight:900}
+.batch-tools .select-all input,.select-cell input{width:16px;height:16px;min-height:0}
+.batch-tools button{min-height:34px;border:1px solid #ffd3d3;border-radius:10px;background:#fff5f5;color:#d92929;padding:7px 12px;font-weight:900;cursor:pointer}
+.batch-tools button:disabled{opacity:.45;cursor:not-allowed}
 .customer-tabs{border:1px solid #dbe6f2;border-radius:12px;background:#f8fafc;padding:4px}
 .customer-tabs button{min-height:32px;border:0;border-radius:9px;background:transparent;color:#50627a;padding:6px 12px;font-weight:900;cursor:pointer;white-space:nowrap}
 .customer-tabs button.active{background:#246ed8;color:#fff;box-shadow:0 8px 18px rgba(36,110,216,.2)}
 .lead-record-table{overflow:auto;border:1px solid #dbe6f2;border-radius:12px;background:#fff}
 .lead-record-head,.lead-record-table article{display:grid;grid-template-columns:52px 96px 128px 130px 120px 120px 110px 130px 220px 92px 110px 110px 92px 140px 76px;min-width:1720px;align-items:stretch}
+.lead-record-table.with-select .lead-record-head,.lead-record-table.with-select article{grid-template-columns:42px 52px 96px 128px 130px 120px 120px 110px 130px 220px 92px 110px 110px 92px 140px 76px;min-width:1762px}
 .lead-record-head{position:sticky;top:0;z-index:1;background:#9fe5df;color:#10243f;font-size:13px;font-weight:900}
 .lead-record-head span,.lead-record-table article span,.lead-record-table article strong{display:flex;align-items:center;min-height:46px;border-right:1px solid #7fc7c1;border-bottom:1px solid #dbe6f2;padding:8px;line-height:1.35}
 .lead-record-table article{background:#fbfdff;cursor:pointer}
@@ -395,6 +439,7 @@ h2{margin:0;font-size:22px}
 .lead-record-table article strong{color:#10243f}
 .lead-record-table .wrap-cell{white-space:normal}
 .stage-badge{justify-content:center;color:#246ed8!important;background:#eff6ff;font-weight:900}
+.select-cell{justify-content:center}
 .sample-cell{display:flex!important;align-items:center;gap:6px}
 .sample-cell button,.sample-cell a{min-height:30px;border:1px solid #bdd5f2;border-radius:8px;background:#eff6ff;color:#246ed8;padding:5px 8px;text-decoration:none;font-weight:900;cursor:pointer}
 .sample-cell a{background:#fff;color:#183f68}
