@@ -49,6 +49,7 @@ export interface CrmCustomer {
   sampleSent: boolean
   sampleSpec: string
   sampleTrackingNo: string
+  important: boolean
   stage: CustomerStage
   owner: string
   assignedToUserId: string
@@ -95,6 +96,7 @@ function normalizeCustomer(raw: Partial<CrmCustomer>): CrmCustomer {
     sampleSent: Boolean(raw.sampleSent),
     sampleSpec: raw.sampleSpec || '',
     sampleTrackingNo: raw.sampleTrackingNo || '',
+    important: Boolean(raw.important),
     stage: raw.stage || 'new',
     owner: raw.owner || '',
     assignedToUserId: raw.assignedToUserId || 'owner',

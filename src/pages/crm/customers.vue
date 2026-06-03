@@ -66,6 +66,7 @@ const stageLabels: Record<string, string> = {
 
 const customerFilters = [
   { label: '全部', value: '全部' },
+  { label: '重点关注', value: 'important' },
   { label: '今日跟进', value: 'todayFollow' },
   { label: '今日新增', value: 'todayNew' },
   { label: '未成交', value: 'active' },
@@ -156,8 +157,10 @@ const filteredCustomers = computed(() => scopedCustomers.value.filter((customer)
     ? hasTodayFollowOrReminder(customer)
     : stageFilter.value === 'todayNew'
       ? isTodayNewCustomer(customer)
+      : stageFilter.value === 'important'
+        ? customer.important
       : true
-  const statusMatched = stageMatched || stageFilter.value === 'todayFollow' || stageFilter.value === 'todayNew'
+  const statusMatched = stageMatched || stageFilter.value === 'todayFollow' || stageFilter.value === 'todayNew' || stageFilter.value === 'important'
   return statusMatched && yearMatched && monthMatched && todayMatched && (!keyword.value || text.includes(keyword.value.toLowerCase()))
 }))
 
@@ -339,6 +342,11 @@ function saveSampleInfo() {
   closeSampleDialog()
 }
 
+function toggleImportant(customer: CrmCustomer) {
+  customer.important = !customer.important
+  crm.save()
+}
+
 function customerToLeadRow(customer: CrmCustomer, index: number) {
   const normalFollowUps = customer.followUps.filter(follow => !follow.reminderDate)
   const followUpCells = Object.fromEntries(
@@ -397,6 +405,7 @@ function rowToCustomer(row: Record<string, any>, index: number) {
     assignedToUserId: assignedUser?.id || 'owner',
     createdByUserId: activeUser.value?.id || 'owner',
     remark: rowText(row, '备注', 'remark'),
+    important: false,
     followUps,
     quotes: [],
   }
@@ -696,7 +705,7 @@ function batchTransferCustomers() {
       <div class="lead-record-table" :class="{ 'with-select': canDeleteCustomers }">
         <div class="lead-record-head">
           <span v-if="canDeleteCustomers">选择</span>
-          <span>序号</span><span>日期</span><span>客户名称</span><span>客户联系方式</span><span>抖音账号来源</span><span>成交属性高中低无效</span><span>客户属性BC端</span><span>地址</span><span>客户情况沟通内容</span><span>数量(平方)</span><span>使用时间</span><span>负责人</span><span>状态</span><span>寄样</span><span>操作</span>
+          <span>序号</span><span>日期</span><span>客户名称</span><span>客户联系方式</span><span>抖音账号来源</span><span>成交属性高中低无效</span><span>客户属性BC端</span><span>地址</span><span>客户情况沟通内容</span><span>数量(平方)</span><span>使用时间</span><span>负责人</span><span>状态</span><span>寄样</span><span>操作</span><span>重点</span>
         </div>
         <article v-for="(customer, index) in filteredCustomers" :key="customer.id" @click="router.push(`/crm/customer/${customer.id}`)">
           <span v-if="canDeleteCustomers" class="select-cell">
@@ -721,6 +730,7 @@ function batchTransferCustomers() {
           </span>
           <button v-if="canDeleteCustomers" class="delete-customer" @click.stop="deleteCustomer(customer.id)">删除</button>
           <span v-else>-</span>
+          <button class="important-star" :class="{ active: customer.important }" :title="customer.important ? '取消重点关注' : '设为重点关注'" @click.stop="toggleImportant(customer)">{{ customer.important ? '★' : '☆' }}</button>
         </article>
       </div>
     </section>
@@ -744,7 +754,7 @@ h2{margin:0;font-size:22px}
 .customers-tools{min-width:420px}
 .customers-tools input,.filter-bar select{min-height:40px;border:1px solid #d5dee9;border-radius:10px;background:#f8fafc;padding:8px 12px;color:#142235}
 .customers-tools input{flex:1;min-width:340px}
-.filter-bar{justify-content:space-between;margin-bottom:12px;padding:12px;border:1px solid #dbe6f2;border-radius:14px;background:linear-gradient(180deg,#f8fbff,#f1f7ff)}
+.filter-bar{justify-content:flex-start;margin-bottom:12px;padding:12px;border:1px solid #dbe6f2;border-radius:14px;background:linear-gradient(180deg,#f8fbff,#f1f7ff)}
 .filter-bar label{display:flex;align-items:center;gap:8px;color:#183f68;font-weight:900}
 .batch-tools,.transfer-tools{display:flex;align-items:center;gap:8px}
 .batch-tools .select-all{display:flex;align-items:center;gap:6px;color:#183f68;font-weight:900}
@@ -756,14 +766,14 @@ h2{margin:0;font-size:22px}
 .customer-tabs{border:1px solid #dbe6f2;border-radius:12px;background:#f8fafc;padding:4px}
 .customer-tabs button{min-height:32px;border:0;border-radius:9px;background:transparent;color:#50627a;padding:6px 12px;font-weight:900;cursor:pointer;white-space:nowrap}
 .customer-tabs button.active{background:#246ed8;color:#fff;box-shadow:0 8px 18px rgba(36,110,216,.2)}
-.date-filter-tools{margin-left:auto}
+.date-filter-tools{margin-left:18px}
 .date-filter-tools select,.date-filter-tools button{min-height:36px;border:1px solid #cfe0f2;border-radius:10px;background:#fff;color:#183f68;padding:7px 12px;font-weight:900;white-space:nowrap}
 .date-filter-tools button{cursor:pointer}
 .date-filter-tools button.active{background:#246ed8;border-color:#246ed8;color:#fff;box-shadow:0 8px 18px rgba(36,110,216,.2)}
 .date-filter-tools button.ghost{background:#f8fafc;color:#50627a}
 .lead-record-table{overflow:auto;border:1px solid #dbe6f2;border-radius:12px;background:#fff}
-.lead-record-head,.lead-record-table article{display:grid;grid-template-columns:52px 96px 128px 130px 120px 120px 110px 130px 220px 92px 110px 110px 92px 140px 76px;min-width:1720px;align-items:stretch}
-.lead-record-table.with-select .lead-record-head,.lead-record-table.with-select article{grid-template-columns:42px 52px 96px 128px 130px 120px 120px 110px 130px 220px 92px 110px 110px 92px 140px 76px;min-width:1762px}
+.lead-record-head,.lead-record-table article{display:grid;grid-template-columns:52px 96px 128px 130px 120px 120px 110px 130px 220px 92px 110px 110px 92px 140px 76px 66px;min-width:1786px;align-items:stretch}
+.lead-record-table.with-select .lead-record-head,.lead-record-table.with-select article{grid-template-columns:42px 52px 96px 128px 130px 120px 120px 110px 130px 220px 92px 110px 110px 92px 140px 76px 66px;min-width:1828px}
 .lead-record-head{position:sticky;top:0;z-index:1;background:#9fe5df;color:#10243f;font-size:13px;font-weight:900}
 .lead-record-head span,.lead-record-table article span,.lead-record-table article strong{display:flex;align-items:center;min-height:46px;border-right:1px solid #7fc7c1;border-bottom:1px solid #dbe6f2;padding:8px;line-height:1.35}
 .lead-record-table article{background:#fbfdff;cursor:pointer}
@@ -777,6 +787,9 @@ h2{margin:0;font-size:22px}
 .sample-cell a{background:#fff;color:#183f68}
 .delete-customer{min-height:34px;border:1px solid #ffd3d3;border-radius:10px;background:#fff5f5;color:#d92929;padding:7px 12px;font-weight:900;cursor:pointer}
 .delete-customer:hover{background:#ffe8e8;border-color:#ffb9b9}
+.important-star{display:grid;place-items:center;align-self:center;justify-self:center;width:34px;height:34px;border:1px solid #cfe0f2;border-radius:10px;background:#fff;color:#9aa8ba;font-size:21px;line-height:1;cursor:pointer}
+.important-star.active{border-color:#f2c94c;background:#fff8dc;color:#f2a900}
+.important-star:hover{border-color:#f2c94c;color:#f2a900}
 .modal-mask{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:rgba(15,34,55,.38);padding:20px}
 .sample-dialog{width:min(460px,100%);display:grid;gap:12px;border-radius:16px;background:#fff;padding:20px;box-shadow:0 24px 70px rgba(15,34,55,.28)}
 .sample-dialog header,.sample-dialog footer{display:flex;align-items:center;justify-content:space-between;gap:10px}

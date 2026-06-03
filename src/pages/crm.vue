@@ -242,6 +242,7 @@ function rowToCustomer(row: Record<string, any>, index: number) {
     assignedToUserId: assignedUser?.id || 'owner',
     createdByUserId: activeUser.value?.id || 'owner',
     remark: firstText(row.备注, row.remark),
+    important: false,
     followUps: [],
     quotes: [],
   }
