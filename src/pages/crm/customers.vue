@@ -100,7 +100,7 @@ const followUpColumns = leadTableColumns.filter(column => column.includes('è·Ÿè¸
 const loginUser = computed(() => admin.currentUser)
 const canManageLeads = computed(() => loginUser.value?.role === 'owner' || loginUser.value?.role === 'manager' || Boolean(loginUser.value?.permissions.manageUsers))
 const canDeleteCustomers = computed(() => loginUser.value?.role === 'owner' || loginUser.value?.role === 'manager')
-const canExportCustomers = computed(() => loginUser.value?.role === 'owner' || loginUser.value?.role === 'manager' || Boolean(loginUser.value?.permissions.exportQuote))
+const canExportCustomers = computed(() => loginUser.value?.role === 'owner' || loginUser.value?.role === 'manager')
 const canViewAll = computed(() => canManageLeads.value)
 const activeUser = computed(() => canManageLeads.value && selectedUserId.value !== 'all' ? users.value.find(user => user.id === selectedUserId.value) || loginUser.value : loginUser.value)
 const salesUsers = computed(() => users.value.filter(user => user.enabled && user.role !== 'owner' && user.role !== 'viewer'))
