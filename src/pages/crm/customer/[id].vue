@@ -267,7 +267,7 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
               <div>
                 <b>{{ quote.title }}</b>
                 <p>{{ quote.date }} · {{ quote.status }}</p>
-                <a v-if="quote.quoteFileDataUrl" class="quote-file-link" :href="quote.quoteFileDataUrl" :download="quote.quoteFileName || `${quote.title}.rtf`">查看报价单</a>
+                <a v-if="quote.quoteFileDataUrl" class="quote-file-link" :href="quote.quoteFileDataUrl" :download="quote.quoteFileName || `${quote.title}.pdf`" target="_blank" rel="noopener">查看报价单</a>
               </div>
               <strong>¥{{ quote.amount.toFixed(2) }}</strong>
             </div>

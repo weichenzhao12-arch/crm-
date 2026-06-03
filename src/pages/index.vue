@@ -897,23 +897,21 @@ function loadHtml2Pdf() {
 
 async function quotePdfDataUrl(fileName: string) {
   const html2pdf = await loadHtml2Pdf()
-  const frame = document.createElement('iframe')
-  frame.style.position = 'fixed'
-  frame.style.left = '-10000px'
-  frame.style.top = '0'
-  frame.style.width = '210mm'
-  frame.style.height = '297mm'
-  frame.style.border = '0'
-  document.body.appendChild(frame)
+  const source = document.createElement('div')
+  source.style.position = 'fixed'
+  source.style.left = '-10000px'
+  source.style.top = '0'
+  source.style.width = '210mm'
+  source.style.minHeight = '297mm'
+  source.style.background = '#ffffff'
+  source.style.zIndex = '-1'
+  const parsed = new DOMParser().parseFromString(quoteHtml(), 'text/html')
+  parsed.querySelectorAll('style').forEach(style => source.appendChild(style.cloneNode(true)))
+  source.appendChild(parsed.body.firstElementChild?.cloneNode(true) || parsed.body.cloneNode(true))
+  document.body.appendChild(source)
 
   try {
-    const doc = frame.contentDocument || frame.contentWindow?.document
-    if (!doc)
-      throw new Error('报价单页面创建失败')
-    doc.open()
-    doc.write(quoteHtml())
-    doc.close()
-    await new Promise(resolve => setTimeout(resolve, 300))
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
     return await html2pdf()
       .set({
         filename: fileName,
@@ -922,11 +920,11 @@ async function quotePdfDataUrl(fileName: string) {
         html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       })
-      .from(doc.body)
+      .from(source)
       .outputPdf('datauristring')
   }
   finally {
-    frame.remove()
+    source.remove()
   }
 }
 
