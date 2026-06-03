@@ -19,19 +19,28 @@ const { login } = useAuth()
 const account = ref('')
 const password = ref('')
 const errorMessage = ref('')
+const isSubmitting = ref(false)
 const nextPath = computed(() => {
   const redirect = route.query.redirect
   return typeof redirect === 'string' && redirect.startsWith('/') ? redirect : '/'
 })
 
 async function handleLogin() {
-  errorMessage.value = ''
-  const result = await login(account.value, password.value)
-  if (!result.ok) {
-    errorMessage.value = result.message
+  if (isSubmitting.value)
     return
+  errorMessage.value = ''
+  isSubmitting.value = true
+  try {
+    const result = await login(account.value, password.value)
+    if (!result.ok) {
+      errorMessage.value = result.message
+      return
+    }
+    await router.push(nextPath.value)
   }
-  await router.push(nextPath.value)
+  finally {
+    isSubmitting.value = false
+  }
 }
 </script>
 
@@ -54,7 +63,7 @@ async function handleLogin() {
           <input v-model="password" autocomplete="new-password" placeholder="请输入密码" type="password">
         </label>
         <strong v-if="errorMessage">{{ errorMessage }}</strong>
-        <button type="submit">登录系统</button>
+        <button :disabled="isSubmitting" type="submit">{{ isSubmitting ? '登录中...' : '登录系统' }}</button>
       </form>
     </section>
   </main>
@@ -71,4 +80,5 @@ label{display:grid;gap:8px;color:#183f68;font-weight:900}
 input{min-height:44px;border:1px solid #cfdceb;border-radius:12px;background:#f8fbff;padding:10px 12px;color:#142235;font-size:15px}
 strong{color:#d92929;font-size:14px}
 button{min-height:46px;border:0;border-radius:12px;background:#246ed8;color:#fff;font-size:16px;font-weight:900;cursor:pointer;box-shadow:0 12px 24px rgba(36,110,216,.22)}
+button:disabled{cursor:wait;opacity:.72}
 </style>
