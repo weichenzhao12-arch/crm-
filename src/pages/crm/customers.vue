@@ -25,7 +25,6 @@ const stageFilter = ref('全部')
 const selectedUserId = ref('all')
 const yearFilter = ref('all')
 const monthFilter = ref('all')
-const quickDateFilter = ref<'all' | 'todayFollow'>('all')
 const transferTargetUserId = ref('')
 const sampleDialogCustomerId = ref('')
 const sampleForm = ref({
@@ -67,6 +66,8 @@ const stageLabels: Record<string, string> = {
 
 const customerFilters = [
   { label: '全部', value: '全部' },
+  { label: '今日跟进', value: 'todayFollow' },
+  { label: '今日新增', value: 'todayNew' },
   { label: '未成交', value: 'active' },
   { label: '已成交', value: 'won' },
   { label: '无效', value: 'lost' },
@@ -151,8 +152,13 @@ const filteredCustomers = computed(() => scopedCustomers.value.filter((customer)
   const dateKey = customerDateKey(customer.date)
   const yearMatched = yearFilter.value === 'all' || dateKey.startsWith(`${yearFilter.value}-`)
   const monthMatched = monthFilter.value === 'all' || dateKey.slice(5, 7) === monthFilter.value
-  const todayMatched = quickDateFilter.value === 'all' || isTodayCustomer(customer)
-  return stageMatched && yearMatched && monthMatched && todayMatched && (!keyword.value || text.includes(keyword.value.toLowerCase()))
+  const todayMatched = stageFilter.value === 'todayFollow'
+    ? hasTodayFollowOrReminder(customer)
+    : stageFilter.value === 'todayNew'
+      ? isTodayNewCustomer(customer)
+      : true
+  const statusMatched = stageMatched || stageFilter.value === 'todayFollow' || stageFilter.value === 'todayNew'
+  return statusMatched && yearMatched && monthMatched && todayMatched && (!keyword.value || text.includes(keyword.value.toLowerCase()))
 }))
 
 const filteredCustomerIds = computed(() => filteredCustomers.value.map(customer => customer.id))
@@ -176,16 +182,18 @@ function customerDateKey(value: unknown) {
   return text ? normalizeDateText(text, '') : ''
 }
 
-function isTodayCustomer(customer: CrmCustomer) {
+function hasTodayFollowOrReminder(customer: CrmCustomer) {
   const todayKey = dateOnly(new Date())
-  return customerDateKey(customer.date) === todayKey
-    || customer.followUps.some(follow => customerDateKey(follow.date) === todayKey)
+  return customer.followUps.some(follow => customerDateKey(follow.date) === todayKey)
+}
+
+function isTodayNewCustomer(customer: CrmCustomer) {
+  return customerDateKey(customer.date) === dateOnly(new Date())
 }
 
 function clearDateFilters() {
   yearFilter.value = 'all'
   monthFilter.value = 'all'
-  quickDateFilter.value = 'all'
 }
 
 function firstText(...values: unknown[]) {
@@ -681,7 +689,6 @@ function batchTransferCustomers() {
             <option value="all">全部月份</option>
             <option v-for="month in monthOptions" :key="month" :value="month">{{ Number(month) }}月</option>
           </select>
-          <button :class="{ active: quickDateFilter === 'todayFollow' }" @click="quickDateFilter = quickDateFilter === 'todayFollow' ? 'all' : 'todayFollow'">今日跟进</button>
           <button class="ghost" @click="clearDateFilters">清空日期</button>
         </div>
       </div>
