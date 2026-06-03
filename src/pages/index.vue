@@ -948,7 +948,7 @@ function returnToCustomer() {
   if (!linkedCustomerId.value)
     return
   syncQuoteToCustomer('已保存报价')
-  router.push(`/crm/customer/${linkedCustomerId.value}?tab=quote`)
+  router.push(`/crm/customer/${linkedCustomerId.value}?tab=quote&quoteSaved=${Date.now()}`)
 }
 
 function exportWord() {
@@ -1366,6 +1366,14 @@ async function printPdf() {
       </table>
     </section>
 
+    <aside v-if="view === 'print'" class="print-price-dock no-print">
+      <span>报价总价</span>
+      <b>{{ money(totals.grandTotal) }}</b>
+      <small>{{ money(totalPerSquare()) }}/㎡</small>
+      <button @click="view = 'quote'">返回价格</button>
+      <button v-if="linkedCustomerId" class="primary" @click="returnToCustomer">返回当前客户</button>
+    </aside>
+
     <div v-if="newMaterialModal.open" class="modal-mask no-print">
       <section class="modal-card">
         <header>
@@ -1456,6 +1464,24 @@ button.active{border-color:#b28a46;background:#f5ead8;color:#8c672c;font-weight:
   padding:22px;
   box-shadow:0 20px 48px rgba(48,39,29,.1);
 }
+.print-price-dock{
+  position:fixed;
+  right:28px;
+  bottom:24px;
+  z-index:20;
+  width:240px;
+  display:grid;
+  gap:8px;
+  border:1px solid #d9e1ea;
+  border-radius:8px;
+  background:#fff;
+  padding:16px;
+  box-shadow:0 16px 42px rgba(29,45,61,.16);
+}
+.print-price-dock span{color:#6b7785;font-size:13px;font-weight:800}
+.print-price-dock b{color:#1f5f8b;font-size:24px}
+.print-price-dock small{color:#6b7785;font-weight:800}
+.print-price-dock button{width:100%}
 .band{
   border:1px solid #e2ddd4;
   border-radius:6px;

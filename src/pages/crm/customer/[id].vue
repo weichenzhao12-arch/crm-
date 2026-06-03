@@ -30,10 +30,10 @@ const activityTab = ref<'follow' | 'quote'>(route.query.tab === 'quote' ? 'quote
 const reminderItems = computed(() => customer.value?.followUps.filter(follow => follow.reminderDate) || [])
 const followItems = computed(() => customer.value?.followUps.filter(follow => !follow.reminderDate) || [])
 
-watch(() => route.query.tab, (tab) => {
+watch(() => [route.query.tab, route.query.quoteSaved], ([tab]) => {
   if (tab === 'quote')
     activityTab.value = 'quote'
-})
+}, { immediate: true })
 
 const stageLabels = {
   new: '新客资',
