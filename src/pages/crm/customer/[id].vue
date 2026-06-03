@@ -8,6 +8,7 @@
 </route>
 
 <script setup lang="ts">
+import { nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAdminStore } from '~/stores/admin'
 import { useCrmStore } from '~/stores/crm'
@@ -30,9 +31,14 @@ const activityTab = ref<'follow' | 'quote'>(route.query.tab === 'quote' ? 'quote
 const reminderItems = computed(() => customer.value?.followUps.filter(follow => follow.reminderDate) || [])
 const followItems = computed(() => customer.value?.followUps.filter(follow => !follow.reminderDate) || [])
 
-watch(() => [route.query.tab, route.query.quoteSaved], ([tab]) => {
-  if (tab === 'quote')
+watch(() => [route.query.tab, route.query.quoteSaved], async ([tab, quoteSaved]) => {
+  if (tab === 'quote') {
     activityTab.value = 'quote'
+    if (quoteSaved) {
+      await nextTick()
+      window.scrollTo({ top: 0, behavior: 'auto' })
+    }
+  }
 }, { immediate: true })
 
 const stageLabels = {
@@ -312,8 +318,8 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
 .header-actions .action-button span{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:rgba(36,110,216,.12);font-size:16px;line-height:1}
 .header-actions .action-button.primary span{background:rgba(255,255,255,.22)}
 .detail-panel button.danger{border-color:#ffd1d1;background:#fff5f5;color:#c62828}
-.activity-panel{height:calc(100vh - 140px);max-height:760px;min-height:560px;display:flex;flex-direction:column;overflow:hidden}
-.activity-panel header{position:relative;z-index:6;align-items:center;flex-shrink:0;border-bottom:1px solid #e1e9f2;background:#fff;padding-bottom:12px}
+.activity-panel{position:relative;height:calc(100vh - 140px);max-height:760px;min-height:560px;display:flex;flex-direction:column;overflow:hidden;padding-top:78px}
+.activity-panel header{position:absolute;top:20px;left:20px;right:20px;z-index:10;align-items:center;min-height:48px;border-bottom:1px solid #e1e9f2;background:#fff;padding-bottom:12px}
 .activity-tabs{display:flex;flex-shrink:0;gap:4px;border:1px solid #dbe6f2;border-radius:999px;background:#f4f8fc;padding:4px}
 .activity-tabs button{min-height:34px;border:0;border-radius:999px;background:transparent;color:#50627a;padding:7px 16px;font-weight:900;cursor:pointer}
 .activity-tabs button.active{background:#246ed8;color:#fff;box-shadow:0 8px 18px rgba(36,110,216,.22)}
@@ -359,7 +365,8 @@ textarea{min-height:76px;resize:vertical}
 @media(max-width:1000px){
   .detail-hero{align-items:flex-start;flex-direction:column}
   .detail-grid,.customer-form,.follow-row,.reminder-edit-row,.modal-box{grid-template-columns:1fr}
-  .activity-panel{height:auto;max-height:none}
+  .activity-panel{height:auto;max-height:none;padding-top:20px}
+  .activity-panel header{position:relative;top:auto;left:auto;right:auto}
   .floating-back{right:16px;bottom:16px;min-height:40px;padding:8px 14px}
 }
 </style>
