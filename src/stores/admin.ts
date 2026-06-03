@@ -185,12 +185,15 @@ export const useAdminStore = defineStore('admin', {
       user.permissions = clone(permissionsForRole(user.role))
       this.saveUsers()
     },
-    updateOwnPassword(nextPassword: string) {
+    updateOwnPassword(oldPassword: string, nextPassword: string) {
       const user = this.currentUser
       if (!user || !nextPassword.trim())
-        return
+        return false
+      if (user.password !== oldPassword)
+        return false
       user.password = nextPassword.trim()
       this.saveUsers()
+      return true
     },
     setCurrentUser(id: string) {
       if (!this.users.some(user => user.id === id && user.enabled))

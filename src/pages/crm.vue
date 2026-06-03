@@ -49,6 +49,13 @@ const leadForm = ref({
   intentLevel: 'C' as IntentLevel,
   assignedToUserId: 'owner',
 })
+const passwordDialogOpen = ref(false)
+const passwordForm = ref({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: '',
+})
+const passwordMessage = ref('')
 
 onMounted(() => {
   crm.loadCloudCustomers()
@@ -440,6 +447,45 @@ function assignLead() {
   }
 }
 
+function openPasswordDialog() {
+  passwordDialogOpen.value = true
+  passwordMessage.value = ''
+  passwordForm.value = {
+    oldPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  }
+}
+
+function closePasswordDialog() {
+  passwordDialogOpen.value = false
+}
+
+function changeCurrentPassword() {
+  const form = passwordForm.value
+  if (!form.newPassword.trim()) {
+    passwordMessage.value = '请输入新密码'
+    return
+  }
+  if (form.newPassword !== form.confirmPassword) {
+    passwordMessage.value = '两次输入的新密码不一致'
+    return
+  }
+  if (!admin.updateOwnPassword(form.oldPassword, form.newPassword)) {
+    passwordMessage.value = '原密码不正确'
+    return
+  }
+  passwordMessage.value = '密码已修改，并同步到后台账号管理'
+  passwordForm.value = {
+    oldPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  }
+  setTimeout(() => {
+    passwordDialogOpen.value = false
+  }, 700)
+}
+
 async function handleLogout() {
   await logout()
   await router.push('/login')
@@ -462,8 +508,26 @@ async function handleLogout() {
         <RouterLink class="primary-link" to="/quote">进入报价</RouterLink>
         <RouterLink v-if="canManageLeads" to="/admin">管理后台</RouterLink>
         <button @click="addCustomer">新增客户</button>
+        <button @click="openPasswordDialog">修改密码</button>
         <button class="logout-btn" @click="handleLogout">退出登录</button>
       </nav>
+    </section>
+
+    <section v-if="passwordDialogOpen" class="modal-mask">
+      <div class="password-dialog">
+        <header>
+          <h2>修改当前账号密码</h2>
+          <button @click="closePasswordDialog">关闭</button>
+        </header>
+        <label>原密码<input v-model="passwordForm.oldPassword" autocomplete="current-password" type="password" placeholder="输入当前密码"></label>
+        <label>新密码<input v-model="passwordForm.newPassword" autocomplete="new-password" type="password" placeholder="输入新密码"></label>
+        <label>确认新密码<input v-model="passwordForm.confirmPassword" autocomplete="new-password" type="password" placeholder="再次输入新密码"></label>
+        <p v-if="passwordMessage" class="password-message">{{ passwordMessage }}</p>
+        <footer>
+          <button @click="closePasswordDialog">取消</button>
+          <button class="primary" @click="changeCurrentPassword">保存密码</button>
+        </footer>
+      </div>
     </section>
 
     <section v-if="reminderVisible" class="reminder-mask">
@@ -657,6 +721,14 @@ async function handleLogout() {
 .sample-dialog .sample-check input{width:18px;height:18px;min-height:0}
 .sample-dialog button,.sample-dialog a{display:inline-flex;align-items:center;justify-content:center;min-height:36px;border:1px solid #d5dee9;border-radius:10px;background:#f8fafc;color:#183f68;padding:8px 12px;text-decoration:none;font-weight:900;cursor:pointer}
 .sample-dialog .primary{background:#246ed8;border-color:#246ed8;color:#fff}
+.password-dialog{width:min(420px,100%);display:grid;gap:12px;border-radius:16px;background:#fff;padding:20px;box-shadow:0 24px 70px rgba(15,34,55,.28)}
+.password-dialog header,.password-dialog footer{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.password-dialog h2{margin:0}
+.password-dialog label{display:grid;gap:6px;color:#50627a;font-weight:900}
+.password-dialog input{min-height:42px;border:1px solid #d5dee9;border-radius:10px;background:#f8fafc;padding:8px 12px;color:#142235}
+.password-dialog button{display:inline-flex;align-items:center;justify-content:center;min-height:36px;border:1px solid #d5dee9;border-radius:10px;background:#f8fafc;color:#183f68;padding:8px 12px;text-decoration:none;font-weight:900;cursor:pointer}
+.password-dialog .primary{background:#246ed8;border-color:#246ed8;color:#fff}
+.password-message{margin:0;color:#246ed8;font-weight:900}
 .reminder-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid #e1e9f2;border-radius:12px;background:#fbfdff;padding:14px;margin-bottom:10px}
 .reminder-row p{margin:4px 0;color:#64748b}
 .reminder-row span{color:#263b53}

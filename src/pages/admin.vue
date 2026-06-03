@@ -22,6 +22,7 @@ const { users } = storeToRefs(admin)
 
 const activeTab = ref<'products' | 'materials' | 'users'>('products')
 const keyword = ref('')
+const oldPassword = ref('')
 const newPassword = ref('')
 const selectedProductIds = ref<string[]>([])
 const selectedMaterialIds = ref<string[]>([])
@@ -211,8 +212,13 @@ function saveAll() {
 }
 
 function changeOwnPassword() {
-  admin.updateOwnPassword(newPassword.value)
+  if (!admin.updateOwnPassword(oldPassword.value, newPassword.value)) {
+    window.alert('原密码不正确，或新密码为空')
+    return
+  }
+  oldPassword.value = ''
   newPassword.value = ''
+  window.alert('密码已修改')
 }
 </script>
 
@@ -250,7 +256,7 @@ function changeOwnPassword() {
       <div class="admin-table product-admin-table">
         <div class="admin-head">
           <input type="checkbox" :checked="allFilteredProductsSelected" @change="toggleAllProducts">
-          <span>货号</span><span>类型</span><span>名称</span><span>草高</span><span>DTEX</span><span>草丝</span><span>密度</span><span>针排</span><span>底布</span><span>抗老化</span><span>阶梯价格</span><span>备注</span><span>操作</span>
+          <span>货号</span><span>类型</span><span>名称</span><span>草高</span><span>DTEX</span><span>草丝</span><span>密度</span><span>针排</span><span>底布</span><span>抗老化</span><span>阶梯价格</span><span>图片</span><span>备注</span><span>操作</span>
         </div>
         <article v-for="product in filteredProducts" :key="product.id">
           <input v-model="selectedProductIds" type="checkbox" :value="product.id">
@@ -314,6 +320,7 @@ function changeOwnPassword() {
         <button @click="admin.addUser()">新增账号</button>
       </header>
       <div class="password-box">
+        <label>原密码<input v-model="oldPassword" type="password" placeholder="输入当前密码"></label>
         <label>当前账号修改密码<input v-model="newPassword" type="password" placeholder="输入新密码"></label>
         <button @click="changeOwnPassword">修改密码</button>
       </div>
@@ -367,9 +374,10 @@ function changeOwnPassword() {
 .admin-head{background:#f5f8fc;color:#50627a;font-size:12px;font-weight:900}
 .admin-head .password-toggle{min-height:28px;border-color:#bcd4f0;border-radius:7px;background:#eef6ff;color:#1f5f9d;padding:4px 8px;font-size:12px}
 .admin-table article:last-child{border-bottom:0}
-.product-admin-table .admin-head,.product-admin-table article{grid-template-columns:36px 120px 110px 130px 82px 92px 82px 92px 82px 120px 92px 180px 150px 140px 70px}
+.product-admin-table .admin-head,.product-admin-table article{grid-template-columns:36px 120px 110px 130px 82px 92px 82px 92px 82px 120px 92px 170px 112px 150px 76px}
 .material-admin-table .admin-head,.material-admin-table article{grid-template-columns:36px 140px 150px 1fr 92px 110px 150px 220px 70px}
-.user-admin-table .admin-head,.user-admin-table article{grid-template-columns:110px 110px 110px 70px repeat(6,120px) 70px}
+.user-admin-table .admin-head,.user-admin-table article{grid-template-columns:110px 110px 110px 70px repeat(6,120px) minmax(260px,1fr) 76px;min-width:1480px}
+.user-admin-table article input:nth-last-of-type(1){width:100%}
 .admin-table input,.admin-table select,.admin-table textarea,.password-box input{min-width:0;min-height:36px;border:1px solid #d5dee9;border-radius:8px;background:#f8fafc;padding:7px 9px}
 .admin-table input[type="checkbox"]{width:18px;height:18px;min-height:0;justify-self:center}
 .admin-table textarea{min-height:38px;resize:vertical}

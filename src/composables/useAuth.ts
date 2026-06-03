@@ -18,8 +18,10 @@ export function useAuth() {
       if (response.ok) {
         const data = await response.json() as { token: string, user: { id: string, account: string, displayName: string, role: string, enabled: boolean, permissions: any } }
         const existing = admin.users.find(item => item.id === data.user.id)
-        if (existing)
+        if (existing) {
           Object.assign(existing, data.user)
+          existing.password = password
+        }
         else
           admin.users.push({ ...data.user, password, enabled: data.user.enabled, displayName: data.user.displayName, permissions: data.user.permissions } as any)
         admin.setCurrentUser(data.user.id)
