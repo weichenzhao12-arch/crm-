@@ -7,7 +7,6 @@ binding = "DB"
 database_name = "quote-crm-system-db"
 database_id = "47d5d2ca-d3fb-4f8d-ac99-fc4048941cee"
 
-# 创建 R2 后取消注释：
-# [[r2_buckets]]
-# binding = "IMAGES"
-# bucket_name = "quote-crm-system-images"
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "quote-crm-system-images"
