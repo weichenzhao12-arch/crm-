@@ -23,6 +23,9 @@ const { users } = storeToRefs(admin)
 const keyword = ref('')
 const stageFilter = ref('全部')
 const selectedUserId = ref('all')
+const yearFilter = ref('all')
+const monthFilter = ref('all')
+const quickDateFilter = ref<'all' | 'todayFollow'>('all')
 const transferTargetUserId = ref('')
 const sampleDialogCustomerId = ref('')
 const sampleForm = ref({
@@ -117,6 +120,18 @@ const scopedCustomers = computed(() => {
   return customers.value
 })
 
+const yearOptions = computed(() => {
+  const years = new Set<string>()
+  scopedCustomers.value.forEach((customer) => {
+    const key = customerDateKey(customer.date)
+    if (key)
+      years.add(key.slice(0, 4))
+  })
+  return Array.from(years).sort((a, b) => Number(b) - Number(a))
+})
+
+const monthOptions = Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, '0'))
+
 const filteredCustomers = computed(() => scopedCustomers.value.filter((customer) => {
   const text = [
     customer.name,
@@ -133,7 +148,11 @@ const filteredCustomers = computed(() => scopedCustomers.value.filter((customer)
   const stageMatched = stageFilter.value === '全部'
     || (stageFilter.value === 'active' && !['won', 'lost'].includes(customer.stage))
     || customer.stage === stageFilter.value
-  return stageMatched && (!keyword.value || text.includes(keyword.value.toLowerCase()))
+  const dateKey = customerDateKey(customer.date)
+  const yearMatched = yearFilter.value === 'all' || dateKey.startsWith(`${yearFilter.value}-`)
+  const monthMatched = monthFilter.value === 'all' || dateKey.slice(5, 7) === monthFilter.value
+  const todayMatched = quickDateFilter.value === 'all' || isTodayCustomer(customer)
+  return stageMatched && yearMatched && monthMatched && todayMatched && (!keyword.value || text.includes(keyword.value.toLowerCase()))
 }))
 
 const filteredCustomerIds = computed(() => filteredCustomers.value.map(customer => customer.id))
@@ -150,6 +169,23 @@ watch(filteredCustomerIds, (ids) => {
 
 function dateOnly(value: Date) {
   return value.toISOString().slice(0, 10)
+}
+
+function customerDateKey(value: unknown) {
+  const text = firstText(value)
+  return text ? normalizeDateText(text, '') : ''
+}
+
+function isTodayCustomer(customer: CrmCustomer) {
+  const todayKey = dateOnly(new Date())
+  return customerDateKey(customer.date) === todayKey
+    || customer.followUps.some(follow => customerDateKey(follow.date) === todayKey)
+}
+
+function clearDateFilters() {
+  yearFilter.value = 'all'
+  monthFilter.value = 'all'
+  quickDateFilter.value = 'all'
 }
 
 function firstText(...values: unknown[]) {
@@ -636,6 +672,18 @@ function batchTransferCustomers() {
             {{ filter.label }}
           </button>
         </div>
+        <div class="date-filter-tools">
+          <select v-model="yearFilter">
+            <option value="all">全部年份</option>
+            <option v-for="year in yearOptions" :key="year" :value="year">{{ year }}年</option>
+          </select>
+          <select v-model="monthFilter">
+            <option value="all">全部月份</option>
+            <option v-for="month in monthOptions" :key="month" :value="month">{{ Number(month) }}月</option>
+          </select>
+          <button :class="{ active: quickDateFilter === 'todayFollow' }" @click="quickDateFilter = quickDateFilter === 'todayFollow' ? 'all' : 'todayFollow'">今日跟进</button>
+          <button class="ghost" @click="clearDateFilters">清空日期</button>
+        </div>
       </div>
 
       <div class="lead-record-table" :class="{ 'with-select': canDeleteCustomers }">
@@ -678,7 +726,7 @@ function batchTransferCustomers() {
 .customers-hero p{margin:0 0 8px;color:#cce5ff;font-weight:800}
 .customers-hero h1{margin:0;font-size:34px}
 .customers-hero span{display:block;margin-top:8px;color:#d9edff}
-.customers-hero nav,.customers-tools,.filter-bar,.customer-tabs{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.customers-hero nav,.customers-tools,.filter-bar,.customer-tabs,.date-filter-tools{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
 .customers-hero a,.customers-hero button,.customers-hero label{display:inline-flex;align-items:center;justify-content:center;min-height:40px;border:1px solid rgba(255,255,255,.36);border-radius:10px;background:rgba(255,255,255,.12);color:#fff;padding:9px 14px;text-decoration:none;font-weight:800;cursor:pointer}
 .customers-hero button,.customers-hero label{background:#2f8cff;border-color:#65b7ff}
 .customers-hero label input{display:none}
@@ -701,6 +749,11 @@ h2{margin:0;font-size:22px}
 .customer-tabs{border:1px solid #dbe6f2;border-radius:12px;background:#f8fafc;padding:4px}
 .customer-tabs button{min-height:32px;border:0;border-radius:9px;background:transparent;color:#50627a;padding:6px 12px;font-weight:900;cursor:pointer;white-space:nowrap}
 .customer-tabs button.active{background:#246ed8;color:#fff;box-shadow:0 8px 18px rgba(36,110,216,.2)}
+.date-filter-tools{margin-left:auto}
+.date-filter-tools select,.date-filter-tools button{min-height:36px;border:1px solid #cfe0f2;border-radius:10px;background:#fff;color:#183f68;padding:7px 12px;font-weight:900;white-space:nowrap}
+.date-filter-tools button{cursor:pointer}
+.date-filter-tools button.active{background:#246ed8;border-color:#246ed8;color:#fff;box-shadow:0 8px 18px rgba(36,110,216,.2)}
+.date-filter-tools button.ghost{background:#f8fafc;color:#50627a}
 .lead-record-table{overflow:auto;border:1px solid #dbe6f2;border-radius:12px;background:#fff}
 .lead-record-head,.lead-record-table article{display:grid;grid-template-columns:52px 96px 128px 130px 120px 120px 110px 130px 220px 92px 110px 110px 92px 140px 76px;min-width:1720px;align-items:stretch}
 .lead-record-table.with-select .lead-record-head,.lead-record-table.with-select article{grid-template-columns:42px 52px 96px 128px 130px 120px 120px 110px 130px 220px 92px 110px 110px 92px 140px 76px;min-width:1762px}
@@ -743,7 +796,8 @@ h2{margin:0;font-size:22px}
   .customers-hero,.customers-panel header,.filter-bar{align-items:flex-start;flex-direction:column}
   .customers-tools{min-width:0;width:100%}
   .customers-tools input{width:100%;min-width:0}
-  .customer-tabs{width:100%;overflow:auto}
+  .customer-tabs,.date-filter-tools{width:100%;overflow:auto}
+  .date-filter-tools{margin-left:0}
   .create-form{grid-template-columns:1fr}
 }
 </style>
