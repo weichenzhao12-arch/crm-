@@ -301,7 +301,7 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
 .detail-hero h1{margin:0;font-size:34px}
 .detail-hero nav{display:flex;flex-wrap:wrap;gap:10px}
 .detail-hero a,.detail-hero button,.detail-panel button{min-height:40px;border:1px solid rgba(255,255,255,.36);border-radius:10px;background:#fff;color:#183f68;padding:9px 14px;text-decoration:none;font-weight:800;cursor:pointer}
-.detail-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(360px,.8fr);align-items:stretch;gap:18px;max-width:1500px;margin:0 auto}
+.detail-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(360px,.8fr);align-items:start;gap:18px;max-width:1500px;margin:0 auto}
 .detail-panel{border:1px solid #d7e2ee;border-radius:16px;background:#fff;padding:20px;box-shadow:0 12px 34px rgba(38,59,84,.075)}
 .detail-panel header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
 .detail-panel h2{margin:0;font-size:22px}
@@ -312,13 +312,13 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
 .header-actions .action-button span{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:rgba(36,110,216,.12);font-size:16px;line-height:1}
 .header-actions .action-button.primary span{background:rgba(255,255,255,.22)}
 .detail-panel button.danger{border-color:#ffd1d1;background:#fff5f5;color:#c62828}
-.activity-panel{height:min(100%,calc(100vh - 190px));min-height:560px;display:flex;flex-direction:column;overflow:hidden}
-.activity-panel header{position:sticky;top:0;z-index:6;align-items:center;flex-shrink:0;border-bottom:1px solid #e1e9f2;background:#fff;padding-bottom:12px}
+.activity-panel{height:calc(100vh - 140px);max-height:760px;min-height:560px;display:flex;flex-direction:column;overflow:hidden}
+.activity-panel header{position:relative;z-index:6;align-items:center;flex-shrink:0;border-bottom:1px solid #e1e9f2;background:#fff;padding-bottom:12px}
 .activity-tabs{display:flex;flex-shrink:0;gap:4px;border:1px solid #dbe6f2;border-radius:999px;background:#f4f8fc;padding:4px}
 .activity-tabs button{min-height:34px;border:0;border-radius:999px;background:transparent;color:#50627a;padding:7px 16px;font-weight:900;cursor:pointer}
 .activity-tabs button.active{background:#246ed8;color:#fff;box-shadow:0 8px 18px rgba(36,110,216,.22)}
-.activity-content{flex:1;min-height:0;overflow:auto;overflow-x:hidden;padding-right:6px}
-.customer-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.activity-content{flex:1;min-height:0;overflow:auto;overflow-x:hidden;padding:12px 6px 0 0}
+.customer-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;gap:12px}
 .customer-form header,.customer-form .wide{grid-column:1/-1}
 label{display:grid;gap:6px;color:#50627a;font-weight:800}
 input,select,textarea{min-height:40px;border:1px solid #d5dee9;border-radius:10px;background:#f8fafc;padding:8px 12px;color:#142235}
