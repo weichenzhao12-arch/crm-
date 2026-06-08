@@ -44,6 +44,28 @@ export function selectUnitPrice(text: string, quantity: number): number | undefi
   return lower?.price ?? sorted[0]?.price
 }
 
+export function parseNeedlePrice(text: string) {
+  const match = String(text || '').match(/(\d+(?:\.\d+)?)/)
+  return match ? Number(match[1]) : 0
+}
+
+export function priceWithNeedleAddition(basePrice: number, needlePriceText: string, addedNeedles: number) {
+  const count = Number.isFinite(addedNeedles) && addedNeedles > 0 ? addedNeedles : 0
+  return roundMoney((basePrice || 0) + parseNeedlePrice(needlePriceText) * count)
+}
+
+export function applyNeedleAdditionToDensity(density: string, addedNeedles: number) {
+  const count = Number.isFinite(addedNeedles) && addedNeedles > 0 ? Math.floor(addedNeedles) : 0
+  const text = String(density || '').trim()
+  if (!text || !count)
+    return text
+
+  return text.replace(/(\d+(?:\.\d+)?)\s*针/, (_, value) => {
+    const next = Number(value) + count
+    return `${Number.isInteger(next) ? next : roundMoney(next)}针`
+  })
+}
+
 export function resolveArea(input: { mode: 'direct' | 'size', area: number, length: number, width: number }) {
   const area = input.mode === 'size' ? input.length * input.width : input.area
   return roundMoney(Number.isFinite(area) && area > 0 ? area : 0)

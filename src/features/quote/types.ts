@@ -45,6 +45,8 @@ export interface QuoteLine {
   unit: string
   unitPrice: number
   rawPriceText?: string
+  needleAddition?: number
+  needlePrice?: string
   note?: string
   imageDataUrl?: string
 }

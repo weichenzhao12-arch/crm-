@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { baggedTonQuantity, bucketQuantity, linePerSquare, lineSubtotal, packageUnitPrice, parsePriceTiers, quantityByUsage, quoteTotals, resolveArea, selectUnitPrice } from '~/features/quote/pricing'
+import { applyNeedleAdditionToDensity, baggedTonQuantity, bucketQuantity, linePerSquare, lineSubtotal, packageUnitPrice, parseNeedlePrice, parsePriceTiers, priceWithNeedleAddition, quantityByUsage, quoteTotals, resolveArea, selectUnitPrice } from '~/features/quote/pricing'
 
 describe('quote pricing helpers', () => {
   it('parses tiered price text from the company price sheet', () => {
@@ -93,5 +93,12 @@ describe('quote pricing helpers', () => {
       tax: 0,
       grandTotal: 500,
     })
+  })
+
+  it('adds selected needles to the final displayed density and unit price', () => {
+    expect(parseNeedlePrice('1元')).toBe(1)
+    expect(priceWithNeedleAddition(19, '1元', 3)).toBe(22)
+    expect(applyNeedleAdditionToDensity('15针', 3)).toBe('18针')
+    expect(applyNeedleAdditionToDensity('15750簇（15针）', 3)).toBe('15750簇（18针）')
   })
 })

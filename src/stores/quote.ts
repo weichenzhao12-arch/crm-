@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import pricingData from '~/data/pricing.json'
 import type { ExtraChargeInput, MaterialRecord, ProductRecord, QuoteLine, QuoteMeta } from '~/features/quote/types'
-import { quoteTotals, selectUnitPrice } from '~/features/quote/pricing'
+import { priceWithNeedleAddition, quoteTotals, selectUnitPrice } from '~/features/quote/pricing'
 import { getCloudState, putCloudState } from '~/api/cloud-storage'
 
 interface PricingData {
@@ -119,9 +119,11 @@ export const useQuoteStore = defineStore('quote', {
     }),
   },
   actions: {
-    addProduct(product: ProductRecord, quantity = 1) {
+    addProduct(product: ProductRecord, quantity = 1, options: { needleAddition?: number } = {}) {
       const fallbackPrice = Number(product.priceText) || 0
-      const unitPrice = selectUnitPrice(product.priceText, quantity) ?? fallbackPrice
+      const basePrice = selectUnitPrice(product.priceText, quantity) ?? fallbackPrice
+      const needleAddition = Number.isFinite(options.needleAddition) && Number(options.needleAddition) > 0 ? Math.floor(Number(options.needleAddition)) : 0
+      const unitPrice = priceWithNeedleAddition(basePrice, product.needlePrice, needleAddition)
       this.lines.push({
         id: createLineId(),
         kind: 'product',
@@ -132,6 +134,8 @@ export const useQuoteStore = defineStore('quote', {
         unit: '㎡',
         unitPrice,
         rawPriceText: product.priceText,
+        needleAddition,
+        needlePrice: product.needlePrice,
         note: product.note,
       })
     },
@@ -167,7 +171,7 @@ export const useQuoteStore = defineStore('quote', {
 
       line.quantity = nextQuantity
       if (nextPrice !== undefined)
-        line.unitPrice = nextPrice
+        line.unitPrice = priceWithNeedleAddition(nextPrice, line.needlePrice || '', line.needleAddition || 0)
     },
     removeLine(id: string) {
       this.lines = this.lines.filter(line => line.id !== id)
