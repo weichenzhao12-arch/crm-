@@ -49,6 +49,14 @@ const stageLabels = {
   lost: '无效',
 }
 
+const stageOptions = [
+  { value: 'new', label: stageLabels.new },
+  { value: 'quoted', label: stageLabels.quoted },
+  { value: 'follow', label: stageLabels.follow },
+  { value: 'won', label: stageLabels.won },
+  { value: 'lost', label: stageLabels.lost },
+]
+
 function save() {
   crm.save()
 }
@@ -194,11 +202,7 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
           </select></label>
           <label>负责人<input v-model="customer.owner"></label>
           <label>跟进阶段<select v-model="customer.stage">
-            <option value="new">新客资</option>
-            <option value="quoted">已报价</option>
-            <option value="follow">跟进中</option>
-            <option value="won">已成交</option>
-            <option value="lost">无效</option>
+            <option v-for="option in stageOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
           </select></label>
           <label class="wide">客户情况沟通内容<textarea v-model="customer.communication"></textarea></label>
           <label class="wide">备注<textarea v-model="customer.remark"></textarea></label>
