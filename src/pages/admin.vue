@@ -374,7 +374,7 @@ function changeOwnPassword() {
 .admin-head{background:#f5f8fc;color:#50627a;font-size:12px;font-weight:900}
 .admin-head .password-toggle{min-height:28px;border-color:#bcd4f0;border-radius:7px;background:#eef6ff;color:#1f5f9d;padding:4px 8px;font-size:12px}
 .admin-table article:last-child{border-bottom:0}
-.product-admin-table .admin-head,.product-admin-table article{grid-template-columns:36px 120px 110px 130px 82px 92px 82px 92px 82px 120px 92px 170px 112px 150px 76px}
+.product-admin-table .admin-head,.product-admin-table article{grid-template-columns:36px 118px 104px 128px 76px 84px 86px 90px 80px 112px 88px 150px 96px 120px 96px;min-width:1518px}
 .material-admin-table .admin-head,.material-admin-table article{grid-template-columns:36px 140px 150px 1fr 92px 110px 150px 220px 70px}
 .user-admin-table .admin-head,.user-admin-table article{grid-template-columns:110px 110px 110px 70px repeat(6,120px) minmax(260px,1fr) 76px;min-width:1480px}
 .user-admin-table article input:nth-last-of-type(1){width:100%}
