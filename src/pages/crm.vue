@@ -771,12 +771,12 @@ async function handleLogout() {
 </template>
 
 <style scoped>
-.crm-page{min-height:100vh;background:#eef3f8;padding:24px;color:#142235}
-.crm-hero{display:flex;align-items:center;justify-content:space-between;gap:18px;max-width:1500px;margin:0 auto 18px;padding:26px;border-radius:18px;background:linear-gradient(135deg,#10243f,#1f5f8b);color:#fff}
-.crm-hero p{margin:0 0 8px;color:#cce5ff;font-weight:800}
-.crm-hero h1{margin:0;font-size:34px}
+.crm-page{min-height:100vh;background:#eef3f8;padding:14px;color:#142235}
+.crm-hero{display:flex;align-items:center;justify-content:space-between;gap:14px;max-width:1500px;margin:0 auto 10px;padding:16px 20px;border-radius:16px;background:linear-gradient(135deg,#10243f,#1f5f8b);color:#fff}
+.crm-hero p{margin:0 0 5px;color:#cce5ff;font-size:12px;font-weight:800}
+.crm-hero h1{margin:0;font-size:26px}
 .crm-hero nav{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
-.crm-hero a,.crm-hero button{min-height:40px;border:1px solid rgba(255,255,255,.36);border-radius:10px;background:rgba(255,255,255,.12);color:#fff;padding:9px 14px;text-decoration:none;font-weight:800;cursor:pointer}
+.crm-hero a,.crm-hero button{min-height:34px;border:1px solid rgba(255,255,255,.36);border-radius:9px;background:rgba(255,255,255,.12);color:#fff;padding:7px 11px;text-decoration:none;font-size:13px;font-weight:800;cursor:pointer}
 .crm-hero a.primary-link{border-color:#65b7ff;background:#2f8cff}
 .crm-hero button.logout-btn{border-color:rgba(255,255,255,.72);background:#fff;color:#183f68}
 .user-view{display:flex;align-items:center;gap:8px;color:#d9edff;font-size:13px;font-weight:800}
@@ -807,50 +807,50 @@ async function handleLogout() {
 .reminder-row span{color:#263b53}
 .reminder-actions{display:flex;gap:8px}
 .reminder-actions button:last-child{background:#246ed8;border-color:#246ed8;color:#fff}
-.crm-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;max-width:1500px;margin:0 auto 18px}
+.crm-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;max-width:1500px;margin:0 auto 10px}
 .crm-metrics article,.crm-panel,.chart-panel,.lead-creation-panel,.lead-panel,.ranking-panel{border:1px solid #d7e2ee;border-radius:16px;background:#fff;box-shadow:0 12px 34px rgba(38,59,84,.075)}
-.crm-metrics article{padding:18px}
-.crm-metrics span{display:block;color:#64748b;font-size:13px;font-weight:800}
-.crm-metrics b{display:block;margin-top:8px;color:#10243f;font-size:26px}
-.crm-metrics small{display:block;margin-top:5px;color:#738196}
-.crm-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(360px,.85fr);grid-template-areas:"chart ranking" "chart lead";gap:18px;max-width:1500px;margin:0 auto 18px;align-items:stretch}
+.crm-metrics article{padding:12px 14px}
+.crm-metrics span{display:block;color:#64748b;font-size:12px;font-weight:800}
+.crm-metrics b{display:block;margin-top:5px;color:#10243f;font-size:22px}
+.crm-metrics small{display:block;margin-top:3px;color:#738196;font-size:12px}
+.crm-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(360px,.85fr);grid-template-areas:"chart ranking" "chart lead";gap:12px;max-width:1500px;margin:0 auto 10px;align-items:stretch}
 .crm-grid.owner-grid{grid-template-areas:"chart ranking" "leadCreation lead"}
-.chart-panel,.lead-creation-panel,.lead-panel,.ranking-panel,.crm-panel{padding:20px}
+.chart-panel,.lead-creation-panel,.lead-panel,.ranking-panel,.crm-panel{padding:14px}
 .chart-panel{grid-area:chart;display:flex;flex-direction:column}
 .lead-creation-panel{grid-area:leadCreation;display:flex;flex-direction:column}
 .ranking-panel{grid-area:ranking}
 .lead-panel{grid-area:lead}
-.ranking-panel{min-height:240px;display:flex;flex-direction:column}
-.chart-panel header,.lead-creation-panel header,.lead-panel header,.ranking-panel header,.crm-panel header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
-h2{margin:0;font-size:22px}
+.ranking-panel{min-height:190px;display:flex;flex-direction:column}
+.chart-panel header,.lead-creation-panel header,.lead-panel header,.ranking-panel header,.crm-panel header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}
+h2{margin:0;font-size:17px}
 .crm-panel small{display:block;margin-top:5px;color:#64748b;font-weight:800}
 .chart-panel header span,.lead-panel header span{color:#64748b;font-weight:800}
 .rank-switch{display:flex;gap:6px;border:1px solid #dbe6f2;border-radius:999px;background:#f8fafc;padding:4px}
-.rank-switch button{border:0;border-radius:999px;background:transparent;color:#50627a;padding:7px 12px;font-weight:900;cursor:pointer}
+.rank-switch button{border:0;border-radius:999px;background:transparent;color:#50627a;padding:5px 9px;font-size:12px;font-weight:900;cursor:pointer}
 .rank-switch button.active{background:#246ed8;color:#fff}
-.rank-list{display:grid;gap:12px;max-height:none;min-height:156px;overflow:auto;padding-right:4px}
+.rank-list{display:grid;gap:8px;max-height:210px;min-height:118px;overflow:auto;padding-right:4px}
 .rank-list::-webkit-scrollbar{width:6px}
 .rank-list::-webkit-scrollbar-thumb{border-radius:999px;background:#c8d7e8}
-.rank-row{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid #e1e9f2;border-radius:12px;background:#fbfdff;padding:14px}
-.rank-row strong{display:grid;place-items:center;width:28px;height:28px;border-radius:9px;background:#eaf3ff;color:#246ed8}
+.rank-row{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid #e1e9f2;border-radius:11px;background:#fbfdff;padding:9px 10px}
+.rank-row strong{display:grid;place-items:center;width:24px;height:24px;border-radius:8px;background:#eaf3ff;color:#246ed8;font-size:12px}
 .rank-row b{display:block;color:#10243f}
-.rank-row span{display:block;margin:3px 0 7px;color:#64748b;font-size:12px;font-weight:800}
+.rank-row span{display:block;margin:2px 0 5px;color:#64748b;font-size:11px;font-weight:800}
 .rank-row i{display:block;height:6px;border-radius:999px;background:linear-gradient(90deg,#246ed8,#3fb6ff)}
 .rank-row em{color:#10243f;font-style:normal;font-weight:900}
-.chart-panel svg,.lead-creation-panel svg{width:100%;min-height:430px;flex:1}
-.lead-creation-panel svg{min-height:280px}
+.chart-panel svg,.lead-creation-panel svg{width:100%;min-height:250px;flex:1}
+.lead-creation-panel svg{min-height:215px}
 .chart-panel svg line,.lead-creation-panel svg line{stroke:#dbe5f0;stroke-width:2}
 .chart-panel svg polyline,.lead-creation-panel svg polyline{fill:none;stroke:#2f8cff;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
 .lead-creation-panel svg polyline{stroke:#25a18e}
 .chart-panel svg circle,.lead-creation-panel svg circle{fill:#fff;stroke:#2f8cff;stroke-width:3}
 .lead-creation-panel svg circle{stroke:#25a18e}
 .chart-panel svg text,.lead-creation-panel svg text{fill:#50627a;font-size:12px;text-anchor:middle}
-.lead-form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.lead-form input,.lead-form select,.lead-form button,.crm-tools select,.crm-tools input,.crm-tools button,.crm-tools label{min-height:40px;border:1px solid #d5dee9;border-radius:10px;background:#f8fafc;padding:8px 12px;color:#142235}
+.lead-form{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.lead-form input,.lead-form select,.lead-form button,.crm-tools select,.crm-tools input,.crm-tools button,.crm-tools label{min-height:32px;border:1px solid #d5dee9;border-radius:9px;background:#f8fafc;padding:6px 10px;color:#142235;font-size:12px}
 .lead-form button{grid-column:1/-1;background:#246ed8;color:#fff;border-color:#246ed8;font-weight:900;cursor:pointer}
-.batch-assign{grid-column:1/-1;display:grid;grid-template-columns:auto 1fr 120px;align-items:center;gap:10px;border:1px solid #dbe6f2;border-radius:12px;background:#f6faff;padding:10px}
+.batch-assign{grid-column:1/-1;display:grid;grid-template-columns:auto 1fr 108px;align-items:center;gap:8px;border:1px solid #dbe6f2;border-radius:10px;background:#f6faff;padding:7px}
 .batch-assign span{color:#183f68;font-weight:900;white-space:nowrap}
-.batch-assign label{display:inline-flex;align-items:center;justify-content:center;min-height:40px;border:1px solid #246ed8;border-radius:10px;background:#246ed8;color:#fff;padding:8px 12px;font-weight:900;cursor:pointer}
+.batch-assign label{display:inline-flex;align-items:center;justify-content:center;min-height:32px;border:1px solid #246ed8;border-radius:9px;background:#246ed8;color:#fff;padding:6px 10px;font-size:12px;font-weight:900;cursor:pointer}
 .batch-assign label input{display:none}
 .crm-panel{max-width:1500px;margin:0 auto}
 .crm-tools{display:flex;align-items:center;gap:10px;min-width:360px}
