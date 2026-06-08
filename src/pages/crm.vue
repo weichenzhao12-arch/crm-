@@ -133,6 +133,22 @@ function firstText(...values: unknown[]) {
   return values.map(value => String(value ?? '').trim()).find(Boolean) || ''
 }
 
+function hasImportableLeadRow(row: Record<string, any>) {
+  return Boolean(firstText(
+    row.客户名称,
+    row.name,
+    row.客户联系方式,
+    row.联系方式,
+    row.联系人,
+    row.contact,
+    row.电话,
+    row.phone,
+    row.微信,
+    row.微信号,
+    row.wechat,
+  ))
+}
+
 function normalizeStage(value: string) {
   if (value.includes('成交'))
     return 'won'
@@ -266,8 +282,10 @@ function importLeadTable(event: Event) {
   reader.onload = () => {
     const workbook = XLSX.read(reader.result, { type: 'array' })
     const sheet = workbook.Sheets[workbook.SheetNames[0]]
-    const rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet)
-    const imported = rows.map(rowToCustomer).filter(customer => customer.name || customer.phone || customer.wechat)
+    const rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { raw: false, defval: '' })
+    const imported = rows
+      .filter(hasImportableLeadRow)
+      .map(rowToCustomer)
     if (imported.length) {
       customers.value = [...imported, ...customers.value]
       crm.save()
@@ -639,6 +657,13 @@ async function handleLogout() {
             <option v-for="user in salesUsers" :key="user.id" :value="user.id">{{ user.displayName || user.account }}</option>
           </select>
           <button @click="assignLead">分配客资</button>
+          <div class="batch-assign">
+            <span>批量分配</span>
+            <select v-model="leadForm.assignedToUserId">
+              <option v-for="user in salesUsers" :key="user.id" :value="user.id">{{ user.displayName || user.account }}</option>
+            </select>
+            <label>上传表格<input type="file" accept=".xlsx,.xls" @change="importLeadTable"></label>
+          </div>
         </div>
       </article>
     </section>
@@ -771,6 +796,10 @@ h2{margin:0;font-size:22px}
 .lead-form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .lead-form input,.lead-form select,.lead-form button,.crm-tools select,.crm-tools input,.crm-tools button,.crm-tools label{min-height:40px;border:1px solid #d5dee9;border-radius:10px;background:#f8fafc;padding:8px 12px;color:#142235}
 .lead-form button{grid-column:1/-1;background:#246ed8;color:#fff;border-color:#246ed8;font-weight:900;cursor:pointer}
+.batch-assign{grid-column:1/-1;display:grid;grid-template-columns:auto 1fr 120px;align-items:center;gap:10px;border:1px solid #dbe6f2;border-radius:12px;background:#f6faff;padding:10px}
+.batch-assign span{color:#183f68;font-weight:900;white-space:nowrap}
+.batch-assign label{display:inline-flex;align-items:center;justify-content:center;min-height:40px;border:1px solid #246ed8;border-radius:10px;background:#246ed8;color:#fff;padding:8px 12px;font-weight:900;cursor:pointer}
+.batch-assign label input{display:none}
 .crm-panel{max-width:1500px;margin:0 auto}
 .crm-tools{display:flex;align-items:center;gap:10px;min-width:360px}
 .crm-tools input{flex:1}
