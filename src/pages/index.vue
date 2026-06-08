@@ -10,7 +10,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { applyNeedleAdditionToDensity, baggedTonQuantity, bucketQuantity, linePerSquare, lineSubtotal, packageUnitPrice, parseNeedlePrice, priceWithNeedleAddition, quantityByUsage, quoteTotals, resolveArea, selectUnitPrice } from '~/features/quote/pricing'
+import { applyNeedleAdditionToDensity, baggedTonQuantity, bucketQuantity, linePerSquare, lineSubtotal, packageUnitPrice, quantityByUsage, quoteTotals, resolveArea, selectUnitPrice } from '~/features/quote/pricing'
 import type { ConstructionInput, MaterialRecord, QuoteLine } from '~/features/quote/types'
 import { uploadCloudImage } from '~/api/cloud-storage'
 import { useCrmStore } from '~/stores/crm'
@@ -36,7 +36,6 @@ const heightFilter = ref(ALL)
 const densityFilter = ref(ALL)
 const poundWeightFilter = ref(ALL)
 const settingsKeyword = ref('')
-const productNeedleAdditions = ref<Record<string, number>>({})
 const areaInput = ref({ mode: 'direct' as const, area: 1000, length: 50, width: 20 })
 const quoteParamVisible = ref({
   height: true,
@@ -660,19 +659,6 @@ function autoPrice(text: string, quantity: number) {
   return selectUnitPrice(text, quantity) ?? (Number(text) || 0)
 }
 
-function needleAdditionFor(productId: string) {
-  const value = productNeedleAdditions.value[productId]
-  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0
-}
-
-function productNeedlePrice(product: { needlePrice: string }) {
-  return parseNeedlePrice(product.needlePrice)
-}
-
-function productFinalPrice(product: { id: string, priceText: string, needlePrice: string }) {
-  return priceWithNeedleAddition(autoPrice(product.priceText, selectedArea.value), product.needlePrice, needleAdditionFor(product.id))
-}
-
 function productBadge(product: { model: string }) {
   return product.model.includes('免填充') ? '免填充' : '非免填充'
 }
@@ -680,11 +666,19 @@ function productBadge(product: { model: string }) {
 function addProduct(id: string) {
   const product = pricing.value.products.find(item => item.id === id)
   if (product)
-    quote.addProduct(product, selectedArea.value || 1, { needleAddition: needleAdditionFor(product.id) })
+    quote.addProduct(product, selectedArea.value || 1)
 }
 
 function updateProductQuantity(lineId: string, event: Event) {
   quote.updateProductQuantity(lineId, Number((event.target as HTMLInputElement).value))
+}
+
+function updateProductNeedleAddition(lineId: string, event: Event) {
+  quote.updateProductNeedle(lineId, { needleAddition: Number((event.target as HTMLInputElement).value) })
+}
+
+function updateProductNeedlePrice(lineId: string, event: Event) {
+  quote.updateProductNeedle(lineId, { needlePrice: (event.target as HTMLInputElement).value })
 }
 
 function uploadQuoteLineImage(event: Event, line: QuoteLine) {
@@ -1110,13 +1104,8 @@ async function printPdf() {
                 </dl>
               </div>
               <div class="price-cell">
-                <b>{{ money(productFinalPrice(product)) }}/㎡</b>
+                <b>{{ money(autoPrice(product.priceText, selectedArea)) }}/㎡</b>
                 <small>{{ product.priceText }}</small>
-                <label v-if="productNeedlePrice(product) > 0" class="needle-add">
-                  <span>加针</span>
-                  <input v-model.number="productNeedleAdditions[product.id]" min="0" step="1" type="number" placeholder="0">
-                  <em>每针+{{ money(productNeedlePrice(product)) }}/㎡</em>
-                </label>
                 <button @click="addProduct(product.id)">加入</button>
               </div>
             </article>
@@ -1233,6 +1222,10 @@ async function printPdf() {
             <div class="quote-line-main">
               <label>产品类型<input v-model="line.title" placeholder="报价单产品类型"></label>
               <p>{{ line.spec }}</p>
+              <div class="line-needle-controls">
+                <label>加针数<input :value="line.needleAddition || 0" min="0" step="1" type="number" @input="updateProductNeedleAddition(line.id, $event)"></label>
+                <label>每针加价<input :value="line.needlePrice || ''" placeholder="如 1元" @input="updateProductNeedlePrice(line.id, $event)"></label>
+              </div>
             </div>
             <input :value="line.quantity" type="number" @input="updateProductQuantity(line.id, $event)">
             <input v-model.number="line.unitPrice" type="number" step="0.01">
@@ -1585,9 +1578,6 @@ dd{margin:3px 0 0;font-weight:800;color:#2f2a24}
 .price-cell{display:grid;align-content:center;gap:9px;text-align:right;border-left:1px solid #e7edf1;padding-left:14px}
 .price-cell b{font-size:20px;color:#8c672c}
 .price-cell small{color:#8a8177;word-break:break-all;line-height:1.35}
-.needle-add{display:grid;grid-template-columns:auto 64px;align-items:center;justify-content:end;gap:6px;color:#5f564b;font-size:12px;font-weight:800}
-.needle-add input{width:64px;min-height:32px;border:1px solid #d9e3ec;border-radius:6px;background:#fff;padding:5px 7px;text-align:center;font-weight:900}
-.needle-add em{grid-column:1 / -1;color:#8a8177;font-style:normal;font-weight:700}
 .accessory-grid{display:grid;grid-template-columns:1fr;gap:10px}
 .accessory,.option-line{
   align-items:center;
@@ -1619,6 +1609,9 @@ dd{margin:3px 0 0;font-weight:800;color:#2f2a24}
 .quote-line input{padding:7px;min-height:34px;background:#fff}
 .quote-line-main label{font-size:12px}
 .quote-line-main input{width:100%;margin-top:5px;font-weight:800}
+.line-needle-controls{display:grid;grid-template-columns:90px minmax(100px,1fr);gap:8px;margin-top:8px}
+.line-needle-controls label{color:#5f564b;font-weight:800}
+.line-needle-controls input{min-height:32px}
 .quote-line.readonly span{text-align:right;color:#5f564b}
 .line-actions{display:flex;justify-content:flex-end;gap:6px}
 .image-dot{display:inline-grid;place-items:center;width:30px;height:30px;border:1px dashed #93a8b5;border-radius:8px;background:#fff;color:#314352;font-size:12px;font-weight:800;cursor:pointer}

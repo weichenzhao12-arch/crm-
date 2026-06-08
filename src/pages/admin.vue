@@ -35,7 +35,7 @@ onMounted(() => {
   admin.loadCloudUsers()
 })
 
-const productColumns = ['货号', '产品类型', '产品名称', '草高', 'DTEX', '草丝', '密度', '针排', '底布', '抗老化', '阶梯价格', '默认图片', '备注']
+const productColumns = ['货号', '产品类型', '产品名称', '草高', 'DTEX', '加针价格', '密度', '针排', '底布', '抗老化', '阶梯价格', '默认图片', '备注']
 
 const filteredProducts = computed(() => pricing.value.products.filter((product) => {
   const text = [product.itemNo, product.category, product.model, product.height, product.density, product.poundWeight, product.priceText].join(' ').toLowerCase()
@@ -68,7 +68,7 @@ function productToRow(product: ProductRecord) {
     产品名称: product.model,
     草高: product.height,
     DTEX: product.poundWeight,
-    草丝: product.needlePrice,
+    加针价格: product.needlePrice,
     密度: product.density,
     针排: product.needleRow,
     底布: product.backing,
@@ -92,7 +92,7 @@ function rowToProduct(row: Record<string, any>): ProductRecord {
     poundWeight: String(row.DTEX || row.dtex || row.磅重 || ''),
     backing: String(row.底布 || row.backing || ''),
     priceText: String(row.阶梯价格 || row.priceText || '0'),
-    needlePrice: String(row.草丝 || row.needlePrice || ''),
+    needlePrice: String(row.加针价格 || row.草丝 || row.needlePrice || ''),
     warranty: String(row.抗老化 || row.warranty || ''),
     note: String(row.备注 || row.note || ''),
     imageDataUrl: '',
@@ -256,7 +256,7 @@ function changeOwnPassword() {
       <div class="admin-table product-admin-table">
         <div class="admin-head">
           <input type="checkbox" :checked="allFilteredProductsSelected" @change="toggleAllProducts">
-          <span>货号</span><span>类型</span><span>名称</span><span>草高</span><span>DTEX</span><span>草丝</span><span>密度</span><span>针排</span><span>底布</span><span>抗老化</span><span>阶梯价格</span><span>图片</span><span>备注</span><span>操作</span>
+          <span>货号</span><span>类型</span><span>名称</span><span>草高</span><span>DTEX</span><span>加针价格</span><span>密度</span><span>针排</span><span>底布</span><span>抗老化</span><span>阶梯价格</span><span>图片</span><span>备注</span><span>操作</span>
         </div>
         <article v-for="product in filteredProducts" :key="product.id">
           <input v-model="selectedProductIds" type="checkbox" :value="product.id">

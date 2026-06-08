@@ -161,6 +161,20 @@ export const useQuoteStore = defineStore('quote', {
       if (line)
         Object.assign(line, patch)
     },
+    updateProductNeedle(id: string, patch: Partial<Pick<QuoteLine, 'needleAddition' | 'needlePrice'>>) {
+      const line = this.lines.find(item => item.id === id)
+      if (!line)
+        return
+
+      if (patch.needleAddition !== undefined)
+        line.needleAddition = Number.isFinite(patch.needleAddition) && patch.needleAddition > 0 ? Math.floor(patch.needleAddition) : 0
+      if (patch.needlePrice !== undefined)
+        line.needlePrice = patch.needlePrice
+
+      const basePrice = line.rawPriceText ? selectUnitPrice(line.rawPriceText, line.quantity) : undefined
+      if (basePrice !== undefined)
+        line.unitPrice = priceWithNeedleAddition(basePrice, line.needlePrice || '', line.needleAddition || 0)
+    },
     updateProductQuantity(id: string, quantity: number) {
       const line = this.lines.find(item => item.id === id)
       if (!line)
