@@ -10,6 +10,7 @@
 <script setup lang="ts">
 import * as XLSX from 'xlsx'
 import { storeToRefs } from 'pinia'
+import { dailyLeadCreationSeries, type LeadCreationMode } from '~/features/crm/stats'
 import { useAuth } from '~/composables/useAuth'
 import { useAdminStore } from '~/stores/admin'
 import { useCrmStore } from '~/stores/crm'
@@ -25,6 +26,7 @@ const { users } = storeToRefs(admin)
 const keyword = ref('')
 const stageFilter = ref('全部')
 const selectedUserId = ref(admin.currentUser?.id || 'owner')
+const leadCreationMode = ref<LeadCreationMode>('all')
 const reminderVisible = ref(false)
 const reminderDismissed = ref('')
 const sampleDialogCustomerId = ref('')
@@ -104,6 +106,7 @@ const leadTableColumns = [
 ]
 
 const loginUser = computed(() => admin.currentUser)
+const isOwner = computed(() => loginUser.value?.role === 'owner')
 const canManageLeads = computed(() => loginUser.value?.role === 'owner' || loginUser.value?.role === 'manager' || Boolean(loginUser.value?.permissions.manageUsers))
 const activeUser = computed(() => canManageLeads.value ? users.value.find(user => user.id === selectedUserId.value) || loginUser.value : loginUser.value)
 const canDeleteCustomers = computed(() => loginUser.value?.role === 'owner' || loginUser.value?.role === 'manager')
@@ -375,6 +378,31 @@ const trendPoints = computed(() => {
 
 const trendPolyline = computed(() => trendPoints.value.map(point => `${point.x},${point.y}`).join(' '))
 
+const leadCreationModes: { label: string, value: LeadCreationMode }[] = [
+  { label: '全部', value: 'all' },
+  { label: '统一新增', value: 'assigned' },
+  { label: '自来新增', value: 'self' },
+]
+
+const leadCreationStart = computed(() => {
+  const date = new Date()
+  date.setDate(date.getDate() - 13)
+  return dateOnly(date)
+})
+
+const leadCreationDays = computed(() => dailyLeadCreationSeries(customers.value, leadCreationMode.value, leadCreationStart.value, 14))
+
+const leadCreationPoints = computed(() => {
+  const max = Math.max(...leadCreationDays.value.map(day => day.count), 1)
+  return leadCreationDays.value.map((day, index) => {
+    const x = 34 + index * 38
+    const y = 210 - (day.count / max) * 150
+    return { ...day, x, y }
+  })
+})
+
+const leadCreationPolyline = computed(() => leadCreationPoints.value.map(point => `${point.x},${point.y}`).join(' '))
+
 const intentCounts = computed(() => (['A', 'B', 'C', 'D', 'E', 'F'] as IntentLevel[]).map(level => ({
   level,
   count: scopedCustomers.value.filter(customer => customer.intentLevel === level).length,
@@ -427,6 +455,7 @@ function finishReminder(item: { customerId: string, followId: string }) {
 function addCustomer() {
   const id = crm.addCustomer({
     assignedToUserId: activeUser.value?.id || 'owner',
+    createdByUserId: loginUser.value?.id || activeUser.value?.id || 'owner',
     owner: activeUser.value?.displayName || '',
   })
   router.push(`/crm/customer/${id}`)
@@ -600,7 +629,7 @@ async function handleLogout() {
       <article><span>成交客户</span><b>{{ salesStats.wonCustomers }}</b><small>按已成交客户统计</small></article>
     </section>
 
-    <section class="crm-grid">
+    <section class="crm-grid" :class="{ 'owner-grid': isOwner }">
       <article class="chart-panel">
         <header>
           <h2>每月成交额曲线</h2>
@@ -613,6 +642,24 @@ async function handleLogout() {
             <circle :cx="point.x" :cy="point.y" r="5" />
             <text :x="point.x" y="235">{{ point.label }}</text>
             <text :x="point.x" :y="point.y - 10">¥{{ Math.round(point.amount) }}</text>
+          </g>
+        </svg>
+      </article>
+
+      <article v-if="isOwner" class="lead-creation-panel">
+        <header>
+          <h2>每日新增客资曲线</h2>
+          <div class="rank-switch">
+            <button v-for="item in leadCreationModes" :key="item.value" :class="{ active: leadCreationMode === item.value }" @click="leadCreationMode = item.value">{{ item.label }}</button>
+          </div>
+        </header>
+        <svg viewBox="0 0 560 250" role="img" aria-label="每日新增客资曲线">
+          <line x1="30" y1="210" x2="535" y2="210" />
+          <polyline :points="leadCreationPolyline" />
+          <g v-for="point in leadCreationPoints" :key="point.date">
+            <circle :cx="point.x" :cy="point.y" r="5" />
+            <text :x="point.x" y="235">{{ point.label }}</text>
+            <text :x="point.x" :y="point.y - 10">{{ point.count }}</text>
           </g>
         </svg>
       </article>
@@ -761,18 +808,20 @@ async function handleLogout() {
 .reminder-actions{display:flex;gap:8px}
 .reminder-actions button:last-child{background:#246ed8;border-color:#246ed8;color:#fff}
 .crm-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;max-width:1500px;margin:0 auto 18px}
-.crm-metrics article,.crm-panel,.chart-panel,.lead-panel,.ranking-panel{border:1px solid #d7e2ee;border-radius:16px;background:#fff;box-shadow:0 12px 34px rgba(38,59,84,.075)}
+.crm-metrics article,.crm-panel,.chart-panel,.lead-creation-panel,.lead-panel,.ranking-panel{border:1px solid #d7e2ee;border-radius:16px;background:#fff;box-shadow:0 12px 34px rgba(38,59,84,.075)}
 .crm-metrics article{padding:18px}
 .crm-metrics span{display:block;color:#64748b;font-size:13px;font-weight:800}
 .crm-metrics b{display:block;margin-top:8px;color:#10243f;font-size:26px}
 .crm-metrics small{display:block;margin-top:5px;color:#738196}
 .crm-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(360px,.85fr);grid-template-areas:"chart ranking" "chart lead";gap:18px;max-width:1500px;margin:0 auto 18px;align-items:stretch}
-.chart-panel,.lead-panel,.ranking-panel,.crm-panel{padding:20px}
+.crm-grid.owner-grid{grid-template-areas:"chart ranking" "leadCreation lead"}
+.chart-panel,.lead-creation-panel,.lead-panel,.ranking-panel,.crm-panel{padding:20px}
 .chart-panel{grid-area:chart;display:flex;flex-direction:column}
+.lead-creation-panel{grid-area:leadCreation;display:flex;flex-direction:column}
 .ranking-panel{grid-area:ranking}
 .lead-panel{grid-area:lead}
 .ranking-panel{min-height:240px;display:flex;flex-direction:column}
-.chart-panel header,.lead-panel header,.ranking-panel header,.crm-panel header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.chart-panel header,.lead-creation-panel header,.lead-panel header,.ranking-panel header,.crm-panel header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
 h2{margin:0;font-size:22px}
 .crm-panel small{display:block;margin-top:5px;color:#64748b;font-weight:800}
 .chart-panel header span,.lead-panel header span{color:#64748b;font-weight:800}
@@ -788,11 +837,14 @@ h2{margin:0;font-size:22px}
 .rank-row span{display:block;margin:3px 0 7px;color:#64748b;font-size:12px;font-weight:800}
 .rank-row i{display:block;height:6px;border-radius:999px;background:linear-gradient(90deg,#246ed8,#3fb6ff)}
 .rank-row em{color:#10243f;font-style:normal;font-weight:900}
-.chart-panel svg{width:100%;min-height:430px;flex:1}
-.chart-panel svg line{stroke:#dbe5f0;stroke-width:2}
-.chart-panel svg polyline{fill:none;stroke:#2f8cff;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
-.chart-panel svg circle{fill:#fff;stroke:#2f8cff;stroke-width:3}
-.chart-panel svg text{fill:#50627a;font-size:12px;text-anchor:middle}
+.chart-panel svg,.lead-creation-panel svg{width:100%;min-height:430px;flex:1}
+.lead-creation-panel svg{min-height:280px}
+.chart-panel svg line,.lead-creation-panel svg line{stroke:#dbe5f0;stroke-width:2}
+.chart-panel svg polyline,.lead-creation-panel svg polyline{fill:none;stroke:#2f8cff;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+.lead-creation-panel svg polyline{stroke:#25a18e}
+.chart-panel svg circle,.lead-creation-panel svg circle{fill:#fff;stroke:#2f8cff;stroke-width:3}
+.lead-creation-panel svg circle{stroke:#25a18e}
+.chart-panel svg text,.lead-creation-panel svg text{fill:#50627a;font-size:12px;text-anchor:middle}
 .lead-form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .lead-form input,.lead-form select,.lead-form button,.crm-tools select,.crm-tools input,.crm-tools button,.crm-tools label{min-height:40px;border:1px solid #d5dee9;border-radius:10px;background:#f8fafc;padding:8px 12px;color:#142235}
 .lead-form button{grid-column:1/-1;background:#246ed8;color:#fff;border-color:#246ed8;font-weight:900;cursor:pointer}
@@ -828,9 +880,10 @@ h2{margin:0;font-size:22px}
 .delete-customer:hover{background:#ffe8e8;border-color:#ffb9b9}
 .empty-preview{padding:22px;text-align:center;color:#64748b;font-weight:900}
 @media(max-width:1000px){
-  .crm-hero,.crm-panel header,.chart-panel header,.lead-panel header,.ranking-panel header{align-items:flex-start;flex-direction:column}
+  .crm-hero,.crm-panel header,.chart-panel header,.lead-creation-panel header,.lead-panel header,.ranking-panel header{align-items:flex-start;flex-direction:column}
   .crm-metrics,.crm-grid{grid-template-columns:1fr 1fr}
   .crm-grid{grid-template-columns:1fr;grid-template-areas:"chart" "ranking" "lead"}
+  .crm-grid.owner-grid{grid-template-areas:"chart" "leadCreation" "ranking" "lead"}
   .chart-panel svg{min-height:280px}
   .rank-list{max-height:260px}
   .crm-tools{min-width:0;width:100%;flex-direction:column}
