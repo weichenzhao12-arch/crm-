@@ -105,16 +105,17 @@ const heightOptions = computed(() => productFilterOptions('height'))
 const densityOptions = computed(() => productFilterOptions('density'))
 const poundWeightOptions = computed(() => productFilterOptions('poundWeight'))
 const filteredProducts = computed(() => pricing.value.products.filter((product) => {
-  const text = [product.itemNo, product.category, product.height, product.model, product.needleRow, product.density, product.poundWeight, product.backing, product.warranty, product.priceText].join(' ').toLowerCase()
+  const text = normalizeSearchText([product.itemNo, product.category, product.height, product.model, product.needleRow, product.density, product.poundWeight, product.backing, product.warranty, product.priceText].join(' '))
+  const searchText = normalizeSearchText(keyword.value)
   return (category.value === ALL || product.category === category.value)
-    && (heightFilter.value === ALL || product.height === heightFilter.value)
-    && (densityFilter.value === ALL || product.density === densityFilter.value)
-    && (poundWeightFilter.value === ALL || product.poundWeight === poundWeightFilter.value)
-    && (!keyword.value || text.includes(keyword.value.toLowerCase()))
+    && (heightFilter.value === ALL || normalizeProductFilterValue('height', product.height) === normalizeProductFilterValue('height', heightFilter.value))
+    && (densityFilter.value === ALL || normalizeProductFilterValue('density', product.density) === normalizeProductFilterValue('density', densityFilter.value))
+    && (poundWeightFilter.value === ALL || normalizeProductFilterValue('poundWeight', product.poundWeight) === normalizeProductFilterValue('poundWeight', poundWeightFilter.value))
+    && (!keyword.value || text.includes(searchText))
 }).slice(0, 120))
 const filteredProductsForSettings = computed(() => pricing.value.products.filter((product) => {
-  const text = [product.itemNo, product.category, product.height, product.model, product.priceText].join(' ').toLowerCase()
-  return !settingsKeyword.value || text.includes(settingsKeyword.value.toLowerCase())
+  const text = normalizeSearchText([product.itemNo, product.category, product.height, product.model, product.priceText].join(' '))
+  return !settingsKeyword.value || text.includes(normalizeSearchText(settingsKeyword.value))
 }).slice(0, 180))
 const filteredMaterialsForSettings = computed(() => pricing.value.materials.filter((material) => {
   const text = [material.name, material.spec, material.category, material.unit, material.note].join(' ').toLowerCase()
@@ -192,6 +193,20 @@ function selectCategory(value: string) {
   heightFilter.value = ALL
   densityFilter.value = ALL
   poundWeightFilter.value = ALL
+}
+
+function normalizeSearchText(value: unknown) {
+  return String(value ?? '')
+    .toLowerCase()
+    .replace(/毫米|㎜/g, 'mm')
+    .replace(/\s+/g, '')
+}
+
+function normalizeProductFilterValue(field: 'height' | 'density' | 'poundWeight', value: unknown) {
+  const text = normalizeSearchText(value)
+  if (field === 'height')
+    return text.replace(/(\d+(?:\.\d+)?)mm$/, '$1mm')
+  return text
 }
 
 function productFilterOptions(field: 'height' | 'density' | 'poundWeight') {
