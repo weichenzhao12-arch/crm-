@@ -1,0 +1,612 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>CRM 报价系统使用手册</title><style>
+@page{size:A4;margin:16mm 14mm}*{box-sizing:border-box}body{margin:0;color:#0f2742;font-family:"Microsoft YaHei","SimSun",Arial,sans-serif;font-size:12.5px;line-height:1.72;background:#fff}.cover{min-height:250mm;display:flex;flex-direction:column;justify-content:center;border:1px solid #c9d9ef;padding:38mm 22mm;background:linear-gradient(135deg,#f5f9ff 0%,#fff 60%);page-break-after:always}.eyebrow{color:#2367d5;font-weight:700;letter-spacing:.08em}h1{margin:14px 0 18px;font-size:34px;line-height:1.2;color:#102f52}.cover p{font-size:15px;color:#536a82;max-width:620px}.meta{margin-top:36px;display:grid;grid-template-columns:95px 1fr;gap:8px 16px;color:#29445f;font-size:13px}.chapter{page-break-inside:avoid;margin:0 0 18px;padding-bottom:8px}h2{margin:20px 0 10px;padding-left:10px;border-left:4px solid #2872df;font-size:21px;color:#113a66}h3{margin:16px 0 8px;font-size:16px;color:#143f6a}h4,h5{margin:12px 0 6px;font-size:14px;color:#174a7d}p{margin:5px 0}.lead{color:#536a82;font-size:13px;margin-bottom:10px}.diagram{width:100%;max-height:158mm;margin:8px 0 12px;border:1px solid #d7e4f3;border-radius:12px;background:#fbfdff}table{width:100%;border-collapse:collapse;margin:8px 0 12px;page-break-inside:avoid;font-size:11.2px}th{background:#dff5f1;color:#0f3358;font-weight:700}th,td{border:1px solid #a9d8d2;padding:5px 6px;vertical-align:top}ul{margin:5px 0 8px 18px;padding:0}li{margin:2px 0}code{padding:1px 4px;border-radius:4px;background:#eef5ff;color:#144f96;font-family:Consolas,monospace}.step{display:grid;grid-template-columns:22px 1fr;gap:8px;margin:4px 0}.step span{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#e8f2ff;color:#1d66d1;font-weight:700;font-size:11px}.manual-body{page-break-before:always}.manual-body h2{page-break-after:avoid}
+</style></head><body><section class="cover"><div class="eyebrow">交接资料 / 使用说明 / 维护说明</div><h1>CRM 报价系统<br>详细使用手册</h1><p>用于交接系统日常使用、客户管理、报价生成、后台维护、账号权限、云端存储和后续维护事项。建议新账号培训时按本手册顺序演示一遍。</p><div class="meta"><strong>系统地址</strong><span>https://glass.neiceban.com/</span><strong>项目名称</strong><span>CRM 报价系统</span><strong>生成时间</strong><span>2026/6/9 11:11:37</span><strong>适用对象</strong><span>主账号、管理员、销售人员、后续维护人员</span></div></section><section class="chapter"><h2>系统架构总览</h2><p class="lead">前台负责操作，接口负责校验和保存，D1 保存业务数据，R2 保存图片和附件，Cloudflare Pages 负责对外访问。</p><svg class="diagram" viewBox="0 0 960 420"><defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#1d66d1"/></marker></defs><g><rect x="40" y="80" width="180" height="82" rx="14" fill="#f2f8ff" stroke="#2f6fce" stroke-width="1.4"/><text x="130" y="110" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">使用人员</text><text x="130" y="136" text-anchor="middle" font-size="12" fill="#48627d">老板 / 管理 / 销售</text></g><g><rect x="285" y="45" width="220" height="82" rx="14" fill="#e8f2ff" stroke="#2f6fce" stroke-width="1.4"/><text x="395" y="75" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">CRM 报价系统前台</text><text x="395" y="101" text-anchor="middle" font-size="12" fill="#48627d">登录、CRM、客户、报价、后台</text></g><g><rect x="585" y="45" width="220" height="82" rx="14" fill="#eaf7f2" stroke="#2f6fce" stroke-width="1.4"/><text x="695" y="75" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">Hono 接口</text><text x="695" y="101" text-anchor="middle" font-size="12" fill="#48627d">登录、数据读写、图片上传</text></g><g><rect x="585" y="180" width="220" height="82" rx="14" fill="#fff8df" stroke="#2f6fce" stroke-width="1.4"/><text x="695" y="210" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">Cloudflare D1</text><text x="695" y="236" text-anchor="middle" font-size="12" fill="#48627d">账号、客户、产品、报价状态</text></g><g><rect x="585" y="310" width="220" height="82" rx="14" fill="#fff0ee" stroke="#2f6fce" stroke-width="1.4"/><text x="695" y="340" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">Cloudflare R2</text><text x="695" y="366" text-anchor="middle" font-size="12" fill="#48627d">产品图、辅料图、合同附件</text></g><path d="M220 121 L285 86" stroke="#1d66d1" stroke-width="2" fill="none" marker-end="url(#arrow)"/><text x="252.5" y="95.5" text-anchor="middle" font-size="12" fill="#1b4f91">访问</text><path d="M505 86 L585 86" stroke="#1d66d1" stroke-width="2" fill="none" marker-end="url(#arrow)"/><text x="545" y="78" text-anchor="middle" font-size="12" fill="#1b4f91">请求</text><path d="M695 127 L695 180" stroke="#1d66d1" stroke-width="2" fill="none" marker-end="url(#arrow)"/><text x="695" y="145.5" text-anchor="middle" font-size="12" fill="#1b4f91">保存</text><path d="M695 127 L695 310" stroke="#1d66d1" stroke-width="2" fill="none" marker-end="url(#arrow)"/><text x="695" y="210.5" text-anchor="middle" font-size="12" fill="#1b4f91">图片</text></svg></section>
+<section class="chapter"><h2>客户与报价业务流</h2><p class="lead">从新增客资到分配、跟进、报价、成交归档，每一步都有对应页面和权限控制。</p><svg class="diagram" viewBox="0 0 960 420"><defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#1d66d1"/></marker></defs><g><rect x="35" y="130" width="135" height="76" rx="14" fill="#f2f8ff" stroke="#2f6fce" stroke-width="1.4"/><text x="102.5" y="160" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">新增客资</text><text x="102.5" y="186" text-anchor="middle" font-size="12" fill="#48627d">单个/批量导入</text></g><g><rect x="210" y="130" width="135" height="76" rx="14" fill="#e8f2ff" stroke="#2f6fce" stroke-width="1.4"/><text x="277.5" y="160" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">分配客户</text><text x="277.5" y="186" text-anchor="middle" font-size="12" fill="#48627d">选择销售人员</text></g><g><rect x="385" y="130" width="135" height="76" rx="14" fill="#eaf7f2" stroke="#2f6fce" stroke-width="1.4"/><text x="452.5" y="160" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">销售跟进</text><text x="452.5" y="186" text-anchor="middle" font-size="12" fill="#48627d">记录/提醒/寄样</text></g><g><rect x="560" y="130" width="135" height="76" rx="14" fill="#fff8df" stroke="#2f6fce" stroke-width="1.4"/><text x="627.5" y="160" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">生成报价</text><text x="627.5" y="186" text-anchor="middle" font-size="12" fill="#48627d">报价单/PDF</text></g><g><rect x="735" y="130" width="160" height="76" rx="14" fill="#fff0ee" stroke="#2f6fce" stroke-width="1.4"/><text x="815" y="160" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">成交归档</text><text x="815" y="186" text-anchor="middle" font-size="12" fill="#48627d">成交价/合同</text></g><path d="M170 168 L210 168" stroke="#1d66d1" stroke-width="2" fill="none" marker-end="url(#arrow)"/><path d="M345 168 L385 168" stroke="#1d66d1" stroke-width="2" fill="none" marker-end="url(#arrow)"/><path d="M520 168 L560 168" stroke="#1d66d1" stroke-width="2" fill="none" marker-end="url(#arrow)"/><path d="M695 168 L735 168" stroke="#1d66d1" stroke-width="2" fill="none" marker-end="url(#arrow)"/></svg></section>
+<section class="chapter"><h2>权限与数据可见范围</h2><p class="lead">主账号看全部并管理账号；管理员按勾选权限操作；普通销售默认只看自己的客户。</p><svg class="diagram" viewBox="0 0 960 420"><defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#1d66d1"/></marker></defs><g><rect x="60" y="75" width="210" height="86" rx="14" fill="#fff0ee" stroke="#2f6fce" stroke-width="1.4"/><text x="165" y="105" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">主账号</text><text x="165" y="131" text-anchor="middle" font-size="12" fill="#48627d">全部客户、删除、账号权限</text></g><g><rect x="375" y="75" width="210" height="86" rx="14" fill="#fff8df" stroke="#2f6fce" stroke-width="1.4"/><text x="480" y="105" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">管理员</text><text x="480" y="131" text-anchor="middle" font-size="12" fill="#48627d">按授权管理产品/导入/导出</text></g><g><rect x="690" y="75" width="210" height="86" rx="14" fill="#e8f2ff" stroke="#2f6fce" stroke-width="1.4"/><text x="795" y="105" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">销售账号</text><text x="795" y="131" text-anchor="middle" font-size="12" fill="#48627d">只看本人客户，可自改密码</text></g><g><rect x="60" y="240" width="210" height="76" rx="14" fill="#f7fbff" stroke="#2f6fce" stroke-width="1.4"/><text x="165" y="270" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">全部客户数据</text><text x="165" y="296" text-anchor="middle" font-size="12" fill="#48627d">老板视角</text></g><g><rect x="375" y="240" width="210" height="76" rx="14" fill="#f7fbff" stroke="#2f6fce" stroke-width="1.4"/><text x="480" y="270" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">授权功能</text><text x="480" y="296" text-anchor="middle" font-size="12" fill="#48627d">后台勾选控制</text></g><g><rect x="690" y="240" width="210" height="76" rx="14" fill="#f7fbff" stroke="#2f6fce" stroke-width="1.4"/><text x="795" y="270" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">本人客户数据</text><text x="795" y="296" text-anchor="middle" font-size="12" fill="#48627d">导入后默认归自己</text></g><path d="M165 161 L165 240" stroke="#1d66d1" stroke-width="2" fill="none" marker-end="url(#arrow)"/><path d="M480 161 L480 240" stroke="#1d66d1" stroke-width="2" fill="none" marker-end="url(#arrow)"/><path d="M795 161 L795 240" stroke="#1d66d1" stroke-width="2" fill="none" marker-end="url(#arrow)"/></svg></section>
+<section class="chapter"><h2>报价生成与价格逻辑</h2><p class="lead">产品支持阶梯价格、加针价格、辅料用量换算、运费施工按平方、PDF/Word 导出和客户报价记录保存。</p><svg class="diagram" viewBox="0 0 960 420"><defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#1d66d1"/></marker></defs><g><rect x="45" y="70" width="170" height="78" rx="14" fill="#e8f2ff" stroke="#2f6fce" stroke-width="1.4"/><text x="130" y="100" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">选择产品</text><text x="130" y="126" text-anchor="middle" font-size="12" fill="#48627d">阶梯价/图片/参数</text></g><g><rect x="275" y="70" width="170" height="78" rx="14" fill="#fff8df" stroke="#2f6fce" stroke-width="1.4"/><text x="360" y="100" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">设置加针</text><text x="360" y="126" text-anchor="middle" font-size="12" fill="#48627d">后台默认，报价页可临时改</text></g><g><rect x="505" y="70" width="170" height="78" rx="14" fill="#eaf7f2" stroke="#2f6fce" stroke-width="1.4"/><text x="590" y="100" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">选择辅料</text><text x="590" y="126" text-anchor="middle" font-size="12" fill="#48627d">套餐/图片/吨价</text></g><g><rect x="735" y="70" width="170" height="78" rx="14" fill="#f2f8ff" stroke="#2f6fce" stroke-width="1.4"/><text x="820" y="100" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">填写面积</text><text x="820" y="126" text-anchor="middle" font-size="12" fill="#48627d">运费施工按平方</text></g><g><rect x="275" y="245" width="170" height="78" rx="14" fill="#fff0ee" stroke="#2f6fce" stroke-width="1.4"/><text x="360" y="275" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">计算小计</text><text x="360" y="301" text-anchor="middle" font-size="12" fill="#48627d">产品/辅料/税费/总价</text></g><g><rect x="505" y="245" width="170" height="78" rx="14" fill="#f4efff" stroke="#2f6fce" stroke-width="1.4"/><text x="590" y="275" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">导出报价单</text><text x="590" y="301" text-anchor="middle" font-size="12" fill="#48627d">PDF / Word / 保存客户</text></g><path d="M215 109 L275 109" stroke="#1d66d1" stroke-width="2" fill="none" marker-end="url(#arrow)"/><path d="M445 109 L505 109" stroke="#1d66d1" stroke-width="2" fill="none" marker-end="url(#arrow)"/><path d="M675 109 L735 109" stroke="#1d66d1" stroke-width="2" fill="none" marker-end="url(#arrow)"/><path d="M820 148 L360 245" stroke="#1d66d1" stroke-width="2" fill="none" marker-end="url(#arrow)"/><text x="590" y="188.5" text-anchor="middle" font-size="12" fill="#1b4f91">计算</text><path d="M445 284 L505 284" stroke="#1d66d1" stroke-width="2" fill="none" marker-end="url(#arrow)"/></svg></section>
+<section class="chapter"><h2>数据同步与备份</h2><p class="lead">系统上线后，账号、客户、产品、价格等保存到 D1；图片和附件保存到 R2；代码和手册同步到 GitHub。</p><svg class="diagram" viewBox="0 0 960 420"><defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#1d66d1"/></marker></defs><g><rect x="80" y="105" width="180" height="78" rx="14" fill="#f2f8ff" stroke="#2f6fce" stroke-width="1.4"/><text x="170" y="135" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">浏览器页面</text><text x="170" y="161" text-anchor="middle" font-size="12" fill="#48627d">日常操作</text></g><g><rect x="380" y="105" width="180" height="78" rx="14" fill="#eaf7f2" stroke="#2f6fce" stroke-width="1.4"/><text x="470" y="135" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">接口服务</text><text x="470" y="161" text-anchor="middle" font-size="12" fill="#48627d">校验账号和权限</text></g><g><rect x="675" y="55" width="180" height="78" rx="14" fill="#fff8df" stroke="#2f6fce" stroke-width="1.4"/><text x="765" y="85" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">D1 数据库</text><text x="765" y="111" text-anchor="middle" font-size="12" fill="#48627d">业务数据</text></g><g><rect x="675" y="205" width="180" height="78" rx="14" fill="#fff0ee" stroke="#2f6fce" stroke-width="1.4"/><text x="765" y="235" text-anchor="middle" font-size="16" font-weight="700" fill="#123a63">R2 图片库</text><text x="765" y="261" text-anchor="middle" font-size="12" fill="#48627d">图片/合同</text></g><path d="M260 144 L380 144" stroke="#1d66d1" stroke-width="2" fill="none" marker-end="url(#arrow)"/><text x="320" y="136" text-anchor="middle" font-size="12" fill="#1b4f91">保存/查询</text><path d="M560 128 L675 94" stroke="#1d66d1" stroke-width="2" fill="none" marker-end="url(#arrow)"/><text x="617.5" y="103" text-anchor="middle" font-size="12" fill="#1b4f91">数据</text><path d="M560 158 L675 244" stroke="#1d66d1" stroke-width="2" fill="none" marker-end="url(#arrow)"/><text x="617.5" y="193" text-anchor="middle" font-size="12" fill="#1b4f91">图片</text></svg></section><section class="manual-body"><p>版本日期：2026-06-09</p>
+<p>系统地址：https://glass.neiceban.com/</p>
+<h3>1. 系统用途</h3>
+<p>本系统用于管理客户客资、销售跟进、报价单生成、产品和辅料价格维护、账号权限管理。上线后数据存储在 Cloudflare D1 数据库，图片存储在 Cloudflare R2，用户登录后才能进入系统。</p>
+<p>系统主要包含 4 个页面：</p>
+<table><thead><tr><th>页面</th><th>地址</th><th>主要用途</th></tr></thead><tbody><tr><td>登录页</td><td><code>/login</code></td><td>输入账号密码进入系统</td></tr><tr><td>CRM 首页</td><td><code>/</code> 或 <code>/crm</code></td><td>查看销售数据、分配客资、客户预览</td></tr><tr><td>客户管理</td><td><code>/crm/customers</code></td><td>查看完整客户列表、导入导出、筛选、批量操作</td></tr><tr><td>客户详情</td><td><code>/crm/customer/客户ID</code></td><td>编辑客户资料、跟进、提醒、报价记录</td></tr><tr><td>报价系统</td><td><code>/quote</code></td><td>选择产品和辅料，生成报价单、PDF、Word</td></tr><tr><td>管理后台</td><td><code>/admin</code></td><td>管理产品、辅料、账号权限、默认图片</td></tr></tbody></table>
+<h3>2. 登录和账号</h3>
+<p class="step"><span>1</span>打开 <code>https://glass.neiceban.com/</code>。</p>
+<p class="step"><span>2</span>系统会跳转到登录页面。</p>
+<p class="step"><span>3</span>输入后台创建的账号和密码。</p>
+<p class="step"><span>4</span>点击 <code>登录系统</code>。</p>
+<p>注意事项：</p>
+<ul>
+<li>账号不能自行注册，必须由主账号或有账号管理权限的人在后台添加。</li>
+<li>子账号可以登录后修改自己的密码。</li>
+<li>如果登录后页面数据加载较慢，通常是因为系统正在同步云端客户、产品、账号数据。</li>
+<li>如果浏览器自动填充旧密码，建议清除浏览器保存密码，或手动重新输入。</li>
+</ul>
+<h3>3. 权限说明</h3>
+<p>后台账号有角色和单独权限。角色会给一套默认权限，也可以手动勾选调整。</p>
+<table><thead><tr><th>权限项</th><th>含义</th><th>典型使用对象</th></tr></thead><tbody><tr><td>启用</td><td>是否允许该账号登录</td><td>所有账号</td></tr><tr><td>产品管理</td><td>可以维护草坪产品、导入产品表、上传产品图片</td><td>主账号、管理员</td></tr><tr><td>辅料管理</td><td>可以维护辅料、套餐、默认图片和价格</td><td>主账号、管理员</td></tr><tr><td>数据导入管理</td><td>可以导入产品表、客资表等批量数据</td><td>主账号、管理员</td></tr><tr><td>账号/客户管理</td><td>可以新增账号、设置权限、查看和分配全部客户</td><td>主账号、管理员</td></tr><tr><td>报价/客户导出</td><td>可以导出报价单或客户表</td><td>主账号、管理员或指定人员</td></tr><tr><td>报价临时改价</td><td>可以在报价时临时修改价格，但不改变后台默认价格</td><td>销售、报价员</td></tr></tbody></table>
+<p>角色建议：</p>
+<table><thead><tr><th>角色</th><th>建议说明</th></tr></thead><tbody><tr><td>主账号</td><td>老板或系统最高管理员，可以看到全部数据、删除客资、管理账号</td></tr><tr><td>管理员</td><td>可协助管理产品、辅料、导入数据、分配客资</td></tr><tr><td>报价员/销售</td><td>只看自己的客户，能新建客户、跟进、报价，通常不能导出全部客户</td></tr><tr><td>只读</td><td>只查看，不建议作为日常销售账号</td></tr></tbody></table>
+<h3>4. CRM 首页</h3>
+<p>CRM 首页用于快速查看整体情况。</p>
+<p>主账号或有管理权限账号可以看到：</p>
+<ul>
+<li>可见客户数量</li>
+<li>昨日成交金额</li>
+<li>本月成交金额</li>
+<li>成交客户数</li>
+<li>每月成交额曲线</li>
+<li>每日新增客资曲线</li>
+<li>本月成交排名</li>
+<li>客资分配表单</li>
+<li>客户列表预览</li>
+</ul>
+<p>普通销售账号可以看到：</p>
+<ul>
+<li>自己的客户数据</li>
+<li>自己相关的成交数据</li>
+<li>销售成交排名</li>
+<li>客户列表预览</li>
+</ul>
+<h4>每日新增客资曲线</h4>
+<p>仅主账号可见。</p>
+<p>滑块说明：</p>
+<table><thead><tr><th>选项</th><th>统计口径</th></tr></thead><tbody><tr><td>全部</td><td>所有新增客资</td></tr><tr><td>统一新增</td><td>创建人和负责人不同，例如主账号或管理员分配给销售</td></tr><tr><td>自来新增</td><td>创建人和负责人相同，例如销售自己新建或导入自己的客户</td></tr></tbody></table>
+<h3>5. 客资分配</h3>
+<p>位置：CRM 首页右侧 <code>客资分配</code>。</p>
+<h4>单条分配</h4>
+<p>可填写的信息包括：</p>
+<ul>
+<li>客户名称</li>
+<li>联系人</li>
+<li>电话</li>
+<li>微信号</li>
+<li>抖音账号来源</li>
+<li>成交属性：高/中/低/无效</li>
+<li>客户属性：B端/C端</li>
+<li>地址</li>
+<li>意向等级</li>
+<li>意向使用场景</li>
+<li>数量（平方）</li>
+<li>使用时间</li>
+<li>客户情况沟通内容</li>
+<li>分配给哪个销售</li>
+</ul>
+<p>最少可以只填电话或微信，然后选择销售，点击 <code>分配客资</code>。</p>
+<h4>批量分配</h4>
+<p>位置：CRM 首页 <code>客资分配</code> 下方的 <code>批量分配</code>。</p>
+<p>操作步骤：</p>
+<p class="step"><span>1</span>在 <code>批量分配</code> 区域选择销售人员。</p>
+<p class="step"><span>2</span>点击 <code>上传表格</code>。</p>
+<p class="step"><span>3</span>选择 Excel 客资表。</p>
+<p class="step"><span>4</span>系统会把表格内有效客资统一分配给选中的销售。</p>
+<p>规则：</p>
+<ul>
+<li>导入是追加，不会删除原有客资。</li>
+<li>表格中只有序号、没有客户名称/联系人/电话/微信/联系方式的空白行不会导入。</li>
+<li>导入后客户负责人会变成选择的销售人员。</li>
+</ul>
+<h3>6. 客户管理页面</h3>
+<p>地址：<code>/crm/customers</code></p>
+<p>客户管理页面用于横向查看完整客资表。</p>
+<p>主要功能：</p>
+<ul>
+<li>查看全部客户或个人客户</li>
+<li>搜索客户、联系方式、来源、地址、沟通内容</li>
+<li>按状态筛选：全部、未成交、已成交、无效</li>
+<li>今日跟进</li>
+<li>今日新增</li>
+<li>重点关注</li>
+<li>年份、月份筛选</li>
+<li>新建客户</li>
+<li>导入客资</li>
+<li>下载模板</li>
+<li>导出客资</li>
+<li>批量删除</li>
+<li>批量转移客户负责人</li>
+<li>寄样和物流跟踪</li>
+</ul>
+<h4>客户视角</h4>
+<p>主账号或有管理权限账号可以选择：</p>
+<ul>
+<li>全部客户</li>
+<li>某个销售人员的客户</li>
+</ul>
+<p>普通销售只能看到自己的客户。</p>
+<h4>筛选说明</h4>
+<table><thead><tr><th>筛选</th><th>含义</th></tr></thead><tbody><tr><td>全部</td><td>显示当前权限下所有客户</td></tr><tr><td>未成交</td><td>不包含已成交和无效</td></tr><tr><td>已成交</td><td>客户状态为已成交</td></tr><tr><td>无效</td><td>客户状态为无效</td></tr><tr><td>今日跟进</td><td>今天新增过跟进记录或提醒的客户</td></tr><tr><td>今日新增</td><td>今天新建或导入的客户</td></tr><tr><td>重点关注</td><td>点击星标后的重点客户</td></tr></tbody></table>
+<h4>新建客户</h4>
+<p class="step"><span>1</span>点击 <code>新增客户</code>。</p>
+<p class="step"><span>2</span>在弹窗里填写客户资料。</p>
+<p class="step"><span>3</span>点击右下角 <code>保存客户</code>。</p>
+<p>注意：</p>
+<ul>
+<li>不点击保存，客户不会添加成功。</li>
+<li>如果未保存直接关闭，会出现未保存提示。</li>
+</ul>
+<h4>导入客资</h4>
+<p class="step"><span>1</span>点击 <code>导入客资</code>。</p>
+<p class="step"><span>2</span>选择 Excel 表格。</p>
+<p class="step"><span>3</span>系统会追加导入有效行。</p>
+<p>导入规则：</p>
+<ul>
+<li>空白行不会导入。</li>
+<li>只有序号但没有客户名称/联系方式的行不会导入。</li>
+<li>跟踪反馈会同步到客户跟进记录。</li>
+<li>导入不会清空之前客户。</li>
+</ul>
+<h4>导出客资</h4>
+<p>只有主账号、管理员或有 <code>报价/客户导出</code> 权限的账号可以导出完整客资。</p>
+<p>普通销售：</p>
+<ul>
+<li>不能导出客户资料。</li>
+<li>只能下载导入模板。</li>
+</ul>
+<h4>批量删除</h4>
+<p>主账号或管理员可以批量删除客资。</p>
+<p>注意：</p>
+<ul>
+<li>删除后无法恢复。</li>
+<li>普通销售没有删除客资权限。</li>
+</ul>
+<h4>批量转移负责人</h4>
+<p>用于人员离职或客户重新分配。</p>
+<p>操作：</p>
+<p class="step"><span>1</span>勾选需要转移的客户。</p>
+<p class="step"><span>2</span>选择新负责人。</p>
+<p class="step"><span>3</span>点击批量转移。</p>
+<h3>7. 客户详情页</h3>
+<p>进入方式：</p>
+<ul>
+<li>在客户列表点击某一行客户。</li>
+<li>在 CRM 首页客户预览点击客户。</li>
+</ul>
+<p>客户详情页分为两部分：</p>
+<p class="step"><span>1</span>客户资料</p>
+<p class="step"><span>2</span>跟进记录 / 报价记录</p>
+<h4>客户资料</h4>
+<p>可维护内容：</p>
+<ul>
+<li>日期</li>
+<li>客户名称</li>
+<li>客户联系方式</li>
+<li>抖音账号来源</li>
+<li>成交属性高中低无效</li>
+<li>客户属性BC端</li>
+<li>地址</li>
+<li>数量（平方）</li>
+<li>使用时间</li>
+<li>意向等级</li>
+<li>分配给</li>
+<li>负责人</li>
+<li>跟进阶段</li>
+<li>客户情况沟通内容</li>
+<li>备注</li>
+</ul>
+<p>跟进阶段包括：</p>
+<ul>
+<li>新客资</li>
+<li>已报价</li>
+<li>跟进中</li>
+<li>已成交</li>
+<li>无效</li>
+</ul>
+<h4>跟进记录</h4>
+<p>功能：</p>
+<ul>
+<li>新增跟进</li>
+<li>修改跟进内容</li>
+<li>删除跟进</li>
+<li>修改跟进日期</li>
+</ul>
+<p>跟进记录日期显示为一个小日期块，上面显示年份，下面显示月份和日期。</p>
+<h4>添加提醒</h4>
+<p>用于客户要求后续联系，例如“三天后联系我”。</p>
+<p>操作：</p>
+<p class="step"><span>1</span>点击 <code>添加提醒</code>。</p>
+<p class="step"><span>2</span>设置提醒日期。</p>
+<p class="step"><span>3</span>可设置提醒时间、提醒内容、下一步动作。</p>
+<p class="step"><span>4</span>保存提醒。</p>
+<p>提醒显示：</p>
+<ul>
+<li>登录系统后，如果当天有到期提醒，会弹窗提示。</li>
+<li>提醒可以标记完成。</li>
+</ul>
+<h4>报价记录</h4>
+<p>点击右侧滑块切换到 <code>报价记录</code>。</p>
+<p>可操作：</p>
+<ul>
+<li>查看客户历史报价</li>
+<li>上传合同</li>
+<li>标记已成交</li>
+<li>输入成交价</li>
+<li>修改报价日期</li>
+<li>查看报价单 PDF</li>
+</ul>
+<p>选择 <code>已成交</code> 后：</p>
+<ul>
+<li>客户状态会变成已成交。</li>
+<li>成交金额会计入首页成交统计和销售排名。</li>
+</ul>
+<h3>8. 新建报价流程</h3>
+<p>有两种进入方式：</p>
+<h4>从客户详情进入</h4>
+<p class="step"><span>1</span>打开客户详情。</p>
+<p class="step"><span>2</span>点击 <code>新建报价</code>。</p>
+<p class="step"><span>3</span>系统进入报价页面，并自动带入当前客户。</p>
+<p class="step"><span>4</span>生成或导出报价单后，可点击 <code>返回当前客户</code>。</p>
+<p class="step"><span>5</span>报价记录会同步保存到该客户下。</p>
+<h4>直接进入报价系统</h4>
+<p class="step"><span>1</span>点击 <code>进入报价</code> 或打开 <code>/quote</code>。</p>
+<p class="step"><span>2</span>手动填写客户信息和报价内容。</p>
+<p class="step"><span>3</span>导出报价单。</p>
+<h3>9. 报价系统使用</h3>
+<p>报价页面主要分为：</p>
+<ul>
+<li>报价基础信息</li>
+<li>草坪产品</li>
+<li>报价单参数显示</li>
+<li>施工辅料</li>
+<li>实时价格</li>
+<li>报价单预览/导出</li>
+</ul>
+<h4>场地面积</h4>
+<p>可输入场地面积。报价面积、辅料用量、运费、施工费都会按该面积计算。</p>
+<h4>产品筛选</h4>
+<p>可按以下条件筛选：</p>
+<ul>
+<li>产品类型</li>
+<li>草高</li>
+<li>密度</li>
+<li>磅重</li>
+<li>搜索货号、名称、草高、密度、基布、价格</li>
+</ul>
+<p>草高支持类似：</p>
+<ul>
+<li><code>50mm</code></li>
+<li><code>50MM</code></li>
+<li><code>50毫米</code></li>
+</ul>
+<h4>加针功能</h4>
+<p>后台可设置产品默认 <code>加针价格</code>。</p>
+<p>生成报价时：</p>
+<p class="step"><span>1</span>先把产品加入右侧 <code>产品明细</code>。</p>
+<p class="step"><span>2</span>在产品明细里填写：</p>
+<ul>
+<li>加针数</li>
+<li>每针加价</li>
+</ul>
+<p class="step"><span>3</span>单价会自动变为：原阶梯单价 + 加针数 × 每针加价。</p>
+<p class="step"><span>4</span>导出的报价单只显示最终针数。</p>
+<p>示例：</p>
+<ul>
+<li>原密度：15针</li>
+<li>加针数：3</li>
+<li>报价单显示：18针</li>
+</ul>
+<h4>报价单参数显示</h4>
+<p>可勾选是否在报价单显示：</p>
+<ul>
+<li>草高</li>
+<li>DTEX</li>
+<li>草丝</li>
+<li>密度</li>
+<li>针排</li>
+<li>底布</li>
+<li>抗老化</li>
+</ul>
+<p>未勾选的参数不会在报价单显示。</p>
+<h4>辅料报价</h4>
+<p>辅料包括但不限于：</p>
+<ul>
+<li>橡胶颗粒</li>
+<li>石英砂</li>
+<li>胶水</li>
+<li>减震垫</li>
+<li>接缝布/连接带</li>
+<li>运动白草</li>
+<li>其他辅料</li>
+</ul>
+<p>辅料可按平方自动计算用量。</p>
+<p>颗粒规则：</p>
+<ul>
+<li>每袋 25kg。</li>
+<li>如果需要 20kg，按 25kg 计算。</li>
+<li>如果需要 110kg，按 125kg 计算。</li>
+<li>最终换算为吨计价。</li>
+</ul>
+<p>石英砂：</p>
+<ul>
+<li>价格按吨计算。</li>
+</ul>
+<h4>包工包料套餐</h4>
+<p>可以选择套餐方式，例如辅料 A、辅料 B。套餐也可以在后台维护。</p>
+<h4>运费和施工费</h4>
+<p>运费和施工费按输入的平方计算。</p>
+<p>可选择：</p>
+<ul>
+<li>运费+施工费合并填写</li>
+<li>运费、施工费分开填写</li>
+</ul>
+<p>后期如需做运费模板，可以继续扩展。</p>
+<h4>图片</h4>
+<p>产品和辅料可以有默认图片。</p>
+<p>图片来源：</p>
+<ul>
+<li>后台上传的默认图片</li>
+<li>报价时临时上传替换的图片</li>
+</ul>
+<p>导出报价单时会显示对应图片。</p>
+<h3>10. 报价单导出</h3>
+<p>支持：</p>
+<ul>
+<li>PDF</li>
+<li>Word/RTF</li>
+<li>打印</li>
+</ul>
+<p>导出格式：</p>
+<ul>
+<li>A4 页面</li>
+<li>按公文排版风格</li>
+<li>尽量压缩到一页</li>
+<li>总价、税费、产品信息、辅料信息按当前设置显示</li>
+</ul>
+<p>注意：</p>
+<ul>
+<li>如果没有税费，不显示税费。</li>
+<li>如果有税费，显示税费。</li>
+<li>导出的报价单里显示的是最终报价结果，不显示后台不需要给客户看的内部信息。</li>
+</ul>
+<h3>11. 管理后台</h3>
+<p>地址：<code>/admin</code></p>
+<p>后台主要分为：</p>
+<ul>
+<li>产品管理</li>
+<li>辅料管理</li>
+<li>账号权限</li>
+</ul>
+<h4>产品管理</h4>
+<p>可维护字段：</p>
+<ul>
+<li>货号</li>
+<li>类型</li>
+<li>名称</li>
+<li>草高</li>
+<li>DTEX</li>
+<li>加针价格</li>
+<li>密度</li>
+<li>针排</li>
+<li>底布</li>
+<li>抗老化</li>
+<li>阶梯价格</li>
+<li>图片</li>
+<li>备注</li>
+</ul>
+<p>功能：</p>
+<ul>
+<li>新增产品</li>
+<li>删除产品</li>
+<li>批量删除</li>
+<li>上传默认图片</li>
+<li>导出标准表格</li>
+<li>导入产品表格</li>
+</ul>
+<h4>产品类型自动生成</h4>
+<p>报价页面的产品类型按钮由产品数据自动生成。</p>
+<p>如果导入表格中出现新类型，例如 <code>高尔夫草</code>，导入成功后报价页面会自动出现该类型按钮。</p>
+<h4>产品价格</h4>
+<p>产品支持阶梯价格，不是固定死价。</p>
+<p>示例：</p>
+<p>```text</p>
+<p>50-1000平 19.5元/平</p>
+<p>1000平以上 19元/平</p>
+<p>```</p>
+<p>报价系统会根据报价面积自动选择对应阶梯单价。</p>
+<h4>加针价格</h4>
+<p>后台产品管理中维护 <code>加针价格</code>。</p>
+<p>例如：</p>
+<ul>
+<li>加针价格：1元</li>
+<li>报价时加 3 针</li>
+<li>每平方单价增加 3 元</li>
+</ul>
+<h4>辅料管理</h4>
+<p>可维护：</p>
+<ul>
+<li>辅料类型</li>
+<li>名称</li>
+<li>规格</li>
+<li>单位</li>
+<li>单价</li>
+<li>默认图片</li>
+<li>备注</li>
+</ul>
+<p>功能：</p>
+<ul>
+<li>新增辅料</li>
+<li>修改价格</li>
+<li>上传图片</li>
+<li>删除辅料</li>
+<li>批量删除</li>
+</ul>
+<h4>账号权限</h4>
+<p>主账号或有权限账号可维护：</p>
+<ul>
+<li>新增账号</li>
+<li>删除账号</li>
+<li>修改账号名称</li>
+<li>修改密码</li>
+<li>设置角色</li>
+<li>设置具体权限</li>
+<li>启用/禁用账号</li>
+</ul>
+<p>子账号：</p>
+<ul>
+<li>可以修改自己的密码。</li>
+<li>修改后会同步到主账号后台管理。</li>
+</ul>
+<h3>12. 数据导入模板</h3>
+<h4>客资导入表建议字段</h4>
+<table><thead><tr><th>字段</th><th>说明</th></tr></thead><tbody><tr><td>序号</td><td>可有可无</td></tr><tr><td>日期</td><td>客户创建日期</td></tr><tr><td>客户名称</td><td>客户名称</td></tr><tr><td>客户联系方式</td><td>电话、微信或其他联系方式</td></tr><tr><td>抖音账号来源</td><td>来源账号</td></tr><tr><td>成交属性高中低无效</td><td>高/中/低/无效</td></tr><tr><td>客户属性BC端</td><td>B端/C端</td></tr><tr><td>地址</td><td>客户地址</td></tr><tr><td>客户情况沟通内容</td><td>沟通内容</td></tr><tr><td>数量(平方)</td><td>面积</td></tr><tr><td>使用时间</td><td>客户预计使用时间</td></tr><tr><td>跟踪反馈</td><td>可同步到跟进记录</td></tr><tr><td>是否寄样品</td><td>是/否</td></tr><tr><td>样品规格</td><td>寄样规格</td></tr><tr><td>样品单号</td><td>物流单号</td></tr></tbody></table>
+<h4>产品导入表建议字段</h4>
+<table><thead><tr><th>字段</th><th>说明</th></tr></thead><tbody><tr><td>货号</td><td>产品货号</td></tr><tr><td>产品类型</td><td>如围挡草、休闲草、运动草</td></tr><tr><td>产品名称</td><td>产品名称</td></tr><tr><td>草高</td><td>如 50mm</td></tr><tr><td>DTEX</td><td>如 8800D</td></tr><tr><td>加针价格</td><td>如 1元</td></tr><tr><td>密度</td><td>如 15针或 15750簇（15针）</td></tr><tr><td>针排</td><td>如 3/8、3/16</td></tr><tr><td>底布</td><td>底布信息</td></tr><tr><td>抗老化</td><td>年限</td></tr><tr><td>阶梯价格</td><td>按面积阶梯填写</td></tr><tr><td>默认图片</td><td>导入表通常不放图片，图片在后台上传</td></tr><tr><td>备注</td><td>其他说明</td></tr></tbody></table>
+<h3>13. 图片管理</h3>
+<p>图片分两类：</p>
+<h4>默认图片</h4>
+<p>位置：管理后台。</p>
+<p>适合：</p>
+<ul>
+<li>产品固定图片</li>
+<li>辅料固定图片</li>
+</ul>
+<p>上线后后台上传的图片会保存到 R2，不会因为换电脑丢失。</p>
+<h4>临时图片</h4>
+<p>位置：报价页面。</p>
+<p>适合：</p>
+<ul>
+<li>某一次报价临时替换图片</li>
+<li>不需要长期保存到产品默认资料里的图片</li>
+</ul>
+<h3>14. 数据保存说明</h3>
+<p>系统数据保存分为：</p>
+<table><thead><tr><th>数据</th><th>存储位置</th></tr></thead><tbody><tr><td>账号、权限</td><td>D1 数据库</td></tr><tr><td>客户资料</td><td>D1 数据库</td></tr><tr><td>产品和辅料数据</td><td>D1 数据库</td></tr><tr><td>图片</td><td>R2 存储</td></tr><tr><td>本地缓存</td><td>浏览器本地缓存，用于加快打开速度</td></tr></tbody></table>
+<p>注意：</p>
+<ul>
+<li>正式数据以云端为准。</li>
+<li>如果换电脑登录，正常情况下会同步云端数据。</li>
+<li>如果发现页面显示旧数据，可刷新页面或重新登录。</li>
+</ul>
+<h3>15. 常见问题</h3>
+<h4>1. 登录后反应慢</h4>
+<p>可能原因：</p>
+<ul>
+<li>正在同步云端数据。</li>
+<li>网络到 Cloudflare 较慢。</li>
+<li>客户数据、图片、产品数据较多。</li>
+</ul>
+<p>处理：</p>
+<ul>
+<li>等待几秒。</li>
+<li>刷新页面。</li>
+<li>检查网络。</li>
+</ul>
+<h4>2. 页面显示旧内容</h4>
+<p>处理：</p>
+<ul>
+<li>Chrome 按 <code>Ctrl + F5</code> 强制刷新。</li>
+<li>退出登录后重新登录。</li>
+<li>如仍不行，让管理员检查是否已部署最新版本。</li>
+</ul>
+<h4>3. 新增账号登录不进去</h4>
+<p>检查：</p>
+<ul>
+<li>账号是否启用。</li>
+<li>密码是否正确。</li>
+<li>是否已经保存后台数据。</li>
+<li>是否存在中文账号输入法空格。</li>
+</ul>
+<h4>4. 导入后客户变成未命名客户</h4>
+<p>原因：</p>
+<ul>
+<li>表格行没有客户名称，也没有联系方式。</li>
+</ul>
+<p>现在系统会过滤完全空白行，但如果联系方式列名不规范，可能无法识别。</p>
+<p>建议使用系统下载的模板。</p>
+<h4>5. 报价单没有显示图片</h4>
+<p>检查：</p>
+<ul>
+<li>后台产品或辅料是否上传默认图片。</li>
+<li>报价时是否临时上传图片。</li>
+<li>图片是否上传成功。</li>
+<li>网络是否能访问 R2 图片。</li>
+</ul>
+<h4>6. 普通销售看不到全部客户</h4>
+<p>这是正常权限设计。</p>
+<p>普通销售只能看到自己的客户，主账号或管理员可查看全部。</p>
+<h4>7. 普通销售不能导出客资</h4>
+<p>这是正常权限设计。</p>
+<p>普通销售只能下载导入模板，不能导出完整客户资料。</p>
+<h3>16. 日常建议流程</h3>
+<h4>销售日常流程</h4>
+<p class="step"><span>1</span>登录系统。</p>
+<p class="step"><span>2</span>查看自己的客户。</p>
+<p class="step"><span>3</span>新增客户或接收分配客资。</p>
+<p class="step"><span>4</span>在客户详情中记录跟进。</p>
+<p class="step"><span>5</span>需要报价时点击 <code>新建报价</code>。</p>
+<p class="step"><span>6</span>生成报价单。</p>
+<p class="step"><span>7</span>返回客户详情查看报价记录。</p>
+<p class="step"><span>8</span>成交后勾选已成交，填写成交价。</p>
+<p class="step"><span>9</span>如有合同，上传合同。</p>
+<h4>管理员日常流程</h4>
+<p class="step"><span>1</span>登录系统。</p>
+<p class="step"><span>2</span>查看首页成交数据和新增客资。</p>
+<p class="step"><span>3</span>分配新客资。</p>
+<p class="step"><span>4</span>批量导入客资。</p>
+<p class="step"><span>5</span>检查销售成交排名。</p>
+<p class="step"><span>6</span>更新产品价格和辅料价格。</p>
+<p class="step"><span>7</span>管理账号权限。</p>
+<h4>产品价格维护流程</h4>
+<p class="step"><span>1</span>进入管理后台。</p>
+<p class="step"><span>2</span>打开产品管理。</p>
+<p class="step"><span>3</span>搜索货号或类型。</p>
+<p class="step"><span>4</span>修改阶梯价格、加针价格、抗老化等。</p>
+<p class="step"><span>5</span>上传或更换默认图片。</p>
+<p class="step"><span>6</span>点击保存后台数据。</p>
+<p class="step"><span>7</span>到报价页面测试价格是否正确。</p>
+<h3>17. 交接注意事项</h3>
+<p>交接给新人员时，建议同时交接：</p>
+<ul>
+<li>正式系统网址</li>
+<li>主账号和临时密码</li>
+<li>Cloudflare 登录账号</li>
+<li>GitHub 仓库地址</li>
+<li>产品导入模板</li>
+<li>客资导入模板</li>
+<li>当前权限设置说明</li>
+<li>谁负责维护产品价格</li>
+<li>谁负责分配客资</li>
+<li>谁有导出客户权限</li>
+</ul>
+<p>安全建议：</p>
+<ul>
+<li>主账号密码不要多人共用。</li>
+<li>给每个销售单独账号。</li>
+<li>离职人员及时禁用账号。</li>
+<li>离职人员客户用批量转移给新负责人。</li>
+<li>不要把 Cloudflare API 令牌公开发给无关人员。</li>
+</ul>
+<h3>18. 技术交接补充</h3>
+<p>项目代码位置：</p>
+<p>```text</p>
+<p>D:\Backup\Documents\报价\SolosVue3-main</p>
+<p>```</p>
+<p>GitHub 仓库：</p>
+<p>```text</p>
+<p>https://github.com/weichenzhao12-arch/crm-.git</p>
+<p>```</p>
+<p>Cloudflare Pages 项目：</p>
+<p>```text</p>
+<p>quote-crm-system</p>
+<p>```</p>
+<p>正式域名：</p>
+<p>```text</p>
+<p>glass.neiceban.com</p>
+<p>```</p>
+<p>Cloudflare 资源：</p>
+<table><thead><tr><th>资源</th><th>名称</th></tr></thead><tbody><tr><td>D1 数据库</td><td>quote-crm-system-db</td></tr><tr><td>R2 Bucket</td><td>quote-crm-system-images</td></tr></tbody></table>
+<p>常用维护动作：</p>
+<ul>
+<li>修改后需要构建、部署到 Cloudflare Pages。</li>
+<li>部署后建议打开正式域名检查。</li>
+<li>最后提交并推送 GitHub。</li>
+</ul>
+<h3>19. 最简培训话术</h3>
+<p>给销售培训时可以这样讲：</p>
+<p class="step"><span>1</span>先登录系统。</p>
+<p class="step"><span>2</span>客户都在客户管理里。</p>
+<p class="step"><span>3</span>每天跟进客户后，进客户详情写跟进记录。</p>
+<p class="step"><span>4</span>需要报价就点新建报价。</p>
+<p class="step"><span>5</span>报价完成后回到客户详情，报价记录会保存。</p>
+<p class="step"><span>6</span>成交后在报价记录里勾选已成交，填写成交价。</p>
+<p class="step"><span>7</span>客户要过几天联系，就添加提醒。</p>
+<p class="step"><span>8</span>不会操作的地方先不要乱删，找管理员处理。</p></section></body></html>
