@@ -31,14 +31,80 @@ const showUserPasswords = ref(false)
 watch(pricing, () => quote.savePricing(), { deep: true })
 
 onMounted(() => {
-  quote.loadCloudPricing()
+  quote.loadCloudPricing().then(() => {
+    normalizeAllProductNeedleFields()
+    quote.savePricing()
+  })
   admin.loadCloudUsers()
 })
 
 const productColumns = ['货号', '产品类型', '产品名称', '草高', 'DTEX', '加针价格', '密度', '针排', '底布', '抗老化', '阶梯价格', '默认图片', '备注']
 
+function normalizeProductValue(value: unknown) {
+  return String(value ?? '').trim()
+}
+
+function isDensityValue(value: unknown) {
+  const text = normalizeProductValue(value)
+  return /(?:\d+(?:\.\d+)?\s*针|簇)/.test(text)
+}
+
+function isNeedleRowValue(value: unknown) {
+  const text = normalizeProductValue(value).replace(/\s+/g, '')
+  if (!text)
+    return false
+
+  if (/^\d+\s*\/\s*\d+$/.test(text))
+    return true
+
+  const numeric = Number(text)
+  return Number.isFinite(numeric) && numeric >= 50
+}
+
+function mergeProductField(primary: string, secondary: string) {
+  const values = [primary, secondary].map(value => value.trim()).filter(Boolean)
+  return Array.from(new Set(values)).join(' ')
+}
+
+function normalizeNeedleFields(densityInput: unknown, needleRowInput: unknown) {
+  let density = normalizeProductValue(densityInput)
+  let needleRow = normalizeProductValue(needleRowInput)
+
+  const densityLooksNeedleRow = isNeedleRowValue(density)
+  const needleRowLooksDensity = isDensityValue(needleRow)
+
+  if (densityLooksNeedleRow && needleRowLooksDensity) {
+    const nextDensity = needleRow
+    needleRow = density
+    density = nextDensity
+  }
+  else {
+    if (densityLooksNeedleRow) {
+      needleRow = mergeProductField(needleRow, density)
+      density = ''
+    }
+
+    if (needleRowLooksDensity) {
+      density = mergeProductField(density, needleRow)
+      needleRow = ''
+    }
+  }
+
+  return { density, needleRow }
+}
+
+function normalizeProductNeedleFields(product: ProductRecord) {
+  const normalized = normalizeNeedleFields(product.density, product.needleRow)
+  product.density = normalized.density
+  product.needleRow = normalized.needleRow
+}
+
+function normalizeAllProductNeedleFields() {
+  pricing.value.products.forEach(normalizeProductNeedleFields)
+}
+
 const filteredProducts = computed(() => pricing.value.products.filter((product) => {
-  const text = [product.itemNo, product.category, product.model, product.height, product.density, product.poundWeight, product.priceText].join(' ').toLowerCase()
+  const text = [product.itemNo, product.category, product.model, product.height, product.density, product.needleRow, product.poundWeight, product.priceText].join(' ').toLowerCase()
   return !keyword.value || text.includes(keyword.value.toLowerCase())
 }))
 
@@ -80,6 +146,8 @@ function productToRow(product: ProductRecord) {
 }
 
 function rowToProduct(row: Record<string, any>): ProductRecord {
+  const normalized = normalizeNeedleFields(row.密度 || row.density || '', row.针排 || row.needleRow || '')
+
   return {
     id: createId('product'),
     category: String(row.产品类型 || row.category || ''),
@@ -87,8 +155,8 @@ function rowToProduct(row: Record<string, any>): ProductRecord {
     itemNo: String(row.货号 || row.itemNo || ''),
     height: String(row.草高 || row.height || ''),
     model: String(row.产品名称 || row.model || ''),
-    needleRow: String(row.针排 || row.needleRow || ''),
-    density: String(row.密度 || row.density || ''),
+    needleRow: normalized.needleRow,
+    density: normalized.density,
     poundWeight: String(row.DTEX || row.dtex || row.磅重 || ''),
     backing: String(row.底布 || row.backing || ''),
     priceText: String(row.阶梯价格 || row.priceText || '0'),
@@ -207,6 +275,7 @@ function deleteMaterials(ids: string[]) {
 }
 
 function saveAll() {
+  normalizeAllProductNeedleFields()
   quote.savePricing()
   admin.saveUsers()
 }
@@ -252,7 +321,7 @@ function changeOwnPassword() {
           <button :disabled="!selectedProductIds.length" class="danger" @click="deleteProducts(selectedProductIds)">批量删除</button>
         </div>
       </header>
-      <input v-model="keyword" class="admin-search" placeholder="搜索货号、类型、名称、草高、密度、价格">
+      <input v-model="keyword" class="admin-search" placeholder="搜索货号、类型、名称、草高、密度、针排、价格">
       <div class="admin-table product-admin-table">
         <div class="admin-head">
           <input type="checkbox" :checked="allFilteredProductsSelected" @change="toggleAllProducts">
@@ -266,8 +335,8 @@ function changeOwnPassword() {
           <input v-model="product.height">
           <input v-model="product.poundWeight">
           <input v-model="product.needlePrice">
-          <input v-model="product.density">
-          <input v-model="product.needleRow">
+          <input v-model="product.density" @blur="normalizeProductNeedleFields(product)">
+          <input v-model="product.needleRow" @blur="normalizeProductNeedleFields(product)">
           <input v-model="product.backing">
           <input v-model="product.warranty">
           <textarea v-model="product.priceText"></textarea>
