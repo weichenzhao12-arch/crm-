@@ -773,46 +773,7 @@ CRM 首页用于快速查看整体情况。
 - 离职人员客户用批量转移给新负责人。
 - 不要把 Cloudflare API 令牌公开发给无关人员。
 
-## 18. 技术交接补充
-
-项目代码位置：
-
-```text
-D:\Backup\Documents\报价\SolosVue3-main
-```
-
-GitHub 仓库：
-
-```text
-https://github.com/weichenzhao12-arch/crm-.git
-```
-
-Cloudflare Pages 项目：
-
-```text
-quote-crm-system
-```
-
-正式域名：
-
-```text
-glass.neiceban.com
-```
-
-Cloudflare 资源：
-
-| 资源 | 名称 |
-| --- | --- |
-| D1 数据库 | quote-crm-system-db |
-| R2 Bucket | quote-crm-system-images |
-
-常用维护动作：
-
-- 修改后需要构建、部署到 Cloudflare Pages。
-- 部署后建议打开正式域名检查。
-- 最后提交并推送 GitHub。
-
-## 19. 最简培训话术
+## 18. 最简培训话术
 
 给销售培训时可以这样讲：
 
@@ -824,4 +785,3 @@ Cloudflare 资源：
 6. 成交后在报价记录里勾选已成交，填写成交价。
 7. 客户要过几天联系，就添加提醒。
 8. 不会操作的地方先不要乱删，找管理员处理。
-

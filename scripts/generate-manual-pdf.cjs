@@ -5,7 +5,7 @@ const { spawnSync } = require('child_process')
 const root = path.resolve(__dirname, '..')
 const manualPath = path.join(root, 'docs', 'CRM报价系统使用手册.md')
 const htmlPath = path.join(root, 'docs', 'CRM报价系统使用手册-打印版.html')
-const pdfPath = path.join(process.env.USERPROFILE || 'C:\\Users\\Administrator', 'Desktop', 'CRM报价系统使用手册.pdf')
+const pdfPath = process.env.MANUAL_PDF_OUTPUT || path.join(process.env.USERPROFILE || 'C:\\Users\\Administrator', 'Desktop', 'CRM报价系统使用手册.pdf')
 const chromePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
 
 function esc(text) {
