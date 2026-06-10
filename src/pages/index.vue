@@ -911,6 +911,16 @@ function textDataUrl(content: string, mime = 'application/rtf;charset=utf-8') {
   return `data:${mime};base64,${btoa(unescape(encodeURIComponent(content)))}`
 }
 
+function downloadDataUrl(dataUrl: string, fileName: string) {
+  const link = document.createElement('a')
+  link.href = dataUrl
+  link.download = fileName
+  link.rel = 'noopener'
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+}
+
 function loadHtml2Pdf() {
   const existing = (window as any).html2pdf
   if (existing)
@@ -998,17 +1008,18 @@ function exportWord() {
 async function printPdf() {
   const fileName = `${meta.value.customerName || '客户'}-报价单-${Date.now()}.pdf`
   try {
+    const dataUrl = await quotePdfDataUrl(fileName)
     syncQuoteToCustomer('已打印/PDF', {
       name: fileName,
-      dataUrl: await quotePdfDataUrl(fileName),
+      dataUrl,
     })
+    downloadDataUrl(dataUrl, fileName)
   }
   catch {
     syncQuoteToCustomer('PDF生成失败，请重试')
     window.alert('PDF生成失败，请检查网络后再试一次。')
   }
   view.value = 'print'
-  setTimeout(() => window.print(), 60)
 }
 </script>
 
@@ -1772,6 +1783,54 @@ th{background:#f5f5f5}
   .quote-line{grid-template-columns:1fr 1fr}
   .quote-line button{width:40px}
   dl{grid-template-columns:1fr}
+}
+@media(max-width:720px){
+  .quote-page{padding:10px 10px 92px!important}
+  .toolbar{position:sticky;top:0;z-index:12;margin-bottom:10px;padding:14px;border-radius:12px}
+  .toolbar h1{font-size:22px;line-height:1.25}
+  .toolbar nav{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .toolbar nav button,.toolbar nav .admin-link{width:100%;min-width:0;justify-content:center;min-height:42px;padding:8px 10px}
+  .workspace{display:grid;grid-template-columns:1fr;gap:12px}
+  .left{gap:12px}
+  .band{padding:14px;border-radius:12px}
+  .band header,.summary header{align-items:flex-start;flex-direction:column;gap:9px}
+  .overview-panel{grid-template-columns:1fr 1fr}
+  .overview-panel article{min-height:78px;padding:13px}
+  .overview-panel b{font-size:20px}
+  .meta-band,.product-filters{grid-template-columns:1fr}
+  .fields{display:grid;grid-template-columns:1fr;gap:10px}
+  .fields label{min-width:0;width:100%}
+  .segmented,.chips,.param-toggles{flex-wrap:nowrap;overflow:auto;padding-bottom:3px}
+  .segmented button,.chips button,.param-toggles .check-label{white-space:nowrap;flex:0 0 auto}
+  .products{max-height:none;overflow:visible;padding-right:0}
+  .product-row{grid-template-columns:1fr;gap:12px;padding:14px;border-radius:12px}
+  .title-line{align-items:flex-start;flex-direction:column}
+  .fill-badge{height:24px}
+  dl{grid-template-columns:1fr 1fr}
+  .price-cell{border-left:0;border-top:1px solid #e7edf1;padding:12px 0 0;text-align:left}
+  .price-cell button{width:100%}
+  .accessory{grid-template-columns:1fr!important;border-radius:12px}
+  .accessory select,.accessory input,.accessory button,.file-chip{width:100%}
+  .option-line{display:grid;grid-template-columns:1fr;gap:10px}
+  .summary{position:static;width:auto;max-height:none;padding:14px;border-radius:12px}
+  .quote-line{grid-template-columns:1fr;gap:9px;border-radius:12px}
+  .quote-line > input,.quote-line > button{width:100%}
+  .line-actions{justify-content:stretch}
+  .line-actions button{width:100%}
+  .line-needle-controls{grid-template-columns:1fr}
+  .charges label{width:100%}
+  .slim{display:grid;grid-template-columns:1fr 1fr}
+  .settings{margin:10px 0}
+  .edit-row,.product-edit,.material-edit{grid-template-columns:1fr!important}
+  .sheet{width:100%;min-height:auto;margin:10px 0;padding:10px;border-radius:0;overflow:auto}
+  .quote-sheet-table{font-size:10px}
+  .quote-sheet-table th,.quote-sheet-table td{padding:3px}
+  .print-price-dock{left:10px;right:10px;bottom:10px;width:auto;grid-template-columns:1fr 1fr;align-items:center;padding:12px;border-radius:12px}
+  .print-price-dock span,.print-price-dock small{grid-column:1}
+  .print-price-dock b{grid-column:1;font-size:20px}
+  .print-price-dock button{grid-column:2;width:100%;min-height:38px}
+  .modal-card{width:100%;max-height:88vh;overflow:auto}
+  .modal-fields{grid-template-columns:1fr}
 }
 @media print{
   @page{size:A4;margin:0}

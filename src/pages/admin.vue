@@ -457,4 +457,36 @@ function changeOwnPassword() {
 .image-admin-cell button{min-height:34px;padding:6px 9px;font-size:12px}
 .password-box{display:flex;align-items:end;gap:10px;margin-bottom:14px;padding:12px;border:1px solid #e1e9f2;border-radius:12px;background:#f8fbff}
 .password-box label{display:grid;gap:6px;min-width:260px;font-weight:800;color:#50627a}
+@media(max-width:720px){
+  .admin-page{padding:10px 10px 76px}
+  .admin-hero{align-items:flex-start;flex-direction:column;padding:16px;border-radius:14px}
+  .admin-hero h1{font-size:24px}
+  .admin-hero nav,.admin-actions,.admin-tabs{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .admin-hero a,.admin-hero button,.admin-tabs button,.admin-panel button,.admin-actions label{width:100%;min-height:42px;padding:8px 10px;text-align:center}
+  .admin-panel{padding:12px;border-radius:14px}
+  .admin-panel header{align-items:flex-start;flex-direction:column}
+  .admin-search{min-height:42px}
+  .admin-table{display:grid;gap:10px;border:0;background:transparent;overflow:visible}
+  .admin-head{display:none}
+  .admin-table article,
+  .product-admin-table article,
+  .material-admin-table article,
+  .user-admin-table article{
+    display:grid;
+    grid-template-columns:1fr;
+    min-width:0;
+    gap:8px;
+    border:1px solid #dbe6f2;
+    border-radius:14px;
+    background:#fff;
+    padding:12px;
+  }
+  .admin-table input,.admin-table select,.admin-table textarea{width:100%;min-height:40px}
+  .admin-table input[type="checkbox"]{width:20px}
+  .image-admin-cell{display:grid;grid-template-columns:auto 1fr auto;width:100%}
+  .image-upload{width:100%}
+  .password-box{display:grid;grid-template-columns:1fr;align-items:stretch}
+  .password-box label{min-width:0}
+  .user-admin-table article input:nth-last-of-type(1){width:100%}
+}
 </style>

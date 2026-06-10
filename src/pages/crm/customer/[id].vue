@@ -373,6 +373,32 @@ textarea{min-height:76px;resize:vertical}
   .activity-panel header{position:relative;top:auto;left:auto;right:auto}
   .floating-back{right:16px;bottom:16px;min-height:40px;padding:8px 14px}
 }
+@media(max-width:720px){
+  .detail-page{padding:10px 10px 76px}
+  .detail-hero{padding:16px;border-radius:14px}
+  .detail-hero h1{font-size:24px;line-height:1.25;word-break:break-word}
+  .detail-hero nav{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .detail-hero a,.detail-hero button{width:100%;min-height:42px;padding:8px 10px;text-align:center}
+  .detail-grid{gap:12px}
+  .detail-panel{padding:14px;border-radius:14px}
+  .detail-panel header{align-items:flex-start;flex-direction:column}
+  .customer-form{gap:10px}
+  .activity-panel{min-height:0;padding-top:14px;overflow:visible}
+  .activity-panel header{gap:10px;padding-bottom:10px}
+  .activity-tabs{width:100%;display:grid;grid-template-columns:1fr 1fr}
+  .activity-tabs button{width:100%;padding:7px 8px}
+  .header-actions{width:100%;display:grid;grid-template-columns:1fr 1fr}
+  .header-actions button{width:100%}
+  .follow-row{grid-template-columns:68px minmax(0,1fr)}
+  .follow-date-tile{width:68px;height:68px}
+  .follow-row .danger{grid-column:1/-1}
+  .record-row,.deal-box{grid-template-columns:1fr}
+  .contract-upload{justify-content:stretch}
+  .contract-upload .file-chip{width:100%}
+  .modal-box{width:100%;max-height:88vh;overflow:auto;padding:16px}
+  .modal-actions{display:grid;grid-template-columns:1fr 1fr}
+  .floating-back{left:10px;right:10px;bottom:10px;border-radius:12px}
+}
 </style>
 
 

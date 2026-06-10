@@ -906,5 +906,45 @@ h2{margin:0;font-size:17px}
   .customer-filter-bar{align-items:flex-start;flex-direction:column}
   .customer-tabs{width:100%;overflow:auto}
 }
+@media(max-width:720px){
+  .crm-page{padding:10px 10px 78px}
+  .crm-hero{padding:16px;border-radius:14px}
+  .crm-hero h1{font-size:21px;line-height:1.25}
+  .crm-hero nav{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .crm-hero nav .user-view{grid-column:1/-1;width:100%;display:grid;grid-template-columns:auto 1fr}
+  .user-view select{width:100%}
+  .crm-hero a,.crm-hero button{width:100%;justify-content:center;min-height:42px}
+  .crm-metrics{grid-template-columns:1fr 1fr}
+  .crm-metrics article{padding:12px}
+  .crm-metrics b{font-size:20px}
+  .chart-panel,.lead-creation-panel,.lead-panel,.ranking-panel,.crm-panel{padding:12px;border-radius:14px}
+  .chart-panel svg,.lead-creation-panel svg{min-height:210px}
+  .lead-form{grid-template-columns:1fr}
+  .batch-assign{grid-template-columns:1fr}
+  .crm-tools input{width:100%}
+  .crm-tools button,.crm-tools label,.crm-tools .view-all-link{width:100%}
+  .intent-strip{overflow:auto;flex-wrap:nowrap;padding-bottom:3px}
+  .intent-strip span{white-space:nowrap}
+  .lead-record-table{border:0;background:transparent;display:grid;gap:10px;overflow:visible}
+  .lead-record-head{display:none}
+  .lead-record-table article{display:grid;grid-template-columns:1fr;gap:0;border:1px solid #dbe6f2;border-radius:14px;background:#fff;overflow:hidden}
+  .lead-record-table article span,.lead-record-table article strong{display:grid;grid-template-columns:96px minmax(0,1fr);min-height:0;border-right:0;border-bottom:1px solid #edf2f7;padding:9px 11px;overflow:visible}
+  .lead-record-table article span::before,.lead-record-table article strong::before{color:#64748b;font-weight:900}
+  .lead-record-table article span:nth-child(1)::before{content:"序号"}
+  .lead-record-table article span:nth-child(2)::before{content:"日期"}
+  .lead-record-table article strong:nth-child(3)::before{content:"客户名称"}
+  .lead-record-table article span:nth-child(4)::before{content:"联系方式"}
+  .lead-record-table article span:nth-child(5)::before{content:"来源"}
+  .lead-record-table article span:nth-child(6)::before{content:"成交属性"}
+  .lead-record-table article span:nth-child(7)::before{content:"客户属性"}
+  .lead-record-table article span:nth-child(8)::before{content:"地址"}
+  .lead-record-table article span:nth-child(9)::before{content:"沟通内容"}
+  .lead-record-table article span:nth-child(10)::before{content:"数量"}
+  .lead-record-table article span:nth-child(11)::before{content:"使用时间"}
+  .lead-record-table article span:nth-child(12)::before{content:"负责人"}
+  .lead-record-table article strong:nth-child(13)::before{content:"状态"}
+  .stage-badge{justify-content:stretch;text-align:left}
+  .reminder-dialog,.password-dialog,.sample-dialog{width:100%;max-height:86vh}
+}
 </style>
 

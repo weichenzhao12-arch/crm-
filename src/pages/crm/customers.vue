@@ -820,4 +820,84 @@ h2{margin:0;font-size:22px}
   .date-filter-tools{margin-left:0}
   .create-form{grid-template-columns:1fr}
 }
+@media(max-width:720px){
+  .customers-page{padding:10px 10px 76px}
+  .customers-hero{padding:16px;border-radius:14px}
+  .customers-hero h1{font-size:24px}
+  .customers-hero nav{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .customers-hero a,.customers-hero button,.customers-hero label{width:100%;min-height:42px;padding:8px 10px}
+  .customers-panel{padding:12px;border-radius:14px}
+  .customers-panel header{gap:10px}
+  .customers-tools{display:grid;grid-template-columns:1fr;gap:8px}
+  .filter-bar{gap:9px;padding:10px}
+  .filter-bar label,.batch-tools,.transfer-tools{width:100%;display:grid;grid-template-columns:1fr;align-items:stretch}
+  .filter-bar select,.filter-bar button,.batch-tools button,.transfer-tools button,.transfer-tools select{width:100%}
+  .customer-tabs,.date-filter-tools{flex-wrap:nowrap;padding-bottom:3px}
+  .lead-record-table{display:grid;gap:10px;border:0;background:transparent;overflow:visible}
+  .lead-record-head{display:none}
+  .lead-record-table article,
+  .lead-record-table.with-select article{
+    display:grid;
+    grid-template-columns:1fr;
+    min-width:0;
+    gap:0;
+    border:1px solid #dbe6f2;
+    border-radius:14px;
+    background:#fff;
+    overflow:hidden;
+  }
+  .lead-record-table article span,
+  .lead-record-table article strong,
+  .lead-record-table article button.delete-customer,
+  .lead-record-table article button.important-star{
+    display:grid;
+    grid-template-columns:102px minmax(0,1fr);
+    width:100%;
+    min-height:0;
+    border-right:0;
+    border-bottom:1px solid #edf2f7;
+    border-radius:0;
+    padding:9px 11px;
+    text-align:left;
+    justify-items:start;
+  }
+  .lead-record-table article span::before,.lead-record-table article strong::before,.delete-customer::before,.important-star::before{color:#64748b;font-weight:900}
+  .lead-record-table.with-select article .select-cell::before{content:"选择"}
+  .lead-record-table.with-select article span:nth-child(2)::before{content:"序号"}
+  .lead-record-table.with-select article span:nth-child(3)::before{content:"日期"}
+  .lead-record-table.with-select article strong:nth-child(4)::before{content:"客户名称"}
+  .lead-record-table.with-select article span:nth-child(5)::before{content:"联系方式"}
+  .lead-record-table.with-select article span:nth-child(6)::before{content:"来源"}
+  .lead-record-table.with-select article span:nth-child(7)::before{content:"成交属性"}
+  .lead-record-table.with-select article span:nth-child(8)::before{content:"客户属性"}
+  .lead-record-table.with-select article span:nth-child(9)::before{content:"地址"}
+  .lead-record-table.with-select article span:nth-child(10)::before{content:"沟通内容"}
+  .lead-record-table.with-select article span:nth-child(11)::before{content:"数量"}
+  .lead-record-table.with-select article span:nth-child(12)::before{content:"使用时间"}
+  .lead-record-table.with-select article span:nth-child(13)::before{content:"负责人"}
+  .lead-record-table.with-select article strong:nth-child(14)::before{content:"状态"}
+  .lead-record-table.with-select article .sample-cell::before{content:"寄样"}
+  .lead-record-table.with-select article .delete-customer::before{content:"操作"}
+  .lead-record-table.with-select article .important-star::before{content:"重点"}
+  .lead-record-table:not(.with-select) article span:nth-child(1)::before{content:"序号"}
+  .lead-record-table:not(.with-select) article span:nth-child(2)::before{content:"日期"}
+  .lead-record-table:not(.with-select) article strong:nth-child(3)::before{content:"客户名称"}
+  .lead-record-table:not(.with-select) article span:nth-child(4)::before{content:"联系方式"}
+  .lead-record-table:not(.with-select) article span:nth-child(5)::before{content:"来源"}
+  .lead-record-table:not(.with-select) article span:nth-child(6)::before{content:"成交属性"}
+  .lead-record-table:not(.with-select) article span:nth-child(7)::before{content:"客户属性"}
+  .lead-record-table:not(.with-select) article span:nth-child(8)::before{content:"地址"}
+  .lead-record-table:not(.with-select) article span:nth-child(9)::before{content:"沟通内容"}
+  .lead-record-table:not(.with-select) article span:nth-child(10)::before{content:"数量"}
+  .lead-record-table:not(.with-select) article span:nth-child(11)::before{content:"使用时间"}
+  .lead-record-table:not(.with-select) article span:nth-child(12)::before{content:"负责人"}
+  .lead-record-table:not(.with-select) article strong:nth-child(13)::before{content:"状态"}
+  .lead-record-table:not(.with-select) article .sample-cell::before{content:"寄样"}
+  .lead-record-table:not(.with-select) article .important-star::before{content:"重点"}
+  .sample-cell{align-items:start}
+  .sample-cell button,.sample-cell a{width:auto}
+  .delete-customer{color:#d92929!important;background:#fff5f5!important}
+  .important-star{height:auto;font-size:19px;color:#f2a900}
+  .customer-create-dialog{width:100%;max-height:90vh;padding:16px}
+}
 </style>
