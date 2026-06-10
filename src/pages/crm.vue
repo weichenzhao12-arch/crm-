@@ -113,9 +113,25 @@ const canDeleteCustomers = computed(() => loginUser.value?.role === 'owner' || l
 const canViewAll = computed(() => canManageLeads.value)
 const salesUsers = computed(() => users.value.filter(user => user.enabled && user.role !== 'owner' && user.role !== 'viewer'))
 
-const scopedCustomers = computed(() => canViewAll.value
-  ? customers.value
-  : customers.value.filter(customer => customer.assignedToUserId === activeUser.value?.id))
+function customerBelongsToUser(customer: CrmCustomer, userId?: string) {
+  if (!userId)
+    return false
+
+  const user = users.value.find(item => item.id === userId)
+  const names = [user?.displayName, user?.account].map(value => String(value || '').trim()).filter(Boolean)
+  return customer.assignedToUserId === userId || names.includes(String(customer.owner || '').trim())
+}
+
+const scopedCustomers = computed(() => {
+  if (!canViewAll.value)
+    return customers.value.filter(customer => customerBelongsToUser(customer, activeUser.value?.id))
+
+  const selectedUser = users.value.find(user => user.id === selectedUserId.value)
+  if (selectedUser && selectedUser.role !== 'owner')
+    return customers.value.filter(customer => customerBelongsToUser(customer, selectedUser.id))
+
+  return customers.value
+})
 
 const filteredCustomers = computed(() => scopedCustomers.value.filter((customer) => {
   const text = [customer.name, customer.contact, customer.phone, customer.wechat, customer.region, customer.scenario, customer.projectType, customer.owner].join(' ').toLowerCase()
@@ -390,7 +406,7 @@ const leadCreationStart = computed(() => {
   return dateOnly(date)
 })
 
-const leadCreationDays = computed(() => dailyLeadCreationSeries(customers.value, leadCreationMode.value, leadCreationStart.value, 14))
+const leadCreationDays = computed(() => dailyLeadCreationSeries(scopedCustomers.value, leadCreationMode.value, leadCreationStart.value, 14))
 
 const leadCreationPoints = computed(() => {
   const max = Math.max(...leadCreationDays.value.map(day => day.count), 1)
