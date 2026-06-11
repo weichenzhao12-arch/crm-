@@ -1201,72 +1201,72 @@ async function printPdf() {
           <div class="accessory-grid">
             <article class="accessory">
               <label class="check-label"><input v-model="construction.rubber.enabled" type="checkbox">橡胶颗粒</label>
-              <select v-model="construction.rubber.materialId" @change="syncAccessoryPrice(construction.rubber)"><option v-for="item in rubberOptions" :key="item.id" :value="item.id">{{ item.spec }} {{ money(item.unitPrice) }}/{{ item.unit || '吨' }}</option></select>
-              <input v-model.number="construction.rubber.quantityPerSquare" type="number" step="0.1">
-              <span>kg/㎡</span>
-              <input class="price-input" type="number" step="0.01" :value="selectedPrice(construction.rubber.unitPrice, construction.rubber.materialId)" @input="construction.rubber.unitPrice = optionalNumber($event)">
+              <select class="accessory-select" v-model="construction.rubber.materialId" @change="syncAccessoryPrice(construction.rubber)"><option v-for="item in rubberOptions" :key="item.id" :value="item.id">{{ item.spec }} {{ money(item.unitPrice) }}/{{ item.unit || '吨' }}</option></select>
+              <input class="accessory-qty" v-model.number="construction.rubber.quantityPerSquare" type="number" step="0.1" placeholder="每平方用量">
+              <span class="accessory-unit">kg/㎡</span>
+              <input class="price-input accessory-price" type="number" step="0.01" placeholder="单价" :value="selectedPrice(construction.rubber.unitPrice, construction.rubber.materialId)" @input="construction.rubber.unitPrice = optionalNumber($event)">
               <button type="button" @click="openNewMaterialModal('rubber', '橡胶颗粒', '吨')">新增规格</button>
               <label class="file-chip">图片<input type="file" accept="image/*" @change="uploadOne($event, url => construction.rubber.imageDataUrl = url)"></label>
             </article>
 
             <article class="accessory">
               <label class="check-label"><input v-model="construction.sand.enabled" type="checkbox">石英砂</label>
-              <select v-model="construction.sand.materialId" @change="syncAccessoryPrice(construction.sand)"><option v-for="item in sandOptions" :key="item.id" :value="item.id">{{ item.spec }} {{ money(item.unitPrice) }}/{{ item.unit || '吨' }}</option></select>
-              <input v-model.number="construction.sand.quantityPerSquare" type="number" step="1">
-              <span>kg/㎡</span>
-              <input class="price-input" type="number" step="0.01" :value="selectedPrice(construction.sand.unitPrice, construction.sand.materialId)" @input="construction.sand.unitPrice = optionalNumber($event)">
+              <select class="accessory-select" v-model="construction.sand.materialId" @change="syncAccessoryPrice(construction.sand)"><option v-for="item in sandOptions" :key="item.id" :value="item.id">{{ item.spec }} {{ money(item.unitPrice) }}/{{ item.unit || '吨' }}</option></select>
+              <input class="accessory-qty" v-model.number="construction.sand.quantityPerSquare" type="number" step="1" placeholder="每平方用量">
+              <span class="accessory-unit">kg/㎡</span>
+              <input class="price-input accessory-price" type="number" step="0.01" placeholder="单价" :value="selectedPrice(construction.sand.unitPrice, construction.sand.materialId)" @input="construction.sand.unitPrice = optionalNumber($event)">
               <button type="button" @click="openNewMaterialModal('sand', '石英砂', '吨')">新增规格</button>
               <label class="file-chip">图片<input type="file" accept="image/*" @change="uploadOne($event, url => construction.sand.imageDataUrl = url)"></label>
             </article>
 
             <article v-if="construction.mode === 'unit'" class="accessory">
               <label class="check-label"><input v-model="construction.glue.enabled" type="checkbox">胶水</label>
-              <select v-model="construction.glue.materialId" @change="syncGluePrice"><option v-for="item in glueOptions" :key="item.id" :value="item.id">{{ item.name }} {{ item.spec }} {{ money(item.unitPrice) }}</option></select>
-              <input v-model.number="construction.glue.squarePerBucket" type="number">
-              <span>㎡/桶</span>
-              <input class="price-input" type="number" step="0.01" :value="construction.glue.bucketPrice ?? materialPrice(construction.glue.materialId)" @input="construction.glue.bucketPrice = optionalNumber($event)">
+              <select class="accessory-select" v-model="construction.glue.materialId" @change="syncGluePrice"><option v-for="item in glueOptions" :key="item.id" :value="item.id">{{ item.name }} {{ item.spec }} {{ money(item.unitPrice) }}</option></select>
+              <input class="accessory-qty" v-model.number="construction.glue.squarePerBucket" type="number" placeholder="每桶平方数">
+              <span class="accessory-unit">㎡/桶</span>
+              <input class="price-input accessory-price" type="number" step="0.01" placeholder="桶价" :value="construction.glue.bucketPrice ?? materialPrice(construction.glue.materialId)" @input="construction.glue.bucketPrice = optionalNumber($event)">
               <button type="button" @click="openNewMaterialModal('glue', '单组胶水', '桶')">新增规格</button>
               <label class="file-chip">图片<input type="file" accept="image/*" @change="uploadOne($event, url => construction.glue.imageDataUrl = url)"></label>
             </article>
 
             <article class="accessory">
               <label class="check-label"><input v-model="construction.shockPad.enabled" type="checkbox">减震垫</label>
-              <select v-model="construction.shockPad.materialId" @change="syncAccessoryPrice(construction.shockPad)"><option v-for="item in shockPadOptions" :key="item.id" :value="item.id">{{ item.spec }} {{ money(item.unitPrice) }}/㎡</option></select>
-              <input v-model.number="construction.shockPad.quantity" type="number" placeholder="数量">
-              <span>㎡</span>
-              <input class="price-input" type="number" step="0.01" :value="selectedPrice(construction.shockPad.unitPrice, construction.shockPad.materialId)" @input="construction.shockPad.unitPrice = optionalNumber($event)">
+              <select class="accessory-select" v-model="construction.shockPad.materialId" @change="syncAccessoryPrice(construction.shockPad)"><option v-for="item in shockPadOptions" :key="item.id" :value="item.id">{{ item.spec }} {{ money(item.unitPrice) }}/㎡</option></select>
+              <input class="accessory-qty" v-model.number="construction.shockPad.quantity" type="number" placeholder="数量">
+              <span class="accessory-unit">㎡</span>
+              <input class="price-input accessory-price" type="number" step="0.01" placeholder="单价" :value="selectedPrice(construction.shockPad.unitPrice, construction.shockPad.materialId)" @input="construction.shockPad.unitPrice = optionalNumber($event)">
               <button type="button" @click="openNewMaterialModal('shockPad', '减震垫', '平方')">新增规格</button>
               <label class="file-chip">图片<input type="file" accept="image/*" @change="uploadOne($event, url => construction.shockPad.imageDataUrl = url)"></label>
             </article>
 
             <article v-if="construction.mode === 'unit'" class="accessory">
               <label class="check-label"><input v-model="construction.seamTape.enabled" type="checkbox">接缝布</label>
-              <select v-model="construction.seamTape.materialId" @change="syncAccessoryPrice(construction.seamTape)"><option v-for="item in seamTapeOptions" :key="item.id" :value="item.id">{{ item.spec }} {{ money(item.unitPrice) }}/米</option></select>
-              <input v-model.number="construction.seamTape.quantity" type="number" placeholder="米">
-              <span>米</span>
-              <input class="price-input" type="number" step="0.01" :value="selectedPrice(construction.seamTape.unitPrice, construction.seamTape.materialId)" @input="construction.seamTape.unitPrice = optionalNumber($event)">
+              <select class="accessory-select" v-model="construction.seamTape.materialId" @change="syncAccessoryPrice(construction.seamTape)"><option v-for="item in seamTapeOptions" :key="item.id" :value="item.id">{{ item.spec }} {{ money(item.unitPrice) }}/米</option></select>
+              <input class="accessory-qty" v-model.number="construction.seamTape.quantity" type="number" placeholder="米">
+              <span class="accessory-unit">米</span>
+              <input class="price-input accessory-price" type="number" step="0.01" placeholder="单价" :value="selectedPrice(construction.seamTape.unitPrice, construction.seamTape.materialId)" @input="construction.seamTape.unitPrice = optionalNumber($event)">
               <button type="button" @click="openNewMaterialModal('seamTape', '接缝布', '米')">新增规格</button>
               <label class="file-chip">图片<input type="file" accept="image/*" @change="uploadOne($event, url => construction.seamTape.imageDataUrl = url)"></label>
             </article>
 
             <article v-if="construction.mode === 'unit'" class="accessory">
               <label class="check-label"><input v-model="construction.whiteTurf.enabled" type="checkbox">白草坪</label>
-              <select v-model="construction.whiteTurf.materialId" @change="syncAccessoryPrice(construction.whiteTurf)"><option v-for="item in whiteTurfOptions" :key="item.id" :value="item.id">{{ item.spec }} {{ money(item.unitPrice) }}/㎡</option></select>
-              <input v-model.number="construction.whiteTurf.quantity" type="number" placeholder="㎡">
-              <span>㎡</span>
-              <input class="price-input" type="number" step="0.01" :value="selectedPrice(construction.whiteTurf.unitPrice, construction.whiteTurf.materialId)" @input="construction.whiteTurf.unitPrice = optionalNumber($event)">
+              <select class="accessory-select" v-model="construction.whiteTurf.materialId" @change="syncAccessoryPrice(construction.whiteTurf)"><option v-for="item in whiteTurfOptions" :key="item.id" :value="item.id">{{ item.spec }} {{ money(item.unitPrice) }}/㎡</option></select>
+              <input class="accessory-qty" v-model.number="construction.whiteTurf.quantity" type="number" placeholder="㎡">
+              <span class="accessory-unit">㎡</span>
+              <input class="price-input accessory-price" type="number" step="0.01" placeholder="单价" :value="selectedPrice(construction.whiteTurf.unitPrice, construction.whiteTurf.materialId)" @input="construction.whiteTurf.unitPrice = optionalNumber($event)">
               <button type="button" @click="openNewMaterialModal('whiteTurf', '白草坪', '平方')">新增规格</button>
               <label class="file-chip">图片<input type="file" accept="image/*" @change="uploadOne($event, url => construction.whiteTurf.imageDataUrl = url)"></label>
             </article>
 
             <article v-if="construction.mode === 'unit' && otherMaterialOptions.length" class="accessory">
               <label class="check-label"><input v-model="construction.other.enabled" type="checkbox">其他辅料</label>
-              <select v-model="construction.other.materialId" @change="syncAccessoryPrice(construction.other)">
+              <select class="accessory-select" v-model="construction.other.materialId" @change="syncAccessoryPrice(construction.other)">
                 <option v-for="item in otherMaterialOptions" :key="item.id" :value="item.id">{{ item.name }} {{ item.spec }} {{ money(item.unitPrice) }}/{{ item.unit || '件' }}</option>
               </select>
-              <input v-model.number="construction.other.quantity" type="number" placeholder="数量">
-              <span>{{ selectedOtherMaterial?.unit || '件' }}</span>
-              <input class="price-input" type="number" step="0.01" :value="selectedPrice(construction.other.unitPrice, construction.other.materialId)" @input="construction.other.unitPrice = optionalNumber($event)">
+              <input class="accessory-qty" v-model.number="construction.other.quantity" type="number" placeholder="数量">
+              <span class="accessory-unit">{{ selectedOtherMaterial?.unit || '件' }}</span>
+              <input class="price-input accessory-price" type="number" step="0.01" placeholder="单价" :value="selectedPrice(construction.other.unitPrice, construction.other.materialId)" @input="construction.other.unitPrice = optionalNumber($event)">
               <button type="button" @click="view = 'settings'; settingsTab = 'materials'">管理辅料</button>
               <label class="file-chip">图片<input type="file" accept="image/*" @change="uploadOne($event, url => construction.other.imageDataUrl = url)"></label>
             </article>
@@ -2784,8 +2784,26 @@ th{background:#f5f5f5}
     display:none!important;
   }
   .band{
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
     padding:12px!important;
     border-radius:14px!important;
+    overflow:hidden!important;
+  }
+  .workspace,
+  .left,
+  .summary{
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+  }
+  .workspace{
+    grid-template-columns:minmax(0,1fr)!important;
+    overflow:hidden!important;
+  }
+  .left{
+    grid-template-columns:minmax(0,1fr)!important;
   }
   .product-filters{
     grid-template-columns:1fr!important;
@@ -2798,6 +2816,93 @@ th{background:#f5f5f5}
   .product-row{
     grid-template-columns:1fr!important;
     padding:12px!important;
+  }
+  .accessory-grid{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:12px!important;
+    padding:0!important;
+    border:0!important;
+    background:transparent!important;
+  }
+  .accessory,
+  .accessory:has(.custom-spec){
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:9px!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    padding:12px!important;
+    border-radius:14px!important;
+    overflow:visible!important;
+  }
+  .accessory .check-label{
+    width:100%!important;
+    min-width:0!important;
+    justify-content:flex-start!important;
+    padding-bottom:2px!important;
+    color:#10243f!important;
+    font-size:15px!important;
+    font-weight:900!important;
+  }
+  .accessory .check-label input,
+  .option-line .check-label input{
+    width:18px!important;
+    max-width:18px!important;
+    min-width:18px!important;
+    height:18px!important;
+    flex:0 0 18px!important;
+    padding:0!important;
+  }
+  .accessory-select,
+  .accessory-qty,
+  .accessory-price,
+  .accessory button,
+  .accessory .file-chip{
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    box-sizing:border-box!important;
+  }
+  .accessory-select{
+    min-height:42px!important;
+    white-space:normal!important;
+  }
+  .accessory-unit{
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    width:max-content!important;
+    min-height:28px!important;
+    margin-top:-3px!important;
+    padding:4px 10px!important;
+    border-radius:999px!important;
+    background:#eff6ff!important;
+    color:#246ed8!important;
+    font-size:12px!important;
+    font-weight:900!important;
+  }
+  .accessory .file-chip,
+  .accessory button{
+    min-height:38px!important;
+    border-radius:10px!important;
+  }
+  .option-line{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:9px!important;
+    width:100%!important;
+    padding:12px!important;
+    border-radius:14px!important;
+    overflow:visible!important;
+  }
+  .option-line select,
+  .option-line input,
+  .option-line .file-chip{
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
   }
 }
 </style>
