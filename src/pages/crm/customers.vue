@@ -715,13 +715,13 @@ function batchTransferCustomers() {
           <span>{{ customer.date }}</span>
           <strong>{{ customer.name }}</strong>
           <span>{{ customerContact(customer) || '未填' }}</span>
-          <span>{{ customer.sourceAccount || '-' }}</span>
-          <span>{{ customer.dealAttribute || '-' }}</span>
-          <span>{{ customer.customerAttribute || '-' }}</span>
-          <span>{{ customer.region || '-' }}</span>
-          <span class="wrap-cell">{{ customer.communication || customer.remark || '-' }}</span>
-          <span>{{ customer.area || '-' }}</span>
-          <span>{{ customer.usageTime || '-' }}</span>
+          <span :class="{ 'mobile-empty': !customer.sourceAccount }">{{ customer.sourceAccount || '-' }}</span>
+          <span :class="{ 'mobile-empty': !customer.dealAttribute }">{{ customer.dealAttribute || '-' }}</span>
+          <span :class="{ 'mobile-empty': !customer.customerAttribute }">{{ customer.customerAttribute || '-' }}</span>
+          <span :class="{ 'mobile-empty': !customer.region }">{{ customer.region || '-' }}</span>
+          <span class="wrap-cell" :class="{ 'mobile-empty': !(customer.communication || customer.remark) }">{{ customer.communication || customer.remark || '-' }}</span>
+          <span :class="{ 'mobile-empty': !customer.area }">{{ customer.area || '-' }}</span>
+          <span :class="{ 'mobile-empty': !customer.usageTime }">{{ customer.usageTime || '-' }}</span>
           <span>{{ customer.owner || '未分配' }}</span>
           <strong class="stage-badge">{{ stageLabels[customer.stage] }}</strong>
           <span class="sample-cell">
@@ -861,6 +861,33 @@ h2{margin:0;font-size:22px}
     text-align:left;
     justify-items:start;
   }
+  .lead-record-table article span.mobile-empty{display:none}
+  .lead-record-table.with-select article span:nth-child(2),
+  .lead-record-table:not(.with-select) article span:nth-child(1){display:none}
+  .lead-record-table article strong{
+    grid-template-columns:1fr;
+    padding:12px 13px 6px;
+    border-bottom:0;
+    color:#10243f;
+    font-size:17px;
+  }
+  .lead-record-table article strong::before{display:none}
+  .lead-record-table.with-select article span:nth-child(3),
+  .lead-record-table.with-select article span:nth-child(5),
+  .lead-record-table.with-select article span:nth-child(13),
+  .lead-record-table:not(.with-select) article span:nth-child(2),
+  .lead-record-table:not(.with-select) article span:nth-child(4),
+  .lead-record-table:not(.with-select) article span:nth-child(12){
+    grid-template-columns:74px minmax(0,1fr);
+    padding-top:6px;
+    padding-bottom:6px;
+  }
+  .lead-record-table article .stage-badge{
+    grid-template-columns:74px minmax(0,1fr);
+    padding:8px 13px;
+    border-top:1px solid #edf2f7;
+    background:#f4f8ff;
+  }
   .lead-record-table article span::before,.lead-record-table article strong::before,.delete-customer::before,.important-star::before{color:#64748b;font-weight:900}
   .lead-record-table.with-select article .select-cell::before{content:"选择"}
   .lead-record-table.with-select article span:nth-child(2)::before{content:"序号"}
@@ -895,6 +922,7 @@ h2{margin:0;font-size:22px}
   .lead-record-table:not(.with-select) article .sample-cell::before{content:"寄样"}
   .lead-record-table:not(.with-select) article .important-star::before{content:"重点"}
   .sample-cell{align-items:start}
+  .lead-record-table article .sample-cell{grid-template-columns:74px minmax(0,1fr)}
   .sample-cell button,.sample-cell a{width:auto}
   .delete-customer{color:#d92929!important;background:#fff5f5!important}
   .important-star{height:auto;font-size:19px;color:#f2a900}

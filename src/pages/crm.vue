@@ -770,13 +770,13 @@ async function handleLogout() {
           <span>{{ customer.date }}</span>
           <strong>{{ customer.name }}</strong>
           <span>{{ customerContact(customer) || '未填' }}</span>
-          <span>{{ customer.sourceAccount || '-' }}</span>
-          <span>{{ customer.dealAttribute || '-' }}</span>
-          <span>{{ customer.customerAttribute || '-' }}</span>
-          <span>{{ customer.region || '-' }}</span>
-          <span class="wrap-cell">{{ customer.communication || customer.remark || '-' }}</span>
-          <span>{{ customer.area || '-' }}</span>
-          <span>{{ customer.usageTime || '-' }}</span>
+          <span :class="{ 'mobile-empty': !customer.sourceAccount }">{{ customer.sourceAccount || '-' }}</span>
+          <span :class="{ 'mobile-empty': !customer.dealAttribute }">{{ customer.dealAttribute || '-' }}</span>
+          <span :class="{ 'mobile-empty': !customer.customerAttribute }">{{ customer.customerAttribute || '-' }}</span>
+          <span :class="{ 'mobile-empty': !customer.region }">{{ customer.region || '-' }}</span>
+          <span class="wrap-cell" :class="{ 'mobile-empty': !(customer.communication || customer.remark) }">{{ customer.communication || customer.remark || '-' }}</span>
+          <span :class="{ 'mobile-empty': !customer.area }">{{ customer.area || '-' }}</span>
+          <span :class="{ 'mobile-empty': !customer.usageTime }">{{ customer.usageTime || '-' }}</span>
           <span>{{ customer.owner || '未分配' }}</span>
           <strong class="stage-badge">{{ stageLabels[customer.stage] }}</strong>
         </article>
@@ -929,6 +929,29 @@ h2{margin:0;font-size:17px}
   .lead-record-head{display:none}
   .lead-record-table article{display:grid;grid-template-columns:1fr;gap:0;border:1px solid #dbe6f2;border-radius:14px;background:#fff;overflow:hidden}
   .lead-record-table article span,.lead-record-table article strong{display:grid;grid-template-columns:96px minmax(0,1fr);min-height:0;border-right:0;border-bottom:1px solid #edf2f7;padding:9px 11px;overflow:visible}
+  .lead-record-table article span.mobile-empty{display:none}
+  .lead-record-table article span:nth-child(1){display:none}
+  .lead-record-table article strong{
+    grid-template-columns:1fr;
+    padding:12px 13px 6px;
+    border-bottom:0;
+    color:#10243f;
+    font-size:17px;
+  }
+  .lead-record-table article strong::before{display:none}
+  .lead-record-table article span:nth-child(2),
+  .lead-record-table article span:nth-child(4),
+  .lead-record-table article span:nth-child(12){
+    grid-template-columns:74px minmax(0,1fr);
+    padding-top:6px;
+    padding-bottom:6px;
+  }
+  .lead-record-table article .stage-badge{
+    grid-template-columns:74px minmax(0,1fr);
+    padding:8px 13px;
+    border-top:1px solid #edf2f7;
+    background:#f4f8ff;
+  }
   .lead-record-table article span::before,.lead-record-table article strong::before{color:#64748b;font-weight:900}
   .lead-record-table article span:nth-child(1)::before{content:"序号"}
   .lead-record-table article span:nth-child(2)::before{content:"日期"}
