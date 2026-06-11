@@ -1,7 +1,7 @@
 import { AUTH_STORAGE_KEY } from '~/constants/app'
 
 function token() {
-  return localStorage.getItem(AUTH_STORAGE_KEY) || ''
+  return sessionStorage.getItem(AUTH_STORAGE_KEY) || ''
 }
 
 async function apiFetch<T>(url: string, options: RequestInit = {}): Promise<T> {

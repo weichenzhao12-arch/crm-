@@ -8,7 +8,7 @@
 </route>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { applyNeedleAdditionToDensity, baggedTonQuantity, bucketQuantity, linePerSquare, lineSubtotal, packageUnitPrice, quantityByUsage, quoteTotals, resolveArea, selectUnitPrice } from '~/features/quote/pricing'
 import type { ConstructionInput, MaterialRecord, QuoteLine } from '~/features/quote/types'
@@ -1001,20 +1001,27 @@ async function quotePdfDataUrl(fileName: string) {
   return blobToDataUrl(blob)
 }
 
-async function quotePdfBlob(fileName: string) {
+async function quotePdfBlob(fileName: string, visibleSheet?: HTMLElement | null) {
   const html2pdf = await loadHtml2Pdf()
-  const source = document.createElement('div')
-  source.style.position = 'fixed'
-  source.style.left = '-10000px'
-  source.style.top = '0'
-  source.style.width = '210mm'
-  source.style.minHeight = '297mm'
-  source.style.background = '#ffffff'
-  source.style.zIndex = '-1'
-  const parsed = new DOMParser().parseFromString(quoteHtml(), 'text/html')
-  parsed.querySelectorAll('style').forEach(style => source.appendChild(style.cloneNode(true)))
-  source.appendChild(parsed.body.firstElementChild?.cloneNode(true) || parsed.body.cloneNode(true))
-  document.body.appendChild(source)
+  const source = visibleSheet || document.createElement('div')
+  let shouldRemove = false
+
+  if (!visibleSheet) {
+    source.style.position = 'absolute'
+    source.style.left = '0'
+    source.style.top = `${window.scrollY}px`
+    source.style.width = '210mm'
+    source.style.minHeight = '297mm'
+    source.style.background = '#ffffff'
+    source.style.opacity = '0.01'
+    source.style.pointerEvents = 'none'
+    source.style.zIndex = '-1'
+    const parsed = new DOMParser().parseFromString(quoteHtml(), 'text/html')
+    parsed.querySelectorAll('style').forEach(style => source.appendChild(style.cloneNode(true)))
+    source.appendChild(parsed.body.firstElementChild?.cloneNode(true) || parsed.body.cloneNode(true))
+    document.body.appendChild(source)
+    shouldRemove = true
+  }
 
   try {
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
@@ -1030,7 +1037,8 @@ async function quotePdfBlob(fileName: string) {
       .outputPdf('blob')
   }
   finally {
-    source.remove()
+    if (shouldRemove)
+      source.remove()
   }
 }
 
@@ -1055,6 +1063,10 @@ function returnToCustomer() {
   router.push(`/crm/customer/${linkedCustomerId.value}?tab=quote&quoteSaved=${Date.now()}`)
 }
 
+function previewPdf() {
+  view.value = 'print'
+}
+
 function exportWord() {
   const rtf = quoteRtf()
   const fileName = `${meta.value.customerName || '客户'}-报价单-${Date.now()}.rtf`
@@ -1074,7 +1086,13 @@ function exportWord() {
 async function printPdf() {
   const fileName = `${meta.value.customerName || '客户'}-报价单-${Date.now()}.pdf`
   try {
-    const blob = await quotePdfBlob(fileName)
+    if (view.value !== 'print') {
+      view.value = 'print'
+      await nextTick()
+    }
+    await nextTick()
+    const sheet = document.querySelector<HTMLElement>('.sheet')
+    const blob = await quotePdfBlob(fileName, sheet)
     const dataUrl = await blobToDataUrl(blob)
     syncQuoteToCustomer('已打印/PDF', {
       name: fileName,
@@ -1335,7 +1353,7 @@ async function printPdf() {
             <small>{{ money(totalPerSquare()) }}/㎡</small>
           </div>
           <div class="mobile-export-actions">
-            <button class="primary" @click="printPdf">下载PDF</button>
+            <button class="primary" @click="previewPdf">预览PDF</button>
             <button class="primary" @click="exportWord">导出Word</button>
           </div>
         </section>
@@ -1411,7 +1429,7 @@ async function printPdf() {
           </div>
         </section>
         <section class="export-actions">
-          <button class="primary" @click="printPdf">打印/PDF</button>
+          <button class="primary" @click="previewPdf">预览PDF</button>
           <button class="primary" @click="exportWord">导出Word</button>
         </section>
       </aside>
@@ -1530,6 +1548,7 @@ async function printPdf() {
       <span>报价总价</span>
       <b>{{ money(totals.grandTotal) }}</b>
       <small>{{ money(totalPerSquare()) }}/㎡</small>
+      <button class="primary" @click="printPdf">下载PDF</button>
       <button @click="view = 'quote'">返回价格</button>
       <button v-if="linkedCustomerId" class="primary" @click="returnToCustomer">返回当前客户</button>
     </aside>
@@ -1954,7 +1973,10 @@ th{background:#f5f5f5}
   .print-price-dock{left:10px;right:10px;bottom:10px;width:auto;grid-template-columns:1fr 1fr;align-items:center;padding:12px;border-radius:12px}
   .print-price-dock span,.print-price-dock small{grid-column:1}
   .print-price-dock b{grid-column:1;font-size:20px}
-  .print-price-dock button{grid-column:2;width:100%;min-height:38px}
+  .print-price-dock button{width:100%;min-height:38px}
+  .print-price-dock button:nth-of-type(1){grid-column:2;grid-row:1 / span 3}
+  .print-price-dock button:nth-of-type(2),
+  .print-price-dock button:nth-of-type(3){grid-column:1 / -1}
   .modal-card{width:100%;max-height:88vh;overflow:auto}
   .modal-fields{grid-template-columns:1fr}
 }

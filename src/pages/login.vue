@@ -53,14 +53,16 @@ async function handleLogin() {
         <span>请输入后台创建的账号和密码</span>
       </div>
 
-      <form @submit.prevent="handleLogin">
+      <form autocomplete="off" @submit.prevent="handleLogin">
+        <input autocomplete="false" name="hidden" style="display:none" type="text">
+        <input autocomplete="new-password" name="hidden-password" style="display:none" type="password">
         <label>
           账号
-          <input v-model="account" autocomplete="off" placeholder="请输入账号">
+          <input v-model="account" autocomplete="off" autocapitalize="off" autocorrect="off" name="crm-login-account" placeholder="请输入账号" spellcheck="false">
         </label>
         <label>
           密码
-          <input v-model="password" autocomplete="new-password" placeholder="请输入密码" type="password">
+          <input v-model="password" autocomplete="new-password" name="crm-login-passcode" placeholder="请输入密码" type="password">
         </label>
         <strong v-if="errorMessage">{{ errorMessage }}</strong>
         <button :disabled="isSubmitting" type="submit">{{ isSubmitting ? '登录中...' : '登录系统' }}</button>
