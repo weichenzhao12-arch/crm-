@@ -928,4 +928,68 @@ h2{margin:0;font-size:22px}
   .important-star{height:auto;font-size:19px;color:#f2a900}
   .customer-create-dialog{width:100%;max-height:90vh;padding:16px}
 }
+
+@media(max-width:720px){
+  .lead-record-table.mobile-simple,
+  .lead-record-table{
+    display:grid;
+    gap:10px;
+  }
+  .lead-record-table article,
+  .lead-record-table.with-select article{
+    position:relative;
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:6px!important;
+    padding:14px!important;
+    border:1px solid #dbe6f2!important;
+    border-radius:14px!important;
+    background:#fff!important;
+    overflow:hidden!important;
+  }
+  .lead-record-table article > *,
+  .lead-record-table.with-select article > *{
+    display:none!important;
+  }
+  .lead-record-table.with-select article strong:nth-child(4),
+  .lead-record-table.with-select article span:nth-child(5),
+  .lead-record-table.with-select article span:nth-child(13),
+  .lead-record-table:not(.with-select) article strong:nth-child(3),
+  .lead-record-table:not(.with-select) article span:nth-child(4),
+  .lead-record-table:not(.with-select) article span:nth-child(12){
+    display:grid!important;
+    grid-template-columns:74px minmax(0,1fr)!important;
+    align-items:center!important;
+    width:100%!important;
+    min-height:0!important;
+    padding:0!important;
+    border:0!important;
+    color:#10243f!important;
+    background:transparent!important;
+    line-height:1.45!important;
+  }
+  .lead-record-table.with-select article strong:nth-child(4),
+  .lead-record-table:not(.with-select) article strong:nth-child(3){
+    grid-template-columns:1fr!important;
+    padding-bottom:4px!important;
+    font-size:18px!important;
+    font-weight:900!important;
+  }
+  .lead-record-table.with-select article strong:nth-child(4)::before,
+  .lead-record-table:not(.with-select) article strong:nth-child(3)::before{
+    display:none!important;
+  }
+  .lead-record-table.with-select article span:nth-child(5)::before,
+  .lead-record-table:not(.with-select) article span:nth-child(4)::before{
+    content:"联系方式";
+    color:#64748b;
+    font-weight:900;
+  }
+  .lead-record-table.with-select article span:nth-child(13)::before,
+  .lead-record-table:not(.with-select) article span:nth-child(12)::before{
+    content:"跟进人";
+    color:#64748b;
+    font-weight:900;
+  }
+}
 </style>
