@@ -104,6 +104,13 @@ const manualMaterialLines = computed(() => lines.value.filter(line => line.kind 
 const heightOptions = computed(() => productFilterOptions('height'))
 const densityOptions = computed(() => productFilterOptions('density'))
 const poundWeightOptions = computed(() => productFilterOptions('poundWeight'))
+const productSearchReady = computed(() => {
+  return category.value !== ALL
+    || heightFilter.value !== ALL
+    || densityFilter.value !== ALL
+    || poundWeightFilter.value !== ALL
+    || Boolean(keyword.value.trim())
+})
 const filteredProducts = computed(() => pricing.value.products.filter((product) => {
   const text = normalizeSearchText([product.itemNo, product.category, product.height, product.model, product.needleRow, product.density, product.poundWeight, product.backing, product.warranty, product.priceText].join(' '))
   const searchText = normalizeSearchText(keyword.value)
@@ -113,6 +120,7 @@ const filteredProducts = computed(() => pricing.value.products.filter((product) 
     && (poundWeightFilter.value === ALL || normalizeProductFilterValue('poundWeight', product.poundWeight) === normalizeProductFilterValue('poundWeight', poundWeightFilter.value))
     && (!keyword.value || text.includes(searchText))
 }).slice(0, 120))
+const visibleProducts = computed(() => productSearchReady.value ? filteredProducts.value : [])
 const filteredProductsForSettings = computed(() => pricing.value.products.filter((product) => {
   const text = normalizeSearchText([product.itemNo, product.category, product.height, product.model, product.priceText].join(' '))
   return !settingsKeyword.value || text.includes(normalizeSearchText(settingsKeyword.value))
@@ -193,6 +201,18 @@ function selectCategory(value: string) {
   heightFilter.value = ALL
   densityFilter.value = ALL
   poundWeightFilter.value = ALL
+}
+
+function updateCategory(event: Event) {
+  selectCategory((event.target as HTMLSelectElement).value)
+}
+
+function clearProductSearch() {
+  category.value = ALL
+  heightFilter.value = ALL
+  densityFilter.value = ALL
+  poundWeightFilter.value = ALL
+  keyword.value = ''
 }
 
 function normalizeSearchText(value: unknown) {
@@ -1059,10 +1079,10 @@ async function printPdf() {
       <nav>
         <button :class="{ active: view === 'quote' }" @click="view = 'quote'">计算</button>
         <button :class="{ active: view === 'print' }" @click="view = 'print'">报价单</button>
-        <button :class="{ active: view === 'settings' }" @click="view = 'settings'">数据维护</button>
+        <button class="mobile-optional" :class="{ active: view === 'settings' }" @click="view = 'settings'">数据维护</button>
         <button v-if="linkedCustomerId" class="admin-link primary" @click="returnToCustomer">返回当前客户</button>
         <RouterLink class="admin-link" to="/">返回CRM</RouterLink>
-        <RouterLink class="admin-link" to="/admin">管理后台</RouterLink>
+        <RouterLink class="admin-link mobile-optional" to="/admin">管理后台</RouterLink>
       </nav>
     </section>
 
@@ -1113,18 +1133,19 @@ async function printPdf() {
 
         <section class="band">
           <header><h2>草坪产品</h2><strong class="area-pill">报价面积 {{ selectedArea }}㎡</strong></header>
-          <div class="chips">
-            <button :class="{ active: category === ALL }" @click="selectCategory(ALL)">{{ ALL }}</button>
-            <button v-for="item in categories" :key="item" :class="{ active: category === item }" @click="selectCategory(item)">{{ item }}</button>
-          </div>
           <div class="product-filters">
+            <label>产品类型<select :value="category" @change="updateCategory"><option>{{ ALL }}</option><option v-for="item in categories" :key="item">{{ item }}</option></select></label>
             <label>草高<select v-model="heightFilter"><option>{{ ALL }}</option><option v-for="item in heightOptions" :key="item">{{ item }}</option></select></label>
             <label>密度<select v-model="densityFilter"><option>{{ ALL }}</option><option v-for="item in densityOptions" :key="item">{{ item }}</option></select></label>
             <label>磅重<select v-model="poundWeightFilter"><option>{{ ALL }}</option><option v-for="item in poundWeightOptions" :key="item">{{ item }}</option></select></label>
           </div>
           <input v-model="keyword" class="search" placeholder="搜索货号、名称、草高、密度、基布、价格">
-          <div class="products">
-            <article v-for="product in filteredProducts" :key="product.id" class="product-row">
+          <div class="product-search-actions">
+            <span>{{ productSearchReady ? `找到 ${visibleProducts.length} 个产品` : '请选择类型或输入关键词后显示产品' }}</span>
+            <button type="button" @click="clearProductSearch">清空筛选</button>
+          </div>
+          <div v-if="productSearchReady && visibleProducts.length" class="products">
+            <article v-for="product in visibleProducts" :key="product.id" class="product-row">
               <div class="product-main">
                 <div class="title-line">
                   <b>{{ product.itemNo }}</b>
@@ -1146,6 +1167,9 @@ async function printPdf() {
                 <button @click="addProduct(product.id)">加入</button>
               </div>
             </article>
+          </div>
+          <div v-else class="empty product-empty">
+            {{ productSearchReady ? '没有找到匹配产品，请换个条件试试' : '先搜索或选择筛选条件，再添加产品' }}
           </div>
         </section>
 
@@ -1584,7 +1608,10 @@ textarea{min-height:64px;resize:vertical}
 .segmented button{background:#f8fafb}
 .chips{flex-wrap:wrap;margin-bottom:12px}
 .chips button{min-height:34px;padding:7px 12px;background:#f8fafb}
-.product-filters{display:grid;grid-template-columns:repeat(3,minmax(160px,1fr));gap:10px;margin-bottom:12px}
+.product-filters{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px;margin-bottom:12px}
+.product-search-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:-4px 0 12px;color:#7b7167;font-size:13px;font-weight:800}
+.product-search-actions button{min-height:34px;padding:6px 10px;color:#8c672c;border-color:#dfc89f;background:#fff8eb}
+.product-empty{margin-top:10px}
 .param-toggles{display:flex;flex-wrap:wrap;gap:12px}
 .param-toggles .check-label{min-width:92px}
 .param-toggles.compact{gap:8px}
@@ -1814,8 +1841,9 @@ th{background:#f5f5f5}
   .quote-page{padding:10px 10px 92px!important}
   .toolbar{position:sticky;top:0;z-index:12;margin-bottom:10px;padding:14px;border-radius:12px}
   .toolbar h1{font-size:22px;line-height:1.25}
-  .toolbar nav{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  .toolbar nav button,.toolbar nav .admin-link{width:100%;min-width:0;justify-content:center;min-height:42px;padding:8px 10px}
+  .toolbar nav{width:100%;display:flex;flex-wrap:nowrap;gap:8px;overflow:auto;padding-bottom:3px}
+  .toolbar nav .mobile-optional{display:none}
+  .toolbar nav button,.toolbar nav .admin-link{flex:0 0 auto;min-width:92px;justify-content:center;min-height:38px;padding:7px 10px}
   .workspace{display:grid;grid-template-columns:1fr;gap:12px}
   .left{gap:12px}
   .band{padding:14px;border-radius:12px}
@@ -2333,6 +2361,16 @@ th{background:#f5f5f5}
     border:1px solid #e2eaf3;
     border-radius:14px;
     background:#fff;
+  }
+  .product-search-actions{
+    margin:0 0 14px;
+    padding:0 2px;
+    color:#50627a;
+  }
+  .product-search-actions button{
+    border-color:#bdd5f2;
+    background:#eff6ff;
+    color:#246ed8;
   }
   .search{
     height:46px;
