@@ -2694,5 +2694,112 @@ th{background:#f5f5f5}
     }
   }
 }
+
+@media(max-width:720px){
+  .quote-page{
+    width:100%;
+    max-width:100%;
+    padding:8px 8px 92px!important;
+    overflow-x:hidden;
+  }
+  .toolbar{
+    position:sticky!important;
+    top:0!important;
+    z-index:30!important;
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:10px!important;
+    width:100%!important;
+    min-height:0!important;
+    margin:0 0 10px!important;
+    padding:10px!important;
+    border-radius:14px!important;
+    background:#fff!important;
+    box-shadow:0 8px 22px rgba(16,36,63,.08)!important;
+  }
+  .toolbar::before,
+  .toolbar::after{
+    display:none!important;
+  }
+  .toolbar > div{
+    display:grid!important;
+    grid-template-columns:42px minmax(0,1fr)!important;
+    gap:9px!important;
+    align-items:center!important;
+  }
+  .toolbar > div::before{
+    content:"";
+    width:42px;
+    height:42px;
+    border-radius:12px;
+    background:#1f5f8b;
+  }
+  .toolbar .eyebrow{
+    grid-column:2;
+    margin:0!important;
+    color:#10243f!important;
+    font-size:14px!important;
+    font-weight:900!important;
+  }
+  .toolbar h1{
+    grid-column:2;
+    margin:0!important;
+    color:#64748b!important;
+    font-size:12px!important;
+    line-height:1.25!important;
+    font-weight:800!important;
+  }
+  .toolbar nav{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:8px!important;
+    width:100%!important;
+    overflow:visible!important;
+    padding:0!important;
+  }
+  .toolbar nav .mobile-optional{
+    display:none!important;
+  }
+  .toolbar nav button,
+  .toolbar nav .admin-link{
+    width:100%!important;
+    min-width:0!important;
+    min-height:38px!important;
+    border-radius:10px!important;
+    padding:7px 8px!important;
+    font-size:13px!important;
+    justify-content:center!important;
+  }
+  .toolbar nav .primary{
+    grid-column:1/-1;
+  }
+  .overview-panel{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    margin-top:0!important;
+  }
+  .overview-panel article{
+    min-height:72px!important;
+    padding:12px!important;
+  }
+  .overview-panel b{
+    font-size:20px!important;
+  }
+  .band{
+    padding:12px!important;
+    border-radius:14px!important;
+  }
+  .product-filters{
+    grid-template-columns:1fr!important;
+    padding:10px!important;
+  }
+  .search{
+    height:42px!important;
+    margin-bottom:10px!important;
+  }
+  .product-row{
+    grid-template-columns:1fr!important;
+    padding:12px!important;
+  }
+}
 </style>
 
