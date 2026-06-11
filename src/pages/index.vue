@@ -447,6 +447,26 @@ function perSquare(line: QuoteLine) {
   return linePerSquare(line.quantity, line.unitPrice, selectedArea.value)
 }
 
+function subtotal(line: QuoteLine) {
+  return lineSubtotal(line.quantity, line.unitPrice)
+}
+
+function constructionLineById(id: string) {
+  return constructionLines.value.find(line => line.id === id)
+}
+
+function constructionLineBySource(sourceId: string) {
+  return constructionLines.value.find(line => line.sourceId === sourceId)
+}
+
+function lineAmount(line?: QuoteLine) {
+  return line ? subtotal(line) : 0
+}
+
+function lineAmountPerSquare(line?: QuoteLine) {
+  return line ? perSquare(line) : 0
+}
+
 function amountPerSquare(amount: number) {
   return selectedArea.value > 0 ? amount / selectedArea.value : 0
 }
@@ -1171,6 +1191,19 @@ async function printPdf() {
           <div v-else class="empty product-empty">
             {{ productSearchReady ? '没有找到匹配产品，请换个条件试试' : '先搜索或选择筛选条件，再添加产品' }}
           </div>
+          <div v-if="productLines.length" class="mobile-inline-lines">
+            <h3>已选草坪</h3>
+            <article v-for="line in productLines" :key="line.id" class="mobile-inline-line">
+              <div>
+                <b>{{ line.title }}</b>
+                <p>{{ line.spec }}</p>
+              </div>
+              <label>面积<input :value="line.quantity" type="number" @input="updateProductQuantity(line.id, $event)"></label>
+              <label>单价<input v-model.number="line.unitPrice" type="number" step="0.01"></label>
+              <strong>{{ money(subtotal(line)) }}<small>{{ money(perSquare(line)) }}/㎡</small></strong>
+              <button type="button" @click="quote.removeLine(line.id)">删除</button>
+            </article>
+          </div>
         </section>
 
         <section class="band">
@@ -1196,6 +1229,10 @@ async function printPdf() {
             <span>{{ construction.package.kind === 'A' ? '草坪专用树脂胶、连接带、运动白草' : '草坪专用双组胶水、连接带、运动白草' }}</span>
             <input class="price-input" type="number" step="0.01" :value="selectedPackagePrice()" @input="construction.package.unitPrice = optionalNumber($event)">
             <label v-for="index in 3" :key="index" class="file-chip">图{{ index }}<input type="file" accept="image/*" @change="uploadPackage($event, index - 1)"></label>
+            <strong v-if="constructionLineById('construction-package')" class="mobile-line-total">
+              {{ money(lineAmount(constructionLineById('construction-package'))) }}
+              <small>{{ money(lineAmountPerSquare(constructionLineById('construction-package'))) }}/㎡</small>
+            </strong>
           </div>
 
           <div class="accessory-grid">
@@ -1207,6 +1244,7 @@ async function printPdf() {
               <input class="price-input accessory-price" type="number" step="0.01" placeholder="单价" :value="selectedPrice(construction.rubber.unitPrice, construction.rubber.materialId)" @input="construction.rubber.unitPrice = optionalNumber($event)">
               <button type="button" @click="openNewMaterialModal('rubber', '橡胶颗粒', '吨')">新增规格</button>
               <label class="file-chip">图片<input type="file" accept="image/*" @change="uploadOne($event, url => construction.rubber.imageDataUrl = url)"></label>
+              <strong v-if="constructionLineById('construction-rubber')" class="mobile-line-total">{{ money(lineAmount(constructionLineById('construction-rubber'))) }}<small>{{ money(lineAmountPerSquare(constructionLineById('construction-rubber'))) }}/㎡</small></strong>
             </article>
 
             <article class="accessory">
@@ -1217,6 +1255,7 @@ async function printPdf() {
               <input class="price-input accessory-price" type="number" step="0.01" placeholder="单价" :value="selectedPrice(construction.sand.unitPrice, construction.sand.materialId)" @input="construction.sand.unitPrice = optionalNumber($event)">
               <button type="button" @click="openNewMaterialModal('sand', '石英砂', '吨')">新增规格</button>
               <label class="file-chip">图片<input type="file" accept="image/*" @change="uploadOne($event, url => construction.sand.imageDataUrl = url)"></label>
+              <strong v-if="constructionLineById('construction-sand')" class="mobile-line-total">{{ money(lineAmount(constructionLineById('construction-sand'))) }}<small>{{ money(lineAmountPerSquare(constructionLineById('construction-sand'))) }}/㎡</small></strong>
             </article>
 
             <article v-if="construction.mode === 'unit'" class="accessory">
@@ -1227,6 +1266,7 @@ async function printPdf() {
               <input class="price-input accessory-price" type="number" step="0.01" placeholder="桶价" :value="construction.glue.bucketPrice ?? materialPrice(construction.glue.materialId)" @input="construction.glue.bucketPrice = optionalNumber($event)">
               <button type="button" @click="openNewMaterialModal('glue', '单组胶水', '桶')">新增规格</button>
               <label class="file-chip">图片<input type="file" accept="image/*" @change="uploadOne($event, url => construction.glue.imageDataUrl = url)"></label>
+              <strong v-if="constructionLineById('construction-glue')" class="mobile-line-total">{{ money(lineAmount(constructionLineById('construction-glue'))) }}<small>{{ money(lineAmountPerSquare(constructionLineById('construction-glue'))) }}/㎡</small></strong>
             </article>
 
             <article class="accessory">
@@ -1237,6 +1277,7 @@ async function printPdf() {
               <input class="price-input accessory-price" type="number" step="0.01" placeholder="单价" :value="selectedPrice(construction.shockPad.unitPrice, construction.shockPad.materialId)" @input="construction.shockPad.unitPrice = optionalNumber($event)">
               <button type="button" @click="openNewMaterialModal('shockPad', '减震垫', '平方')">新增规格</button>
               <label class="file-chip">图片<input type="file" accept="image/*" @change="uploadOne($event, url => construction.shockPad.imageDataUrl = url)"></label>
+              <strong v-if="constructionLineBySource(construction.shockPad.materialId)" class="mobile-line-total">{{ money(lineAmount(constructionLineBySource(construction.shockPad.materialId))) }}<small>{{ money(lineAmountPerSquare(constructionLineBySource(construction.shockPad.materialId))) }}/㎡</small></strong>
             </article>
 
             <article v-if="construction.mode === 'unit'" class="accessory">
@@ -1247,6 +1288,7 @@ async function printPdf() {
               <input class="price-input accessory-price" type="number" step="0.01" placeholder="单价" :value="selectedPrice(construction.seamTape.unitPrice, construction.seamTape.materialId)" @input="construction.seamTape.unitPrice = optionalNumber($event)">
               <button type="button" @click="openNewMaterialModal('seamTape', '接缝布', '米')">新增规格</button>
               <label class="file-chip">图片<input type="file" accept="image/*" @change="uploadOne($event, url => construction.seamTape.imageDataUrl = url)"></label>
+              <strong v-if="constructionLineBySource(construction.seamTape.materialId)" class="mobile-line-total">{{ money(lineAmount(constructionLineBySource(construction.seamTape.materialId))) }}<small>{{ money(lineAmountPerSquare(constructionLineBySource(construction.seamTape.materialId))) }}/㎡</small></strong>
             </article>
 
             <article v-if="construction.mode === 'unit'" class="accessory">
@@ -1257,6 +1299,7 @@ async function printPdf() {
               <input class="price-input accessory-price" type="number" step="0.01" placeholder="单价" :value="selectedPrice(construction.whiteTurf.unitPrice, construction.whiteTurf.materialId)" @input="construction.whiteTurf.unitPrice = optionalNumber($event)">
               <button type="button" @click="openNewMaterialModal('whiteTurf', '白草坪', '平方')">新增规格</button>
               <label class="file-chip">图片<input type="file" accept="image/*" @change="uploadOne($event, url => construction.whiteTurf.imageDataUrl = url)"></label>
+              <strong v-if="constructionLineBySource(construction.whiteTurf.materialId)" class="mobile-line-total">{{ money(lineAmount(constructionLineBySource(construction.whiteTurf.materialId))) }}<small>{{ money(lineAmountPerSquare(constructionLineBySource(construction.whiteTurf.materialId))) }}/㎡</small></strong>
             </article>
 
             <article v-if="construction.mode === 'unit' && otherMaterialOptions.length" class="accessory">
@@ -1269,7 +1312,31 @@ async function printPdf() {
               <input class="price-input accessory-price" type="number" step="0.01" placeholder="单价" :value="selectedPrice(construction.other.unitPrice, construction.other.materialId)" @input="construction.other.unitPrice = optionalNumber($event)">
               <button type="button" @click="view = 'settings'; settingsTab = 'materials'">管理辅料</button>
               <label class="file-chip">图片<input type="file" accept="image/*" @change="uploadOne($event, url => construction.other.imageDataUrl = url)"></label>
+              <strong v-if="constructionLineBySource(construction.other.materialId)" class="mobile-line-total">{{ money(lineAmount(constructionLineBySource(construction.other.materialId))) }}<small>{{ money(lineAmountPerSquare(constructionLineBySource(construction.other.materialId))) }}/㎡</small></strong>
             </article>
+          </div>
+        </section>
+
+        <section class="band mobile-charge-panel">
+          <header><h2>费用与导出</h2></header>
+          <div class="segmented slim">
+            <button :class="{ active: charges.freightMode === 'combined' }" @click="charges.freightMode = 'combined'">运费+施工</button>
+            <button :class="{ active: charges.freightMode === 'separate' }" @click="charges.freightMode = 'separate'">分开填写</button>
+          </div>
+          <label v-if="charges.freightMode === 'combined'">运费+施工费/㎡<input v-model.number="charges.combinedFee" type="number"></label>
+          <template v-else>
+            <label>运费/㎡<input v-model.number="charges.freightFee" type="number"></label>
+            <label>施工费/㎡<input v-model.number="charges.laborFee" type="number"></label>
+          </template>
+          <label>税率(%)<input v-model.number="charges.taxRate" type="number" step="0.1"></label>
+          <div class="mobile-grand-total">
+            <span>总价</span>
+            <b>{{ money(totals.grandTotal) }}</b>
+            <small>{{ money(totalPerSquare()) }}/㎡</small>
+          </div>
+          <div class="mobile-export-actions">
+            <button class="primary" @click="printPdf">下载PDF</button>
+            <button class="primary" @click="exportWord">导出Word</button>
           </div>
         </section>
       </div>
@@ -1657,6 +1724,11 @@ dd{margin:3px 0 0;font-weight:800;color:#2f2a24}
 .file-chip{display:inline-flex;align-items:center;justify-content:center;border:1px dashed #93a8b5;border-radius:6px;padding:8px 10px;color:#5f564b;background:#fffefa;white-space:nowrap;cursor:pointer}
 .file-chip:hover{border-color:#b28a46;color:#8c672c;background:#f0fafb}
 .file-chip input{display:none}
+.mobile-inline-lines,
+.mobile-line-total,
+.mobile-charge-panel{
+  display:none;
+}
 .product-image-chip.filled{border-style:solid;border-color:#1f8a70;color:#1f8a70;background:#eefaf6}
 .quote-line{
   display:grid;
@@ -2903,6 +2975,132 @@ th{background:#f5f5f5}
     width:100%!important;
     min-width:0!important;
     max-width:100%!important;
+  }
+  .toolbar > div::before{
+    display:none!important;
+  }
+  .toolbar .eyebrow{
+    display:none!important;
+  }
+  .toolbar > div{
+    display:block!important;
+  }
+  .toolbar h1{
+    display:block!important;
+    color:#10243f!important;
+    font-size:20px!important;
+    line-height:1.2!important;
+    white-space:normal!important;
+  }
+  .summary{
+    display:none!important;
+  }
+  .mobile-inline-lines{
+    display:grid!important;
+    gap:10px!important;
+    margin-top:12px!important;
+  }
+  .mobile-inline-lines h3{
+    margin:0!important;
+    color:#183f68!important;
+    font-size:15px!important;
+  }
+  .mobile-inline-line{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:9px!important;
+    padding:12px!important;
+    border:1px solid #dbe6f2!important;
+    border-radius:14px!important;
+    background:#fff!important;
+  }
+  .mobile-inline-line b{
+    color:#10243f!important;
+    font-size:15px!important;
+  }
+  .mobile-inline-line p{
+    margin:4px 0 0!important;
+    color:#64748b!important;
+    font-size:12px!important;
+    line-height:1.45!important;
+  }
+  .mobile-inline-line label{
+    display:grid!important;
+    gap:5px!important;
+    color:#64748b!important;
+    font-size:12px!important;
+    font-weight:900!important;
+  }
+  .mobile-inline-line input,
+  .mobile-inline-line button{
+    width:100%!important;
+    min-width:0!important;
+  }
+  .mobile-inline-line strong,
+  .mobile-line-total,
+  .mobile-grand-total{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:8px!important;
+    width:100%!important;
+    min-height:42px!important;
+    padding:10px 12px!important;
+    border-radius:12px!important;
+    background:#eff6ff!important;
+    color:#246ed8!important;
+    font-size:17px!important;
+    font-weight:900!important;
+  }
+  .mobile-inline-line strong::before,
+  .mobile-line-total::before{
+    content:"小计";
+    color:#64748b;
+    font-size:12px;
+    font-weight:900;
+  }
+  .mobile-inline-line small,
+  .mobile-line-total small,
+  .mobile-grand-total small{
+    color:#64748b!important;
+    font-size:12px!important;
+    font-weight:800!important;
+  }
+  .mobile-inline-line button{
+    border-color:#ffd3d3!important;
+    background:#fff5f5!important;
+    color:#d92929!important;
+  }
+  .mobile-charge-panel{
+    display:grid!important;
+    gap:10px!important;
+  }
+  .mobile-charge-panel label{
+    display:grid!important;
+    gap:6px!important;
+    color:#64748b!important;
+    font-size:13px!important;
+    font-weight:900!important;
+  }
+  .mobile-charge-panel input{
+    width:100%!important;
+  }
+  .mobile-grand-total{
+    background:linear-gradient(135deg,#10243f,#246ed8)!important;
+    color:#fff!important;
+  }
+  .mobile-grand-total span,
+  .mobile-grand-total small{
+    color:#dcecff!important;
+  }
+  .mobile-export-actions{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    gap:10px!important;
+  }
+  .mobile-export-actions button{
+    width:100%!important;
+    min-height:42px!important;
   }
 }
 </style>
