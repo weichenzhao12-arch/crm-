@@ -2708,11 +2708,11 @@ th{background:#f5f5f5}
     z-index:30!important;
     display:grid!important;
     grid-template-columns:1fr!important;
-    gap:10px!important;
+    gap:8px!important;
     width:100%!important;
     min-height:0!important;
     margin:0 0 10px!important;
-    padding:10px!important;
+    padding:10px 10px 12px!important;
     border-radius:14px!important;
     background:#fff!important;
     box-shadow:0 8px 22px rgba(16,36,63,.08)!important;
@@ -2723,15 +2723,15 @@ th{background:#f5f5f5}
   }
   .toolbar > div{
     display:grid!important;
-    grid-template-columns:42px minmax(0,1fr)!important;
+    grid-template-columns:38px minmax(0,1fr) auto!important;
     gap:9px!important;
     align-items:center!important;
   }
   .toolbar > div::before{
     content:"";
-    width:42px;
-    height:42px;
-    border-radius:12px;
+    width:38px;
+    height:38px;
+    border-radius:11px;
     background:#1f5f8b;
   }
   .toolbar .eyebrow{
@@ -2749,9 +2749,16 @@ th{background:#f5f5f5}
     line-height:1.25!important;
     font-weight:800!important;
   }
+  .toolbar .eyebrow,
+  .toolbar h1{
+    max-width:100%;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
   .toolbar nav{
     display:grid!important;
-    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
     gap:8px!important;
     width:100%!important;
     overflow:visible!important;
@@ -2764,25 +2771,17 @@ th{background:#f5f5f5}
   .toolbar nav .admin-link{
     width:100%!important;
     min-width:0!important;
-    min-height:38px!important;
+    min-height:36px!important;
     border-radius:10px!important;
-    padding:7px 8px!important;
+    padding:6px 8px!important;
     font-size:13px!important;
     justify-content:center!important;
   }
   .toolbar nav .primary{
-    grid-column:1/-1;
+    grid-column:auto;
   }
   .overview-panel{
-    grid-template-columns:repeat(2,minmax(0,1fr))!important;
-    margin-top:0!important;
-  }
-  .overview-panel article{
-    min-height:72px!important;
-    padding:12px!important;
-  }
-  .overview-panel b{
-    font-size:20px!important;
+    display:none!important;
   }
   .band{
     padding:12px!important;
