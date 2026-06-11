@@ -921,6 +921,27 @@ function downloadDataUrl(dataUrl: string, fileName: string) {
   link.remove()
 }
 
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  link.rel = 'noopener'
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+function blobToDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(reader.error || new Error('文件读取失败'))
+    reader.readAsDataURL(blob)
+  })
+}
+
 function loadHtml2Pdf() {
   const existing = (window as any).html2pdf
   if (existing)
@@ -936,6 +957,11 @@ function loadHtml2Pdf() {
 }
 
 async function quotePdfDataUrl(fileName: string) {
+  const blob = await quotePdfBlob(fileName)
+  return blobToDataUrl(blob)
+}
+
+async function quotePdfBlob(fileName: string) {
   const html2pdf = await loadHtml2Pdf()
   const source = document.createElement('div')
   source.style.position = 'fixed'
@@ -961,7 +987,7 @@ async function quotePdfDataUrl(fileName: string) {
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       })
       .from(source)
-      .outputPdf('datauristring')
+      .outputPdf('blob')
   }
   finally {
     source.remove()
@@ -1008,18 +1034,18 @@ function exportWord() {
 async function printPdf() {
   const fileName = `${meta.value.customerName || '客户'}-报价单-${Date.now()}.pdf`
   try {
-    const dataUrl = await quotePdfDataUrl(fileName)
+    const blob = await quotePdfBlob(fileName)
+    const dataUrl = await blobToDataUrl(blob)
     syncQuoteToCustomer('已打印/PDF', {
       name: fileName,
       dataUrl,
     })
-    downloadDataUrl(dataUrl, fileName)
+    downloadBlob(blob, fileName)
   }
   catch {
     syncQuoteToCustomer('PDF生成失败，请重试')
     window.alert('PDF生成失败，请检查网络后再试一次。')
   }
-  view.value = 'print'
 }
 </script>
 
