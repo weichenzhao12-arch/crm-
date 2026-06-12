@@ -97,6 +97,112 @@ async function syncAdminUsers(db: D1Database, users: unknown) {
     await db.batch(statements)
 }
 
+async function replaceJsonRows(db: D1Database, table: string, rows: any[], mapper: (row: any) => D1PreparedStatement) {
+  await db.prepare(`DELETE FROM ${table}`).run()
+  if (!rows.length)
+    return
+  await db.batch(rows.map(mapper))
+}
+
+async function syncCustomers(db: D1Database, customers: unknown) {
+  if (!Array.isArray(customers))
+    return
+  await replaceJsonRows(db, 'crm_customers', customers, customer =>
+    db.prepare(`
+      INSERT INTO crm_customers (id, name, owner, stage, assigned_to_user_id, value, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `).bind(
+      String(customer.id || crypto.randomUUID()),
+      String(customer.name || ''),
+      String(customer.owner || ''),
+      String(customer.stage || ''),
+      String(customer.assignedToUserId || ''),
+      JSON.stringify(customer),
+    ),
+  )
+}
+
+async function syncPricing(db: D1Database, pricing: any) {
+  if (!pricing || typeof pricing !== 'object')
+    return
+
+  const products = Array.isArray(pricing.products) ? pricing.products : []
+  const materials = Array.isArray(pricing.materials) ? pricing.materials : []
+
+  await replaceJsonRows(db, 'quote_products', products, product =>
+    db.prepare(`
+      INSERT INTO quote_products (id, item_no, category, model, value, updated_at)
+      VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `).bind(
+      String(product.id || crypto.randomUUID()),
+      String(product.itemNo || ''),
+      String(product.category || ''),
+      String(product.model || ''),
+      JSON.stringify(product),
+    ),
+  )
+
+  await replaceJsonRows(db, 'quote_materials', materials, material =>
+    db.prepare(`
+      INSERT INTO quote_materials (id, name, category, spec, value, updated_at)
+      VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `).bind(
+      String(material.id || crypto.randomUUID()),
+      String(material.name || ''),
+      String(material.category || ''),
+      String(material.spec || ''),
+      JSON.stringify(material),
+    ),
+  )
+}
+
+async function syncSystemState(db: D1Database, state: any) {
+  if (!state || typeof state !== 'object')
+    return
+
+  const recycleBin = Array.isArray(state.recycleBin) ? state.recycleBin : []
+  const operationLogs = Array.isArray(state.operationLogs) ? state.operationLogs : []
+
+  await replaceJsonRows(db, 'recycle_records', recycleBin, record =>
+    db.prepare(`
+      INSERT INTO recycle_records (id, type, name, deleted_by, deleted_at, value, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `).bind(
+      String(record.id || crypto.randomUUID()),
+      String(record.type || ''),
+      String(record.name || ''),
+      String(record.deletedBy || ''),
+      String(record.deletedAt || ''),
+      JSON.stringify(record),
+    ),
+  )
+
+  await replaceJsonRows(db, 'operation_logs', operationLogs, log =>
+    db.prepare(`
+      INSERT INTO operation_logs (id, action, type, name, actor, created_at, detail, value)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      String(log.id || crypto.randomUUID()),
+      String(log.action || ''),
+      String(log.type || ''),
+      String(log.name || ''),
+      String(log.actor || ''),
+      String(log.createdAt || ''),
+      String(log.detail || ''),
+      JSON.stringify(log),
+    ),
+  )
+}
+
+async function syncNormalizedState(db: D1Database, key: string, value: unknown) {
+  if (key === 'customers')
+    await syncCustomers(db, value)
+  else if (key === 'pricing')
+    await syncPricing(db, value)
+  else if (key === 'system-state')
+    await syncSystemState(db, value)
+}
+
 async function requireLogin(c: Context<AppBindings>, next: Next) {
   const authorization = c.req.header('authorization') || ''
   const token = authorization.replace(/^Bearer\s+/i, '')
@@ -157,6 +263,7 @@ app.put('/state/:key', async (c) => {
 
   if (key === 'admin-users')
     await syncAdminUsers(c.env.DB, body.value)
+  await syncNormalizedState(c.env.DB, key, body.value)
 
   return c.json({ ok: true })
 })
