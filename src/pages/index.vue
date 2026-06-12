@@ -97,6 +97,11 @@ const newMaterialModal = ref({
   unit: '吨',
   unitPrice: 0,
 })
+const pdfDownloadModal = ref({
+  open: false,
+  fileName: '',
+  dataUrl: '',
+})
 
 const selectedArea = computed(() => resolveArea(areaInput.value))
 const productLines = computed(() => lines.value.filter(line => line.kind === 'product'))
@@ -973,6 +978,35 @@ function downloadBlob(blob: Blob, fileName: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
+function isMobileSafari() {
+  if (typeof navigator === 'undefined')
+    return false
+  const ua = navigator.userAgent || ''
+  return /iP(hone|ad|od)/.test(ua) && /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua)
+}
+
+function openPdfDataUrl(dataUrl: string) {
+  const opened = window.open(dataUrl, '_blank')
+  if (!opened)
+    window.location.href = dataUrl
+}
+
+function showPdfDownloadModal(fileName: string, dataUrl: string) {
+  pdfDownloadModal.value = {
+    open: true,
+    fileName,
+    dataUrl,
+  }
+}
+
+function closePdfDownloadModal() {
+  pdfDownloadModal.value = {
+    open: false,
+    fileName: '',
+    dataUrl: '',
+  }
+}
+
 function blobToDataUrl(blob: Blob) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
@@ -1096,7 +1130,10 @@ async function printPdf() {
       name: fileName,
       dataUrl,
     })
-    downloadBlob(blob, fileName)
+    if (isMobileSafari())
+      showPdfDownloadModal(fileName, dataUrl)
+    else
+      downloadBlob(blob, fileName)
   }
   catch {
     syncQuoteToCustomer('PDF生成失败，请重试')
@@ -1566,6 +1603,17 @@ async function printPdf() {
           <button type="button" @click="closeNewMaterialModal">取消</button>
           <button class="primary" type="button" @click="saveNewMaterial">确认新增</button>
         </footer>
+      </section>
+    </div>
+
+    <div v-if="pdfDownloadModal.open" class="modal-mask no-print">
+      <section class="modal-card pdf-save-card">
+        <header>
+          <h2>PDF已生成</h2>
+          <button type="button" @click="closePdfDownloadModal">×</button>
+        </header>
+        <p>Safari 不支持直接打开临时下载地址，请点击下方按钮打开 PDF，再使用手机分享或保存到文件。</p>
+        <a class="primary pdf-open-link" :href="pdfDownloadModal.dataUrl" :download="pdfDownloadModal.fileName" target="_blank" rel="noopener" @click.prevent="openPdfDataUrl(pdfDownloadModal.dataUrl)">打开/保存PDF</a>
       </section>
     </div>
   </main>
@@ -2751,6 +2799,20 @@ th{background:#f5f5f5}
     justify-content:flex-end;
     gap:10px;
     padding:16px 22px 22px;
+  }
+  .pdf-save-card p{
+    padding:20px 22px 0;
+    color:#64748b;
+    line-height:1.7;
+  }
+  .pdf-open-link{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:44px;
+    margin:18px 22px 22px;
+    border-radius:12px;
+    text-decoration:none;
   }
   @media(max-width:1320px){
     .toolbar,
