@@ -3,6 +3,7 @@ import pricingData from '~/data/pricing.json'
 import type { ExtraChargeInput, MaterialRecord, ProductRecord, QuoteLine, QuoteMeta } from '~/features/quote/types'
 import { priceWithNeedleAddition, quoteTotals, selectUnitPrice } from '~/features/quote/pricing'
 import { getCloudState, putCloudState } from '~/api/cloud-storage'
+import { useSystemStore } from '~/stores/system'
 
 interface PricingData {
   products: ProductRecord[]
@@ -239,10 +240,26 @@ export const useQuoteStore = defineStore('quote', {
         Object.assign(material, patch)
     },
     removeProduct(id: string) {
+      const product = this.pricing.products.find(item => item.id === id)
+      if (product)
+        useSystemStore().addRecycle('product', product.itemNo || product.model || '未命名产品', product)
       this.pricing.products = this.pricing.products.filter(item => item.id !== id)
     },
     removeMaterial(id: string) {
+      const material = this.pricing.materials.find(item => item.id === id)
+      if (material)
+        useSystemStore().addRecycle('material', material.name || material.spec || '未命名辅料', material)
       this.pricing.materials = this.pricing.materials.filter(item => item.id !== id)
+    },
+    restoreProduct(product: ProductRecord) {
+      this.pricing.products = this.pricing.products.filter(item => item.id !== product.id)
+      this.pricing.products.unshift(product)
+      this.savePricing()
+    },
+    restoreMaterial(material: MaterialRecord) {
+      this.pricing.materials = this.pricing.materials.filter(item => item.id !== material.id)
+      this.pricing.materials.unshift(material)
+      this.savePricing()
     },
     savePricing() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.pricing))

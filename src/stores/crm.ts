@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { getCloudState, putCloudState } from '~/api/cloud-storage'
+import { useSystemStore } from '~/stores/system'
 
 export type CustomerStage = 'new' | 'quoted' | 'follow' | 'won' | 'lost'
 export type IntentLevel = 'A' | 'B' | 'C' | 'D' | 'E' | 'F'
@@ -337,7 +338,21 @@ export const useCrmStore = defineStore('crm', {
       })
     },
     removeCustomer(id: string) {
+      const customer = this.customers.find(customer => customer.id === id)
+      if (!customer)
+        return
+
+      useSystemStore().addRecycle('customer', customer.name || customer.phone || '未命名客户', customer)
       this.customers = this.customers.filter(customer => customer.id !== id)
+      this.save()
+    },
+    removeCustomers(ids: string[]) {
+      ids.forEach(id => this.removeCustomer(id))
+    },
+    restoreCustomer(customer: CrmCustomer) {
+      const normalized = normalizeCustomer(customer)
+      this.customers = this.customers.filter(item => item.id !== normalized.id)
+      this.customers.unshift(normalized)
       this.save()
     },
     findCustomer(id: string) {

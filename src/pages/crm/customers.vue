@@ -532,10 +532,8 @@ function batchDeleteCustomers() {
     return
   if (!window.confirm(`确定删除已选中的 ${selectedCustomerIds.value.length} 条客资吗？删除后无法恢复。`))
     return
-  const selectedIds = new Set(selectedCustomerIds.value)
-  customers.value = customers.value.filter(customer => !selectedIds.has(customer.id))
+  crm.removeCustomers(selectedCustomerIds.value)
   selectedCustomerIds.value = []
-  crm.save()
 }
 
 function batchTransferCustomers() {

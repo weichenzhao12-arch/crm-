@@ -13,14 +13,20 @@ import { storeToRefs } from 'pinia'
 import type { MaterialRecord, ProductRecord } from '~/features/quote/types'
 import { uploadCloudImage } from '~/api/cloud-storage'
 import { useAdminStore } from '~/stores/admin'
+import { useCrmStore } from '~/stores/crm'
 import { useQuoteStore } from '~/stores/quote'
+import { useSystemStore } from '~/stores/system'
+import type { RecycleRecord } from '~/stores/system'
 
 const quote = useQuoteStore()
 const admin = useAdminStore()
+const crm = useCrmStore()
+const system = useSystemStore()
 const { pricing } = storeToRefs(quote)
 const { users } = storeToRefs(admin)
+const { activeRecycleBin, recentLogs } = storeToRefs(system)
 
-const activeTab = ref<'products' | 'materials' | 'users'>('products')
+const activeTab = ref<'products' | 'materials' | 'users' | 'recycle'>('products')
 const keyword = ref('')
 const oldPassword = ref('')
 const newPassword = ref('')
@@ -36,6 +42,7 @@ onMounted(() => {
     quote.savePricing()
   })
   admin.loadCloudUsers()
+  system.loadCloudSystemState()
 })
 
 const productColumns = ['货号', '产品类型', '产品名称', '草高', 'DTEX', '加针价格', '密度', '针排', '底布', '抗老化', '阶梯价格', '默认图片', '备注']
@@ -261,7 +268,7 @@ function toggleAllMaterials(event: Event) {
 function deleteProducts(ids: string[]) {
   if (!ids.length)
     return
-  pricing.value.products = pricing.value.products.filter(product => !ids.includes(product.id))
+  ids.forEach(id => quote.removeProduct(id))
   selectedProductIds.value = selectedProductIds.value.filter(id => !ids.includes(id))
   quote.savePricing()
 }
@@ -269,9 +276,39 @@ function deleteProducts(ids: string[]) {
 function deleteMaterials(ids: string[]) {
   if (!ids.length)
     return
-  pricing.value.materials = pricing.value.materials.filter(material => !ids.includes(material.id))
+  ids.forEach(id => quote.removeMaterial(id))
   selectedMaterialIds.value = selectedMaterialIds.value.filter(id => !ids.includes(id))
   quote.savePricing()
+}
+
+function restoreRecycleItem(record: RecycleRecord) {
+  const item = system.restore(record.id)
+  if (!item)
+    return
+
+  if (record.type === 'product')
+    quote.restoreProduct(item)
+  else if (record.type === 'material')
+    quote.restoreMaterial(item)
+  else if (record.type === 'customer')
+    crm.restoreCustomer(item)
+}
+
+function recycleTypeLabel(type: string) {
+  return type === 'product' ? '产品' : type === 'material' ? '辅料' : type === 'customer' ? '客户' : type
+}
+
+function actionLabel(action: string) {
+  const labels: Record<string, string> = {
+    create: '新增',
+    update: '修改',
+    delete: '删除',
+    restore: '恢复',
+    'permanent-delete': '永久删除',
+    import: '导入',
+    transfer: '转移',
+  }
+  return labels[action] || action
 }
 
 function saveAll() {
@@ -309,6 +346,7 @@ function changeOwnPassword() {
       <button :class="{ active: activeTab === 'products' }" @click="activeTab = 'products'">产品管理</button>
       <button :class="{ active: activeTab === 'materials' }" @click="activeTab = 'materials'">辅料管理</button>
       <button :class="{ active: activeTab === 'users' }" @click="activeTab = 'users'">账号权限</button>
+      <button :class="{ active: activeTab === 'recycle' }" @click="activeTab = 'recycle'">回收站/记录</button>
     </section>
 
     <section v-if="activeTab === 'products'" class="admin-panel">
@@ -383,7 +421,7 @@ function changeOwnPassword() {
       </div>
     </section>
 
-    <section v-else class="admin-panel">
+    <section v-else-if="activeTab === 'users'" class="admin-panel">
       <header>
         <h2>账号权限</h2>
         <button @click="admin.addUser()">新增账号</button>
@@ -417,6 +455,43 @@ function changeOwnPassword() {
           <input v-model="user.password" :type="showUserPasswords ? 'text' : 'password'">
           <button :disabled="user.id === 'owner'" @click="admin.removeUser(user.id)">删除</button>
         </article>
+      </div>
+    </section>
+
+    <section v-else class="admin-panel">
+      <header>
+        <h2>回收站/操作记录</h2>
+        <p class="admin-hint">只保留最近7天，超过7天自动清理。</p>
+      </header>
+      <div class="recycle-layout">
+        <section>
+          <h3>回收站</h3>
+          <div v-if="activeRecycleBin.length" class="record-list">
+            <article v-for="record in activeRecycleBin" :key="record.id" class="record-card">
+              <div>
+                <b>{{ recycleTypeLabel(record.type) }}：{{ record.name }}</b>
+                <span>{{ record.deletedBy }} 删除于 {{ record.deletedAt.slice(0, 10) }}</span>
+              </div>
+              <div>
+                <button @click="restoreRecycleItem(record)">恢复</button>
+                <button class="danger" @click="system.permanentDelete(record.id)">永久删除</button>
+              </div>
+            </article>
+          </div>
+          <div v-else class="empty-state">暂无回收内容</div>
+        </section>
+        <section>
+          <h3>操作记录</h3>
+          <div v-if="recentLogs.length" class="record-list">
+            <article v-for="log in recentLogs" :key="log.id" class="record-card">
+              <div>
+                <b>{{ log.actor }} {{ actionLabel(log.action) }} {{ recycleTypeLabel(log.type) }}：{{ log.name }}</b>
+                <span>{{ log.createdAt.slice(0, 19).replace('T', ' ') }} {{ log.detail }}</span>
+              </div>
+            </article>
+          </div>
+          <div v-else class="empty-state">暂无操作记录</div>
+        </section>
       </div>
     </section>
   </main>
@@ -457,6 +532,16 @@ function changeOwnPassword() {
 .image-admin-cell button{min-height:34px;padding:6px 9px;font-size:12px}
 .password-box{display:flex;align-items:end;gap:10px;margin-bottom:14px;padding:12px;border:1px solid #e1e9f2;border-radius:12px;background:#f8fbff}
 .password-box label{display:grid;gap:6px;min-width:260px;font-weight:800;color:#50627a}
+.admin-hint{margin:0;color:#64748b;font-weight:800}
+.recycle-layout{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.recycle-layout h3{margin:0 0 10px;font-size:18px}
+.record-list{display:grid;gap:10px}
+.record-card{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid #dce7f3;border-radius:12px;background:#f8fbff}
+.record-card div:first-child{display:grid;gap:4px}
+.record-card b{color:#10243f}
+.record-card span{color:#64748b;font-size:13px;font-weight:800}
+.record-card div:last-child{display:flex;gap:8px;flex-wrap:wrap}
+.empty-state{padding:22px;border:1px dashed #b8cce3;border-radius:12px;background:#f8fbff;color:#64748b;text-align:center;font-weight:900}
 @media(max-width:720px){
   .admin-page{padding:10px 10px 76px}
   .admin-hero{align-items:flex-start;flex-direction:column;padding:16px;border-radius:14px}
@@ -487,6 +572,8 @@ function changeOwnPassword() {
   .image-upload{width:100%}
   .password-box{display:grid;grid-template-columns:1fr;align-items:stretch}
   .password-box label{min-width:0}
+  .recycle-layout{grid-template-columns:1fr}
+  .record-card{align-items:flex-start;flex-direction:column}
   .user-admin-table article input:nth-last-of-type(1){width:100%}
 }
 </style>
