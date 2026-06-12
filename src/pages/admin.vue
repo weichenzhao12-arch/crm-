@@ -450,6 +450,11 @@ function changeOwnPassword() {
           <input v-model="user.permissions.manageMaterials" type="checkbox">
           <input v-model="user.permissions.importExcel" type="checkbox">
           <input v-model="user.permissions.manageUsers" type="checkbox">
+          <input v-model="user.permissions.viewAllCustomers" type="checkbox" title="查看全部客户">
+          <input v-model="user.permissions.importCustomers" type="checkbox" title="导入客户">
+          <input v-model="user.permissions.exportCustomers" type="checkbox" title="导出客户">
+          <input v-model="user.permissions.deleteCustomers" type="checkbox" title="删除客户">
+          <input v-model="user.permissions.restoreRecords" type="checkbox" title="恢复回收站">
           <input v-model="user.permissions.exportQuote" type="checkbox">
           <input v-model="user.permissions.temporaryEdit" type="checkbox">
           <input v-model="user.password" :type="showUserPasswords ? 'text' : 'password'">
@@ -520,7 +525,7 @@ function changeOwnPassword() {
 .admin-table article:last-child{border-bottom:0}
 .product-admin-table .admin-head,.product-admin-table article{grid-template-columns:36px 118px 104px 128px 76px 84px 86px 90px 80px 112px 88px 150px 96px 120px 96px;min-width:1518px}
 .material-admin-table .admin-head,.material-admin-table article{grid-template-columns:36px 140px 150px 1fr 92px 110px 150px 220px 70px}
-.user-admin-table .admin-head,.user-admin-table article{grid-template-columns:110px 110px 110px 70px repeat(6,120px) minmax(260px,1fr) 76px;min-width:1480px}
+.user-admin-table .admin-head,.user-admin-table article{grid-template-columns:110px 110px 110px 70px repeat(11,120px) minmax(260px,1fr) 76px;min-width:2080px}
 .user-admin-table article input:nth-last-of-type(1){width:100%}
 .admin-table input,.admin-table select,.admin-table textarea,.password-box input{min-width:0;min-height:36px;border:1px solid #d5dee9;border-radius:8px;background:#f8fafc;padding:7px 9px}
 .admin-table input[type="checkbox"]{width:18px;height:18px;min-height:0;justify-self:center}

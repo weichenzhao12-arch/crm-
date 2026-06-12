@@ -10,6 +10,11 @@ export interface AdminPermission {
   manageUsers: boolean
   exportQuote: boolean
   temporaryEdit: boolean
+  viewAllCustomers: boolean
+  importCustomers: boolean
+  exportCustomers: boolean
+  deleteCustomers: boolean
+  restoreRecords: boolean
 }
 
 export interface AdminUser {
@@ -42,6 +47,11 @@ function permissionsForRole(role: AdminRole): AdminPermission {
       manageUsers: true,
       exportQuote: true,
       temporaryEdit: true,
+      viewAllCustomers: true,
+      importCustomers: true,
+      exportCustomers: true,
+      deleteCustomers: true,
+      restoreRecords: true,
     }
   }
   if (role === 'manager') {
@@ -52,6 +62,11 @@ function permissionsForRole(role: AdminRole): AdminPermission {
       manageUsers: false,
       exportQuote: true,
       temporaryEdit: true,
+      viewAllCustomers: true,
+      importCustomers: true,
+      exportCustomers: true,
+      deleteCustomers: true,
+      restoreRecords: true,
     }
   }
   if (role === 'quoter') {
@@ -62,6 +77,11 @@ function permissionsForRole(role: AdminRole): AdminPermission {
       manageUsers: false,
       exportQuote: false,
       temporaryEdit: true,
+      viewAllCustomers: false,
+      importCustomers: true,
+      exportCustomers: false,
+      deleteCustomers: false,
+      restoreRecords: false,
     }
   }
   return {
@@ -71,6 +91,25 @@ function permissionsForRole(role: AdminRole): AdminPermission {
     manageUsers: false,
     exportQuote: false,
     temporaryEdit: false,
+    viewAllCustomers: false,
+    importCustomers: false,
+    exportCustomers: false,
+    deleteCustomers: false,
+    restoreRecords: false,
+  }
+}
+
+function normalizePermissions(raw: Partial<AdminPermission> | undefined, role: AdminRole): AdminPermission {
+  const defaults = permissionsForRole(role)
+  const manageFallback = Boolean(raw?.manageUsers)
+  return {
+    ...defaults,
+    ...(raw || {}),
+    viewAllCustomers: raw?.viewAllCustomers ?? manageFallback ?? defaults.viewAllCustomers,
+    importCustomers: raw?.importCustomers ?? raw?.importExcel ?? defaults.importCustomers,
+    exportCustomers: raw?.exportCustomers ?? raw?.exportQuote ?? defaults.exportCustomers,
+    deleteCustomers: raw?.deleteCustomers ?? manageFallback ?? defaults.deleteCustomers,
+    restoreRecords: raw?.restoreRecords ?? manageFallback ?? defaults.restoreRecords,
   }
 }
 
@@ -83,7 +122,7 @@ function normalizeUser(raw: Partial<AdminUser>): AdminUser {
     role,
     enabled: raw.enabled !== false,
     password: raw.password || '123456',
-    permissions: raw.permissions || permissionsForRole(role),
+    permissions: normalizePermissions(raw.permissions, role),
   }
 }
 

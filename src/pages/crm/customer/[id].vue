@@ -8,7 +8,7 @@
 </route>
 
 <script setup lang="ts">
-import { nextTick } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAdminStore } from '~/stores/admin'
 import { useCrmStore } from '~/stores/crm'
@@ -30,6 +30,51 @@ const reminderModal = ref({
 const activityTab = ref<'follow' | 'quote'>(route.query.tab === 'quote' ? 'quote' : 'follow')
 const reminderItems = computed(() => customer.value?.followUps.filter(follow => follow.reminderDate) || [])
 const followItems = computed(() => customer.value?.followUps.filter(follow => !follow.reminderDate) || [])
+const lastSavedSnapshot = ref('')
+const hasUnsavedChanges = ref(false)
+
+function customerSnapshot() {
+  if (!customer.value)
+    return ''
+  const { updatedAt, ...rest } = customer.value
+  return JSON.stringify(rest)
+}
+
+function markSaved() {
+  lastSavedSnapshot.value = customerSnapshot()
+  hasUnsavedChanges.value = false
+}
+
+watch(customer, () => {
+  markSaved()
+}, { immediate: true })
+
+watch(customer, () => {
+  const snapshot = customerSnapshot()
+  if (lastSavedSnapshot.value && snapshot !== lastSavedSnapshot.value)
+    hasUnsavedChanges.value = true
+}, { deep: true })
+
+function beforeUnload(event: BeforeUnloadEvent) {
+  if (!hasUnsavedChanges.value)
+    return
+  event.preventDefault()
+  event.returnValue = ''
+}
+
+onMounted(() => {
+  window.addEventListener('beforeunload', beforeUnload)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', beforeUnload)
+})
+
+onBeforeRouteLeave(() => {
+  if (!hasUnsavedChanges.value)
+    return true
+  return window.confirm('客户资料有未保存内容，确定离开吗？')
+})
 
 watch(() => [route.query.tab, route.query.quoteSaved], async ([tab, quoteSaved]) => {
   if (tab === 'quote') {
@@ -59,6 +104,7 @@ const stageOptions = [
 
 function save() {
   crm.save()
+  markSaved()
 }
 
 function newQuote() {
@@ -108,6 +154,7 @@ function saveReminder() {
     reminderDone: false,
   })
   crm.save()
+  markSaved()
   closeReminderModal()
 }
 
@@ -117,6 +164,7 @@ function deleteFollowUp(follow: CrmFollowUp) {
     return
   current.followUps = current.followUps.filter(item => item.id !== follow.id)
   crm.save()
+  markSaved()
 }
 
 function setWonQuote(quote: CrmQuoteRecord) {
@@ -133,6 +181,7 @@ function setWonQuote(quote: CrmQuoteRecord) {
   })
   current.stage = 'won'
   crm.save()
+  markSaved()
 }
 
 function clearWonQuote(quote: CrmQuoteRecord) {
@@ -141,11 +190,13 @@ function clearWonQuote(quote: CrmQuoteRecord) {
   if (!customer.value?.quotes.some(item => item.isWon))
     customer.value!.stage = 'follow'
   crm.save()
+  markSaved()
 }
 
 function updateDealAmount(quote: CrmQuoteRecord, event: Event) {
   quote.dealAmount = Number((event.target as HTMLInputElement).value) || 0
   crm.save()
+  markSaved()
 }
 
 function uploadContract(event: Event, quote: CrmQuoteRecord) {
@@ -157,6 +208,7 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
     quote.contractFileName = file.name
     quote.contractFileDataUrl = String(reader.result || '')
     crm.save()
+    markSaved()
   }
   reader.readAsDataURL(file)
 }
@@ -173,7 +225,7 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
           <RouterLink to="/crm/customers">返回客户管理</RouterLink>
           <RouterLink to="/">返回 CRM</RouterLink>
           <button @click="newQuote">新建报价</button>
-          <button @click="save">保存客户</button>
+          <button @click="save">{{ hasUnsavedChanges ? '保存客户（未保存）' : '保存客户' }}</button>
         </nav>
       </section>
 

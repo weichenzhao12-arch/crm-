@@ -12,11 +12,13 @@ import * as XLSX from 'xlsx'
 import { storeToRefs } from 'pinia'
 import { useAdminStore } from '~/stores/admin'
 import { useCrmStore } from '~/stores/crm'
+import { useSystemStore } from '~/stores/system'
 import type { CrmCustomer, IntentLevel } from '~/stores/crm'
 
 const router = useRouter()
 const crm = useCrmStore()
 const admin = useAdminStore()
+const system = useSystemStore()
 const { customers } = storeToRefs(crm)
 const { users } = storeToRefs(admin)
 
@@ -99,10 +101,12 @@ const leadTableColumns = [
 const followUpColumns = leadTableColumns.filter(column => column.includes('跟踪反馈'))
 
 const loginUser = computed(() => admin.currentUser)
-const canManageLeads = computed(() => loginUser.value?.role === 'owner' || loginUser.value?.role === 'manager' || Boolean(loginUser.value?.permissions.manageUsers))
-const canDeleteCustomers = computed(() => loginUser.value?.role === 'owner' || loginUser.value?.role === 'manager')
-const canExportCustomers = computed(() => loginUser.value?.role === 'owner' || loginUser.value?.role === 'manager')
-const canViewAll = computed(() => canManageLeads.value)
+const isPrivileged = computed(() => loginUser.value?.role === 'owner' || loginUser.value?.role === 'manager')
+const canViewAll = computed(() => isPrivileged.value || Boolean(loginUser.value?.permissions.viewAllCustomers))
+const canManageLeads = computed(() => canViewAll.value || Boolean(loginUser.value?.permissions.manageUsers))
+const canDeleteCustomers = computed(() => isPrivileged.value || Boolean(loginUser.value?.permissions.deleteCustomers))
+const canExportCustomers = computed(() => isPrivileged.value || Boolean(loginUser.value?.permissions.exportCustomers))
+const canImportCustomers = computed(() => isPrivileged.value || Boolean(loginUser.value?.permissions.importCustomers))
 const activeUser = computed(() => canManageLeads.value && selectedUserId.value !== 'all' ? users.value.find(user => user.id === selectedUserId.value) || loginUser.value : loginUser.value)
 const salesUsers = computed(() => users.value.filter(user => user.enabled && user.role !== 'owner' && user.role !== 'viewer'))
 
@@ -338,6 +342,7 @@ function saveSampleInfo() {
   customer.sampleSent = sampleForm.value.sampleSent
   customer.sampleSpec = sampleForm.value.sampleSpec.trim()
   customer.sampleTrackingNo = sampleForm.value.sampleTrackingNo.trim()
+  system.log('update', 'lead', customer.name || customer.phone || '客户', '修改寄样信息')
   crm.save()
   closeSampleDialog()
 }
@@ -435,6 +440,11 @@ function importLeadTable(event: Event) {
   const file = input.files?.[0]
   if (!file)
     return
+  if (!canImportCustomers.value) {
+    window.alert('当前账号没有导入客资权限')
+    input.value = ''
+    return
+  }
 
   const reader = new FileReader()
   reader.onload = () => {
@@ -446,6 +456,7 @@ function importLeadTable(event: Event) {
       .map(rowToCustomer)
     if (imported.length) {
       customers.value = [...imported, ...customers.value]
+      system.log('import', 'lead', `导入${imported.length}条客资`, file.name)
       crm.save()
     }
     input.value = ''
@@ -552,6 +563,7 @@ function batchTransferCustomers() {
     }
   })
   selectedCustomerIds.value = []
+  system.log('transfer', 'lead', `${selectedIds.size}条客资`, `转移给 ${targetUser.displayName || targetUser.account}`)
   crm.save()
 }
 </script>
@@ -567,7 +579,7 @@ function batchTransferCustomers() {
       <nav>
         <RouterLink to="/crm">返回首页</RouterLink>
         <button @click="addCustomer">新增客户</button>
-        <label>导入客资<input type="file" accept=".xlsx,.xls" @change="importLeadTable"></label>
+        <label v-if="canImportCustomers">导入客资<input type="file" accept=".xlsx,.xls" @change="importLeadTable"></label>
 
         <button v-if="canExportCustomers" @click="exportLeadTable">导出客资</button>
 

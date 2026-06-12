@@ -108,10 +108,11 @@ const leadTableColumns = [
 
 const loginUser = computed(() => admin.currentUser)
 const isOwner = computed(() => loginUser.value?.role === 'owner')
-const canManageLeads = computed(() => loginUser.value?.role === 'owner' || loginUser.value?.role === 'manager' || Boolean(loginUser.value?.permissions.manageUsers))
+const isPrivileged = computed(() => loginUser.value?.role === 'owner' || loginUser.value?.role === 'manager')
+const canViewAll = computed(() => isPrivileged.value || Boolean(loginUser.value?.permissions.viewAllCustomers))
+const canManageLeads = computed(() => canViewAll.value || Boolean(loginUser.value?.permissions.manageUsers))
 const activeUser = computed(() => canManageLeads.value ? users.value.find(user => user.id === selectedUserId.value) || loginUser.value : loginUser.value)
-const canDeleteCustomers = computed(() => loginUser.value?.role === 'owner' || loginUser.value?.role === 'manager')
-const canViewAll = computed(() => canManageLeads.value)
+const canDeleteCustomers = computed(() => isPrivileged.value || Boolean(loginUser.value?.permissions.deleteCustomers))
 const salesUsers = computed(() => users.value.filter(user => user.enabled && user.role !== 'owner' && user.role !== 'viewer'))
 
 function customerBelongsToUser(customer: CrmCustomer, userId?: string) {
