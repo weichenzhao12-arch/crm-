@@ -10,6 +10,7 @@
 <script setup lang="ts">
 import * as XLSX from 'xlsx'
 import { storeToRefs } from 'pinia'
+import { sortCustomersByRecentActivity } from '~/features/crm/recent-customers'
 import { dailyLeadCreationSeries, type LeadCreationMode } from '~/features/crm/stats'
 import { useAuth } from '~/composables/useAuth'
 import { useAdminStore } from '~/stores/admin'
@@ -142,7 +143,7 @@ const filteredCustomers = computed(() => scopedCustomers.value.filter((customer)
     && (!keyword.value || text.includes(keyword.value.toLowerCase()))
 }))
 
-const previewCustomers = computed(() => filteredCustomers.value.slice(0, 5))
+const previewCustomers = computed(() => sortCustomersByRecentActivity(filteredCustomers.value).slice(0, 5))
 
 function dateOnly(value: Date) {
   return value.toISOString().slice(0, 10)

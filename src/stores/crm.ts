@@ -32,6 +32,8 @@ export interface CrmQuoteRecord {
 export interface CrmCustomer {
   id: string
   date: string
+  createdAt: string
+  updatedAt: string
   name: string
   contact: string
   phone: string
@@ -65,6 +67,19 @@ function today() {
   return new Date().toISOString().slice(0, 10)
 }
 
+function nowIso() {
+  return new Date().toISOString()
+}
+
+function dateToIso(value?: string) {
+  if (!value)
+    return nowIso()
+  const parsed = Date.parse(value)
+  if (Number.isFinite(parsed))
+    return new Date(parsed).toISOString()
+  return nowIso()
+}
+
 function daysAgo(days: number) {
   const date = new Date()
   date.setDate(date.getDate() - days)
@@ -75,10 +90,48 @@ function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
+const customerFingerprints = new Map<string, string>()
+
+function customerFingerprint(customer: Partial<CrmCustomer>) {
+  const { updatedAt, ...rest } = customer
+  return JSON.stringify(rest)
+}
+
+function syncCustomerFingerprints(customers: CrmCustomer[]) {
+  customerFingerprints.clear()
+  customers.forEach(customer => customerFingerprints.set(customer.id, customerFingerprint(customer)))
+}
+
+function touchChangedCustomers(customers: CrmCustomer[]) {
+  const seen = new Set<string>()
+  customers.forEach((customer) => {
+    seen.add(customer.id)
+    if (!customer.createdAt)
+      customer.createdAt = dateToIso(customer.date)
+    if (!customer.updatedAt)
+      customer.updatedAt = customer.createdAt
+
+    const fingerprint = customerFingerprint(customer)
+    if (customerFingerprints.get(customer.id) !== fingerprint) {
+      customer.updatedAt = nowIso()
+      customerFingerprints.set(customer.id, customerFingerprint(customer))
+    }
+  })
+
+  for (const id of [...customerFingerprints.keys()]) {
+    if (!seen.has(id))
+      customerFingerprints.delete(id)
+  }
+}
+
 function normalizeCustomer(raw: Partial<CrmCustomer>): CrmCustomer {
+  const date = raw.date || today()
+  const createdAt = raw.createdAt || raw.updatedAt || dateToIso(date)
   return {
     id: raw.id || createId('customer'),
-    date: raw.date || today(),
+    date,
+    createdAt,
+    updatedAt: raw.updatedAt || createdAt,
     name: raw.name || '未命名客户',
     contact: raw.contact || '',
     phone: raw.phone || '',
@@ -195,18 +248,26 @@ function defaultCustomers(): CrmCustomer[] {
 }
 
 function loadCustomers() {
+  let customers: CrmCustomer[]
   if (typeof localStorage === 'undefined')
-    return defaultCustomers()
-  const saved = localStorage.getItem(STORAGE_KEY)
-  if (!saved)
-    return defaultCustomers()
-  try {
-    const parsed = JSON.parse(saved) as Partial<CrmCustomer>[]
-    return Array.isArray(parsed) ? parsed.map(normalizeCustomer) : defaultCustomers()
+    customers = defaultCustomers()
+  else {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (!saved)
+      customers = defaultCustomers()
+    else {
+      try {
+        const parsed = JSON.parse(saved) as Partial<CrmCustomer>[]
+        customers = Array.isArray(parsed) ? parsed.map(normalizeCustomer) : defaultCustomers()
+      }
+      catch {
+        customers = defaultCustomers()
+      }
+    }
   }
-  catch {
-    return defaultCustomers()
-  }
+
+  syncCustomerFingerprints(customers)
+  return customers
 }
 
 export const useCrmStore = defineStore('crm', {
@@ -224,6 +285,7 @@ export const useCrmStore = defineStore('crm', {
   },
   actions: {
     save() {
+      touchChangedCustomers(this.customers)
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.customers))
       putCloudState('customers', this.customers).catch(() => {})
     },
@@ -231,6 +293,7 @@ export const useCrmStore = defineStore('crm', {
       const customers = await getCloudState<Partial<CrmCustomer>[]>('customers').catch(() => null)
       if (Array.isArray(customers)) {
         this.customers = customers.map(normalizeCustomer)
+        syncCustomerFingerprints(this.customers)
         localStorage.setItem(STORAGE_KEY, JSON.stringify(this.customers))
       }
     },
