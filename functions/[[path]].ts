@@ -5,6 +5,7 @@ import type { Context, Next } from 'hono'
 interface Env {
   DB: D1Database
   IMAGES: R2Bucket
+  BROWSER?: BrowserRenderingBinding
 }
 
 interface AdminUserRow {
@@ -243,6 +244,7 @@ app.post('/auth/login', async (c) => {
 
 app.use('/state/*', requireLogin)
 app.use('/images', requireLogin)
+app.use('/pdf', requireLogin)
 
 app.get('/state/:key', async (c) => {
   const key = c.req.param('key')
@@ -266,6 +268,45 @@ app.put('/state/:key', async (c) => {
   await syncNormalizedState(c.env.DB, key, body.value)
 
   return c.json({ ok: true })
+})
+
+app.post('/pdf', async (c) => {
+  if (!c.env.BROWSER)
+    return c.json({ message: 'PDF服务未启用' }, 503)
+
+  const body = await c.req.json<{ html?: string, fileName?: string }>()
+  const html = String(body.html || '')
+  const fileName = String(body.fileName || 'quote.pdf').replace(/[^\w\u4E00-\u9FA5.-]+/g, '-')
+  if (!html.trim())
+    return c.json({ message: '缺少报价单内容' }, 400)
+
+  const rendered = await c.env.BROWSER.quickAction('pdf', {
+    html,
+    pdfOptions: {
+      format: 'A4',
+      printBackground: true,
+      margin: {
+        top: '0mm',
+        right: '0mm',
+        bottom: '0mm',
+        left: '0mm',
+      },
+    },
+  })
+
+  if (rendered instanceof Response) {
+    const response = new Response(rendered.body, rendered)
+    response.headers.set('content-type', 'application/pdf')
+    response.headers.set('content-disposition', `attachment; filename="${encodeURIComponent(fileName)}"`)
+    return response
+  }
+
+  return new Response(rendered as BodyInit, {
+    headers: {
+      'content-type': 'application/pdf',
+      'content-disposition': `attachment; filename="${encodeURIComponent(fileName)}"`,
+    },
+  })
 })
 
 app.post('/images', async (c) => {

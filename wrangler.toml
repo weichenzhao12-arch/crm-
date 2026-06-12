@@ -2,6 +2,9 @@ name = "quote-crm-system"
 pages_build_output_dir = "dist"
 compatibility_date = "2026-05-27"
 
+[browser]
+binding = "BROWSER"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "quote-crm-system-db"

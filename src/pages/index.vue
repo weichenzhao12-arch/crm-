@@ -12,7 +12,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { applyNeedleAdditionToDensity, baggedTonQuantity, bucketQuantity, linePerSquare, lineSubtotal, packageUnitPrice, quantityByUsage, quoteTotals, resolveArea, selectUnitPrice } from '~/features/quote/pricing'
 import type { ConstructionInput, MaterialRecord, QuoteLine } from '~/features/quote/types'
-import { uploadCloudImage } from '~/api/cloud-storage'
+import { renderCloudPdf, uploadCloudImage } from '~/api/cloud-storage'
 import { useCrmStore } from '~/stores/crm'
 import { useQuoteStore } from '~/stores/quote'
 
@@ -1171,6 +1171,20 @@ async function printPdf() {
     }
     await nextTick()
     const mobileSafari = isMobileSafari()
+    try {
+      const blob = await renderCloudPdf(quoteHtml(), fileName)
+      const dataUrl = await blobToDataUrl(blob)
+      syncQuoteToCustomer('已打印/PDF', {
+        name: fileName,
+        dataUrl,
+      })
+      downloadBlob(blob, fileName)
+      return
+    }
+    catch {
+      // Fall back to browser-side export if the Cloudflare PDF service is unavailable.
+    }
+
     if (mobileSafari) {
       const htmlDataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(mobilePrintableQuoteHtml())}`
       syncQuoteToCustomer('已生成手机预览', {

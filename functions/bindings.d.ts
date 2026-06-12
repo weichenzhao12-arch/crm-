@@ -19,3 +19,7 @@ interface R2ObjectBody {
   body: ReadableStream
   writeHttpMetadata(headers: Headers): void
 }
+
+interface BrowserRenderingBinding {
+  quickAction(action: string, options: unknown): Promise<Response | ArrayBuffer | Blob | ReadableStream>
+}

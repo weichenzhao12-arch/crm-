@@ -40,3 +40,19 @@ export async function uploadCloudImage(file: File) {
     body: form,
   })
 }
+
+export async function renderCloudPdf(html: string, fileName: string) {
+  const response = await fetch('/api/pdf', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token() ? { Authorization: `Bearer ${token()}` } : {}),
+    },
+    body: JSON.stringify({ html, fileName }),
+  })
+
+  if (!response.ok)
+    throw new Error(await response.text())
+
+  return response.blob()
+}
