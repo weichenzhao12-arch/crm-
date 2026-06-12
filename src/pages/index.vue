@@ -986,9 +986,39 @@ function isMobileSafari() {
 }
 
 function openPdfDataUrl(dataUrl: string) {
+  if (isMobileSafari()) {
+    openMobilePrintableQuote()
+    return
+  }
   const opened = window.open(dataUrl, '_blank')
   if (!opened)
     window.location.href = dataUrl
+}
+
+function mobilePrintableQuoteHtml() {
+  const actionBar = `
+    <style>
+      .mobile-save-bar{position:sticky;top:0;z-index:9999;display:flex;gap:8px;justify-content:center;align-items:center;padding:10px;background:#f1f5f9;border-bottom:1px solid #cbd5e1;font-family:"Microsoft YaHei",Arial,sans-serif;}
+      .mobile-save-bar button{border:0;border-radius:10px;padding:10px 16px;font-size:14px;font-weight:700;background:#2563eb;color:#fff;}
+      .mobile-save-bar .ghost{background:#fff;color:#0f172a;border:1px solid #cbd5e1;}
+      @media print{.mobile-save-bar{display:none!important;}}
+    </style>
+  `
+  return quoteHtml().replace('<body>', `<body>${actionBar}<div class="mobile-save-bar"><button onclick="window.print()">保存PDF</button><button class="ghost" onclick="window.close()">关闭</button></div>`)
+}
+
+function openMobilePrintableQuote() {
+  const opened = window.open('', '_blank')
+  const html = mobilePrintableQuoteHtml()
+  if (opened) {
+    opened.document.open()
+    opened.document.write(html)
+    opened.document.close()
+    return
+  }
+
+  const fallback = `data:text/html;charset=utf-8,${encodeURIComponent(html)}`
+  window.location.href = fallback
 }
 
 function showPdfDownloadModal(fileName: string, dataUrl: string) {
@@ -1127,6 +1157,15 @@ async function printPdf() {
     }
     await nextTick()
     const mobileSafari = isMobileSafari()
+    if (mobileSafari) {
+      const htmlDataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(mobilePrintableQuoteHtml())}`
+      syncQuoteToCustomer('已生成手机预览', {
+        name: fileName.replace(/\.pdf$/i, '.html'),
+        dataUrl: htmlDataUrl,
+      })
+      showPdfDownloadModal(fileName, '')
+      return
+    }
     const sheet = mobileSafari ? document.querySelector<HTMLElement>('.sheet') : null
     const blob = await quotePdfBlob(fileName, sheet)
     const dataUrl = await blobToDataUrl(blob)
@@ -1613,11 +1652,11 @@ async function printPdf() {
     <div v-if="pdfDownloadModal.open" class="modal-mask no-print">
       <section class="modal-card pdf-save-card">
         <header>
-          <h2>PDF已生成</h2>
+          <h2>报价单已准备好</h2>
           <button type="button" @click="closePdfDownloadModal">×</button>
         </header>
-        <p>Safari 不支持直接打开临时下载地址，请点击下方按钮打开 PDF，再使用手机分享或保存到文件。</p>
-        <a class="primary pdf-open-link" :href="pdfDownloadModal.dataUrl" :download="pdfDownloadModal.fileName" target="_blank" rel="noopener" @click.prevent="openPdfDataUrl(pdfDownloadModal.dataUrl)">打开/保存PDF</a>
+        <p>手机 Safari 不稳定支持临时 PDF 地址，请先打开报价单预览页，再点击里面的“保存PDF”。</p>
+        <button class="primary pdf-open-link" type="button" @click="openPdfDataUrl(pdfDownloadModal.dataUrl)">打开报价单预览</button>
       </section>
     </div>
   </main>
