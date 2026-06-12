@@ -1003,25 +1003,23 @@ async function quotePdfDataUrl(fileName: string) {
 
 async function quotePdfBlob(fileName: string, visibleSheet?: HTMLElement | null) {
   const html2pdf = await loadHtml2Pdf()
-  const source = visibleSheet || document.createElement('div')
+  const source = document.createElement('div')
   let shouldRemove = false
 
-  if (!visibleSheet) {
-    source.style.position = 'absolute'
-    source.style.left = '0'
-    source.style.top = `${window.scrollY}px`
-    source.style.width = '210mm'
-    source.style.minHeight = '297mm'
-    source.style.background = '#ffffff'
-    source.style.opacity = '0.01'
-    source.style.pointerEvents = 'none'
-    source.style.zIndex = '-1'
-    const parsed = new DOMParser().parseFromString(quoteHtml(), 'text/html')
-    parsed.querySelectorAll('style').forEach(style => source.appendChild(style.cloneNode(true)))
-    source.appendChild(parsed.body.firstElementChild?.cloneNode(true) || parsed.body.cloneNode(true))
-    document.body.appendChild(source)
-    shouldRemove = true
-  }
+  source.style.position = 'absolute'
+  source.style.left = '0'
+  source.style.top = `${window.scrollY}px`
+  source.style.width = '210mm'
+  source.style.minHeight = '297mm'
+  source.style.background = '#ffffff'
+  source.style.opacity = '0.01'
+  source.style.pointerEvents = 'none'
+  source.style.zIndex = '-1'
+  const parsed = new DOMParser().parseFromString(quoteHtml(), 'text/html')
+  parsed.querySelectorAll('style').forEach(style => source.appendChild(style.cloneNode(true)))
+  source.appendChild(parsed.body.firstElementChild?.cloneNode(true) || parsed.body.cloneNode(true))
+  document.body.appendChild(source)
+  shouldRemove = true
 
   try {
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
@@ -3123,6 +3121,96 @@ th{background:#f5f5f5}
   .mobile-export-actions button{
     width:100%!important;
     min-height:42px!important;
+  }
+  .toolbar{
+    position:relative!important;
+    top:auto!important;
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:12px!important;
+    padding:14px!important;
+    border-radius:16px!important;
+  }
+  .toolbar > div{
+    display:block!important;
+    min-width:0!important;
+  }
+  .toolbar h1{
+    margin:0!important;
+    color:#10243f!important;
+    font-size:22px!important;
+    line-height:1.2!important;
+  }
+  .toolbar nav{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    gap:10px!important;
+    overflow:visible!important;
+  }
+  .toolbar nav button,
+  .toolbar nav .admin-link{
+    min-width:0!important;
+    width:100%!important;
+    min-height:42px!important;
+    font-size:14px!important;
+  }
+  .meta-band{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:10px!important;
+    padding:54px 14px 14px!important;
+    overflow:hidden!important;
+  }
+  .meta-band::before{
+    top:18px!important;
+    left:16px!important;
+    font-size:20px!important;
+  }
+  .meta-band::after{
+    top:29px!important;
+    left:104px!important;
+    width:34px!important;
+  }
+  .meta-band label,
+  .meta-band .wide{
+    grid-column:1!important;
+    width:100%!important;
+    min-width:0!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:0!important;
+    background:transparent!important;
+  }
+  .meta-band input{
+    width:100%!important;
+    min-width:0!important;
+  }
+  .quote-page:has(.sheet){
+    padding:8px 8px 128px!important;
+    overflow-x:auto!important;
+    background:#f3f6f9!important;
+  }
+  .quote-page:has(.sheet) .sheet{
+    width:100%!important;
+    min-width:0!important;
+    min-height:auto!important;
+    margin:8px auto 116px!important;
+    padding:10px!important;
+    border:1px solid #111!important;
+    border-radius:0!important;
+    overflow:visible!important;
+  }
+  .quote-page:has(.sheet) .quote-sheet-table{
+    width:100%!important;
+    font-size:12px!important;
+  }
+  .quote-page:has(.sheet) .quote-sheet-table th,
+  .quote-page:has(.sheet) .quote-sheet-table td{
+    padding:4px!important;
+  }
+  .print-price-dock{
+    grid-template-columns:1fr 1fr!important;
+    max-height:none!important;
   }
 }
 </style>
