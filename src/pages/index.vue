@@ -1037,23 +1037,26 @@ async function quotePdfDataUrl(fileName: string) {
 
 async function quotePdfBlob(fileName: string, visibleSheet?: HTMLElement | null) {
   const html2pdf = await loadHtml2Pdf()
-  const source = document.createElement('div')
+  const source = visibleSheet || document.createElement('div')
   let shouldRemove = false
 
-  source.style.position = 'absolute'
-  source.style.left = '0'
-  source.style.top = `${window.scrollY}px`
-  source.style.width = '210mm'
-  source.style.minHeight = '297mm'
-  source.style.background = '#ffffff'
-  source.style.opacity = '0.01'
-  source.style.pointerEvents = 'none'
-  source.style.zIndex = '-1'
-  const parsed = new DOMParser().parseFromString(quoteHtml(), 'text/html')
-  parsed.querySelectorAll('style').forEach(style => source.appendChild(style.cloneNode(true)))
-  source.appendChild(parsed.body.firstElementChild?.cloneNode(true) || parsed.body.cloneNode(true))
-  document.body.appendChild(source)
-  shouldRemove = true
+  if (!visibleSheet) {
+    source.style.position = 'fixed'
+    source.style.left = '0'
+    source.style.top = '0'
+    source.style.width = '210mm'
+    source.style.minHeight = '297mm'
+    source.style.background = '#ffffff'
+    source.style.opacity = '1'
+    source.style.pointerEvents = 'none'
+    source.style.zIndex = '2147483647'
+    source.style.overflow = 'visible'
+    const parsed = new DOMParser().parseFromString(quoteHtml(), 'text/html')
+    parsed.querySelectorAll('style').forEach(style => source.appendChild(style.cloneNode(true)))
+    source.appendChild(parsed.body.firstElementChild?.cloneNode(true) || parsed.body.cloneNode(true))
+    document.body.appendChild(source)
+    shouldRemove = true
+  }
 
   try {
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
@@ -1062,7 +1065,7 @@ async function quotePdfBlob(fileName: string, visibleSheet?: HTMLElement | null)
         filename: fileName,
         margin: 0,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0 },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       })
       .from(source)
@@ -1123,14 +1126,15 @@ async function printPdf() {
       await nextTick()
     }
     await nextTick()
-    const sheet = document.querySelector<HTMLElement>('.sheet')
+    const mobileSafari = isMobileSafari()
+    const sheet = mobileSafari ? document.querySelector<HTMLElement>('.sheet') : null
     const blob = await quotePdfBlob(fileName, sheet)
     const dataUrl = await blobToDataUrl(blob)
     syncQuoteToCustomer('已打印/PDF', {
       name: fileName,
       dataUrl,
     })
-    if (isMobileSafari())
+    if (mobileSafari)
       showPdfDownloadModal(fileName, dataUrl)
     else
       downloadBlob(blob, fileName)
