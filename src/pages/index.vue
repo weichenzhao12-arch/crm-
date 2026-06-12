@@ -8,7 +8,7 @@
 </route>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { applyNeedleAdditionToDensity, baggedTonQuantity, bucketQuantity, linePerSquare, lineSubtotal, packageUnitPrice, quantityByUsage, quoteTotals, resolveArea, selectUnitPrice } from '~/features/quote/pricing'
 import type { ConstructionInput, MaterialRecord, QuoteLine } from '~/features/quote/types'
@@ -35,6 +35,7 @@ const syncedCrmQuoteId = ref('')
 const heightFilter = ref(ALL)
 const densityFilter = ref(ALL)
 const poundWeightFilter = ref(ALL)
+const isCompactQuoteUi = ref(false)
 const settingsKeyword = ref('')
 const areaInput = ref({ mode: 'direct' as const, area: 1000, length: 50, width: 20 })
 const quoteParamVisible = ref({
@@ -110,6 +111,9 @@ const heightOptions = computed(() => productFilterOptions('height'))
 const densityOptions = computed(() => productFilterOptions('density'))
 const poundWeightOptions = computed(() => productFilterOptions('poundWeight'))
 const productSearchReady = computed(() => {
+  if (!isCompactQuoteUi.value)
+    return true
+
   return category.value !== ALL
     || heightFilter.value !== ALL
     || densityFilter.value !== ALL
@@ -360,10 +364,20 @@ function ensureDefaults() {
 }
 
 onMounted(async () => {
+  updateCompactQuoteUi()
+  window.addEventListener('resize', updateCompactQuoteUi)
   await quote.loadCloudPricing()
   crm.loadCloudCustomers()
   ensureDefaults()
 })
+
+onUnmounted(() => {
+  window.removeEventListener('resize', updateCompactQuoteUi)
+})
+
+function updateCompactQuoteUi() {
+  isCompactQuoteUi.value = window.matchMedia('(max-width: 760px)').matches
+}
 
 function addUsageLine(target: QuoteLine[], selection: ConstructionInput['rubber'], area: number, id: string) {
   if (!selection.enabled)
