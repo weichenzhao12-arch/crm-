@@ -203,7 +203,7 @@ export const useAdminStore = defineStore('admin', {
       }
     },
     addUser() {
-      this.users.push({
+      const user = {
         id: createId(),
         account: `user${this.users.length + 1}`,
         displayName: '新账号',
@@ -211,7 +211,8 @@ export const useAdminStore = defineStore('admin', {
         enabled: true,
         password: '123456',
         permissions: permissionsForRole('quoter'),
-      })
+      }
+      this.users.push(user)
       this.saveUsers()
     },
     removeUser(id: string) {

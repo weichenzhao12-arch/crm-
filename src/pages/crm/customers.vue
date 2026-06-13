@@ -316,6 +316,18 @@ function customerContact(customer: CrmCustomer) {
   return firstText(customer.phone, customer.wechat, customer.contact)
 }
 
+function confirmDuplicateCustomer(payload: Partial<CrmCustomer>) {
+  const duplicates = crm.duplicateCustomers(payload)
+  if (!duplicates.length)
+    return true
+  const names = duplicates.slice(0, 5).map(customer => `${customer.name || '未命名'}（${customerContact(customer) || '无联系方式'}）`).join('\n')
+  return window.confirm(`系统发现可能重复的客户：\n${names}\n\n仍然继续新增吗？`)
+}
+
+function duplicateImportCount(items: Partial<CrmCustomer>[]) {
+  return items.filter(item => crm.duplicateCustomers(item).length > 0).length
+}
+
 const sampleCustomer = computed(() => customers.value.find(customer => customer.id === sampleDialogCustomerId.value))
 
 function trackingUrl(trackingNo: string) {
@@ -455,6 +467,11 @@ function importLeadTable(event: Event) {
       .filter(hasImportableLeadRow)
       .map(rowToCustomer)
     if (imported.length) {
+      const duplicateCount = duplicateImportCount(imported)
+      if (duplicateCount && !window.confirm(`导入文件中有 ${duplicateCount} 条可能和现有客户重复，是否继续导入？`)) {
+        input.value = ''
+        return
+      }
       customers.value = [...imported, ...customers.value]
       system.log('import', 'lead', `导入${imported.length}条客资`, file.name)
       crm.save()
@@ -504,6 +521,8 @@ function closeNewCustomerDialog() {
 
 function saveNewCustomer() {
   const targetUser = users.value.find(user => user.id === newCustomerForm.value.assignedToUserId) || activeUser.value
+  if (!confirmDuplicateCustomer(newCustomerForm.value))
+    return
   crm.addCustomer({
     date: newCustomerForm.value.date,
     name: newCustomerForm.value.name.trim() || '新客户',

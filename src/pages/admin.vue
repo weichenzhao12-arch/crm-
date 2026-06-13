@@ -1,4 +1,4 @@
-<route lang="json">
+﻿<route lang="json">
 {
   "meta": {
     "title": "管理后台",
@@ -35,6 +35,20 @@ const selectedMaterialIds = ref<string[]>([])
 const showUserPasswords = ref(false)
 
 watch(pricing, () => quote.savePricing(), { deep: true })
+
+const permissionGuide = [
+  { group: '商品资料', name: '产品管理', field: 'manageProducts', detail: '允许新增、修改、删除草坪产品、默认图片、价格和加针价格。' },
+  { group: '商品资料', name: '辅料管理', field: 'manageMaterials', detail: '允许新增、修改、删除辅料、套餐辅料、默认图片和辅料价格。' },
+  { group: '商品资料', name: '产品表格导入', field: 'importExcel', detail: '允许在后台批量导入产品价格表。' },
+  { group: '账号权限', name: '账号管理', field: 'manageUsers', detail: '允许进入管理后台账号权限页，新增账号、修改角色和分配权限。' },
+  { group: '客户管理', name: '查看全部客户', field: 'viewAllCustomers', detail: '允许看到所有销售的客户；未勾选时只能看到自己的客户。' },
+  { group: '客户管理', name: '导入客户', field: 'importCustomers', detail: '允许导入客资表格。普通销售导入后客户归自己。' },
+  { group: '客户管理', name: '导出客户', field: 'exportCustomers', detail: '允许导出客资表格；普通销售默认不允许导出。' },
+  { group: '客户管理', name: '删除客户', field: 'deleteCustomers', detail: '允许删除单个或批量删除客户，删除后进入 7 天回收站。' },
+  { group: '数据恢复', name: '回收站恢复', field: 'restoreRecords', detail: '允许从回收站恢复客户、产品、辅料，也可查看 7 天操作记录。' },
+  { group: '报价', name: '报价导出', field: 'exportQuote', detail: '允许导出报价单 PDF/Word。' },
+  { group: '报价', name: '临时改价', field: 'temporaryEdit', detail: '允许报价人员在报价页面临时修改单价，用于客户沟通。' },
+]
 
 onMounted(() => {
   quote.loadCloudPricing().then(() => {
@@ -207,6 +221,14 @@ function clearMaterialImage(material: MaterialRecord) {
   quote.savePricing()
 }
 
+function logProductPriceChange(product: ProductRecord, field = '价格') {
+  system.log('update', 'pricing', product.itemNo || product.model || '产品', `修改产品${field}：${field === '加针价格' ? product.needlePrice : product.priceText}`)
+}
+
+function logMaterialPriceChange(material: MaterialRecord) {
+  system.log('update', 'pricing', material.name || material.spec || '辅料', `修改辅料价格：${material.unitPrice}`)
+}
+
 function exportProductTemplate() {
   const rows = pricing.value.products.length
     ? pricing.value.products.map(productToRow)
@@ -232,6 +254,7 @@ function importProductExcel(event: Event) {
     if (products.length) {
       pricing.value.products = products
       selectedProductIds.value = []
+      system.log('import', 'pricing', `导入产品${products.length}条`, file.name)
       quote.savePricing()
     }
     input.value = ''
@@ -241,11 +264,13 @@ function importProductExcel(event: Event) {
 
 function addProduct() {
   quote.addProductRecord('草坪产品')
+  system.log('create', 'product', '新产品', '后台新增产品')
   quote.savePricing()
 }
 
 function addMaterial() {
   quote.addMaterialRecord('施工材料')
+  system.log('create', 'material', '新辅料', '后台新增辅料')
   quote.savePricing()
 }
 
@@ -269,6 +294,7 @@ function deleteProducts(ids: string[]) {
   if (!ids.length)
     return
   ids.forEach(id => quote.removeProduct(id))
+  system.log('delete', 'product', `${ids.length}个产品`, '后台删除产品')
   selectedProductIds.value = selectedProductIds.value.filter(id => !ids.includes(id))
   quote.savePricing()
 }
@@ -277,6 +303,7 @@ function deleteMaterials(ids: string[]) {
   if (!ids.length)
     return
   ids.forEach(id => quote.removeMaterial(id))
+  system.log('delete', 'material', `${ids.length}个辅料`, '后台删除辅料')
   selectedMaterialIds.value = selectedMaterialIds.value.filter(id => !ids.includes(id))
   quote.savePricing()
 }
@@ -295,7 +322,7 @@ function restoreRecycleItem(record: RecycleRecord) {
 }
 
 function recycleTypeLabel(type: string) {
-  return type === 'product' ? '产品' : type === 'material' ? '辅料' : type === 'customer' ? '客户' : type
+  return type === 'product' ? '产品' : type === 'material' ? '辅料' : type === 'customer' ? '客户' : type === 'lead' ? '客资' : type
 }
 
 function actionLabel(action: string) {
@@ -317,11 +344,28 @@ function saveAll() {
   admin.saveUsers()
 }
 
+function addAdminUser() {
+  admin.addUser()
+  const user = users.value[users.value.length - 1]
+  system.log('create', 'user', user?.displayName || user?.account || '新账号', `新增账号：${user?.account || ''}`)
+}
+
+function applyUserRole(user: any) {
+  admin.applyRole(user)
+  system.log('update', 'user', user.displayName || user.account, `切换角色并重置权限：${user.role}`)
+}
+
+function removeAdminUser(user: any) {
+  system.log('delete', 'user', user.displayName || user.account, `删除账号：${user.account}`)
+  admin.removeUser(user.id)
+}
+
 function changeOwnPassword() {
   if (!admin.updateOwnPassword(oldPassword.value, newPassword.value)) {
     window.alert('原密码不正确，或新密码为空')
     return
   }
+  system.log('update', 'user', admin.currentUser?.displayName || admin.currentUser?.account || '当前账号', '当前账号修改了自己的密码')
   oldPassword.value = ''
   newPassword.value = ''
   window.alert('密码已修改')
@@ -372,12 +416,12 @@ function changeOwnPassword() {
           <input v-model="product.model">
           <input v-model="product.height">
           <input v-model="product.poundWeight">
-          <input v-model="product.needlePrice">
+          <input v-model="product.needlePrice" @blur="logProductPriceChange(product, '加针价格')">
           <input v-model="product.density" @blur="normalizeProductNeedleFields(product)">
           <input v-model="product.needleRow" @blur="normalizeProductNeedleFields(product)">
           <input v-model="product.backing">
           <input v-model="product.warranty">
-          <textarea v-model="product.priceText"></textarea>
+          <textarea v-model="product.priceText" @blur="logProductPriceChange(product)"></textarea>
           <div class="image-admin-cell">
             <img v-if="product.imageDataUrl" :src="product.imageDataUrl" alt="">
             <label class="image-upload">{{ product.imageDataUrl ? '更换' : '上传' }}<input type="file" accept="image/*" @change="uploadImage($event, url => product.imageDataUrl = url)"></label>
@@ -409,7 +453,7 @@ function changeOwnPassword() {
           <input v-model="material.name">
           <input v-model="material.spec">
           <input v-model="material.unit">
-          <input v-model.number="material.unitPrice" type="number" step="0.01">
+          <input v-model.number="material.unitPrice" type="number" step="0.01" @blur="logMaterialPriceChange(material)">
           <div class="image-admin-cell">
             <img v-if="material.imageDataUrl" :src="material.imageDataUrl" alt="">
             <label class="image-upload">{{ material.imageDataUrl ? '更换' : '上传' }}<input type="file" accept="image/*" @change="uploadImage($event, url => material.imageDataUrl = url)"></label>
@@ -424,7 +468,7 @@ function changeOwnPassword() {
     <section v-else-if="activeTab === 'users'" class="admin-panel">
       <header>
         <h2>账号权限</h2>
-        <button @click="admin.addUser()">新增账号</button>
+        <button @click="addAdminUser">新增账号</button>
       </header>
       <div class="password-box">
         <label>原密码<input v-model="oldPassword" type="password" placeholder="输入当前密码"></label>
@@ -433,13 +477,13 @@ function changeOwnPassword() {
       </div>
       <div class="admin-table user-admin-table">
         <div class="admin-head">
-          <span>账号</span><span>姓名</span><span>角色</span><span>启用</span><span>产品管理</span><span>辅料管理</span><span>数据导入管理</span><span>账号/客户管理</span><span>报价/客户导出</span><span>报价临时改价</span>
-          <button class="password-toggle" type="button" @click="showUserPasswords = !showUserPasswords">{{ showUserPasswords ? '隐藏密码' : '显示密码' }}</button><span></span>
+          <span>账号</span><span>姓名</span><span>角色</span><span>启用</span><span>产品管理</span><span>辅料管理</span><span>产品导入</span><span>账号管理</span><span>看全部客户</span><span>导入客户</span><span>导出客户</span><span>删除客户</span><span>回收站恢复</span><span>报价导出</span><span>临时改价</span>
+          <button class="password-toggle" type="button" @click="showUserPasswords = !showUserPasswords">{{ showUserPasswords ? '隐藏密码' : '显示密码' }}</button><span>操作</span>
         </div>
         <article v-for="user in users" :key="user.id">
           <input v-model="user.account">
           <input v-model="user.displayName">
-          <select v-model="user.role" @change="admin.applyRole(user)">
+          <select v-model="user.role" @change="applyUserRole(user)">
             <option value="owner">主账号</option>
             <option value="manager">管理员</option>
             <option value="quoter">报价员</option>
@@ -458,15 +502,26 @@ function changeOwnPassword() {
           <input v-model="user.permissions.exportQuote" type="checkbox">
           <input v-model="user.permissions.temporaryEdit" type="checkbox">
           <input v-model="user.password" :type="showUserPasswords ? 'text' : 'password'">
-          <button :disabled="user.id === 'owner'" @click="admin.removeUser(user.id)">删除</button>
+          <button :disabled="user.id === 'owner'" @click="removeAdminUser(user)">删除</button>
         </article>
       </div>
+      <section class="permission-guide">
+        <h3>权限说明</h3>
+        <div class="permission-guide-table">
+          <article v-for="item in permissionGuide" :key="item.field">
+            <b>{{ item.group }}</b>
+            <strong>{{ item.name }}</strong>
+            <code>{{ item.field }}</code>
+            <span>{{ item.detail }}</span>
+          </article>
+        </div>
+      </section>
     </section>
 
     <section v-else class="admin-panel">
       <header>
-        <h2>回收站/操作记录</h2>
-        <p class="admin-hint">只保留最近7天，超过7天自动清理。</p>
+        <h2>回收站 / 操作记录</h2>
+        <p class="admin-hint">只保留最近 7 天，超过 7 天自动清理。</p>
       </header>
       <div class="recycle-layout">
         <section>
@@ -538,6 +593,13 @@ function changeOwnPassword() {
 .password-box{display:flex;align-items:end;gap:10px;margin-bottom:14px;padding:12px;border:1px solid #e1e9f2;border-radius:12px;background:#f8fbff}
 .password-box label{display:grid;gap:6px;min-width:260px;font-weight:800;color:#50627a}
 .admin-hint{margin:0;color:#64748b;font-weight:800}
+.permission-guide{margin-top:18px;border:1px solid #e1e9f2;border-radius:12px;background:#fbfdff;padding:14px}
+.permission-guide h3{margin:0 0 12px;font-size:18px}
+.permission-guide-table{display:grid;gap:8px}
+.permission-guide-table article{display:grid;grid-template-columns:90px 120px 140px minmax(0,1fr);gap:10px;align-items:center;border:1px solid #e1e9f2;border-radius:10px;background:#fff;padding:10px}
+.permission-guide-table b{color:#246ed8}
+.permission-guide-table code{border-radius:7px;background:#eef4fb;padding:5px 7px;color:#183f68}
+.permission-guide-table span{color:#50627a;line-height:1.5}
 .recycle-layout{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .recycle-layout h3{margin:0 0 10px;font-size:18px}
 .record-list{display:grid;gap:10px}

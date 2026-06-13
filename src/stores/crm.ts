@@ -17,6 +17,7 @@ export interface CrmFollowUp {
 
 export interface CrmQuoteRecord {
   id: string
+  version?: number
   date: string
   title: string
   amount: number
@@ -89,6 +90,18 @@ function daysAgo(days: number) {
 
 function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+function cleanContact(value: unknown) {
+  return String(value ?? '').trim().replace(/[\s\-_/\\]/g, '').toLowerCase()
+}
+
+function duplicateKeys(customer: Partial<CrmCustomer>) {
+  return [
+    cleanContact(customer.phone),
+    cleanContact(customer.wechat),
+    cleanContact(customer.contact),
+  ].filter(key => key && key !== '-' && key !== '未填')
 }
 
 const customerFingerprints = new Map<string, string>()
@@ -170,6 +183,7 @@ function normalizeCustomer(raw: Partial<CrmCustomer>): CrmCustomer {
     quotes: Array.isArray(raw.quotes)
       ? raw.quotes.map(quote => ({
         id: quote.id || createId('quote'),
+        version: Number(quote.version) || 0,
         date: quote.date || today(),
         title: quote.title || '报价记录',
         amount: Number(quote.amount) || 0,
@@ -309,8 +323,18 @@ export const useCrmStore = defineStore('crm', {
         ...payload,
       })
       this.customers.unshift(customer)
+      useSystemStore().log('create', 'lead', customer.name || customer.phone || '未命名客户', `新增客户，负责人：${customer.owner || customer.assignedToUserId || '未分配'}`)
       this.save()
       return customer.id
+    },
+    duplicateCustomers(payload: Partial<CrmCustomer>, excludeId = '') {
+      const keys = new Set(duplicateKeys(payload))
+      if (!keys.size)
+        return []
+      return this.customers.filter(customer =>
+        customer.id !== excludeId
+        && duplicateKeys(customer).some(key => keys.has(key)),
+      )
     },
     addLead(payload: Partial<CrmCustomer>) {
       return this.addCustomer({
@@ -371,6 +395,7 @@ export const useCrmStore = defineStore('crm', {
         reminderTime: '',
         reminderDone: false,
       })
+      useSystemStore().log('create', 'lead', customer.name || customer.phone || '客户', '新增跟进记录')
       this.save()
     },
     saveQuoteRecord(customerId: string, payload: Partial<CrmQuoteRecord> & { id?: string }) {
@@ -379,8 +404,10 @@ export const useCrmStore = defineStore('crm', {
         return ''
       const id = payload.id || createId('quote')
       const existing = customer.quotes.find(quote => quote.id === id)
+      const version = existing?.version || payload.version || (customer.quotes.length + 1)
       const record: CrmQuoteRecord = {
         id,
+        version,
         date: payload.date || today(),
         title: payload.title || '报价记录',
         amount: Number(payload.amount) || 0,
@@ -399,6 +426,7 @@ export const useCrmStore = defineStore('crm', {
         customer.quotes.unshift(record)
       if (customer.stage === 'new')
         customer.stage = 'quoted'
+      useSystemStore().log(existing ? 'update' : 'create', 'lead', customer.name || customer.phone || '客户', `保存报价记录：第${version}版，金额 ${record.amount.toFixed(2)}，状态 ${record.status}`)
       this.save()
       return id
     },

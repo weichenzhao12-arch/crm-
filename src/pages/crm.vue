@@ -199,6 +199,14 @@ function customerContact(customer: CrmCustomer) {
   return firstText(customer.phone, customer.wechat, customer.contact)
 }
 
+function confirmDuplicateCustomer(payload: Partial<CrmCustomer>) {
+  const duplicates = crm.duplicateCustomers(payload)
+  if (!duplicates.length)
+    return true
+  const names = duplicates.slice(0, 5).map(customer => `${customer.name || '未命名'}（${customerContact(customer) || '无联系方式'}）`).join('\n')
+  return window.confirm(`系统发现可能重复的客户：\n${names}\n\n仍然继续新增吗？`)
+}
+
 const sampleCustomer = computed(() => customers.value.find(customer => customer.id === sampleDialogCustomerId.value))
 
 function trackingUrl(trackingNo: string) {
@@ -490,6 +498,8 @@ function deleteCustomer(customerId: string) {
 function assignLead() {
   if (!canManageLeads.value)
     return
+  if (!confirmDuplicateCustomer(leadForm.value))
+    return
   crm.addLead({
     ...leadForm.value,
     owner: users.value.find(user => user.id === leadForm.value.assignedToUserId)?.displayName || '',
@@ -572,7 +582,7 @@ async function handleLogout() {
           </select>
         </label>
         <RouterLink class="primary-link" to="/quote">进入报价</RouterLink>
-        <RouterLink v-if="canManageLeads" to="/admin">管理后台</RouterLink>
+        <RouterLink v-if="canManageLeads" class="mobile-admin-link" to="/admin">管理后台</RouterLink>
         <button @click="addCustomer">新增客户</button>
         <button @click="openPasswordDialog">修改密码</button>
         <button class="logout-btn" @click="handleLogout">退出登录</button>
@@ -916,6 +926,7 @@ h2{margin:0;font-size:17px}
   .crm-hero nav .user-view{grid-column:1/-1;width:100%;display:grid;grid-template-columns:auto 1fr}
   .user-view select{width:100%}
   .crm-hero a,.crm-hero button{width:100%;justify-content:center;min-height:42px}
+  .crm-hero .mobile-admin-link{display:none}
   .crm-metrics{grid-template-columns:1fr 1fr}
   .crm-metrics article{padding:12px}
   .crm-metrics b{font-size:20px}
