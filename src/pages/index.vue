@@ -809,29 +809,30 @@ function quoteHtml() {
 
   const sheetStyles = `
     @page WordSection1{size:21cm 29.7cm;margin:3.7cm 2.6cm 3.5cm 2.8cm;}
+    @page{size:A4;margin:37mm 26mm 35mm 28mm;}
     body{margin:0;background:#fff;font-family:SimSun,"Microsoft YaHei",Arial,sans-serif;color:#000;}
     .sheet{
       box-sizing:border-box;
       width:15.6cm;
       margin:0 auto;
       padding:0;
-      font-size:6.5pt;
+      font-size:10pt;
       font-weight:700;
       background:#fff;
     }
-    h1{text-align:center;font-size:12pt;font-weight:400;margin:0 0 1pt;line-height:1;}
-    .subtitle{text-align:center;font-size:5.5pt;margin:0 0 2pt;line-height:1;}
-    table{width:15.6cm;border-collapse:collapse;table-layout:fixed;font-size:6.5pt;mso-table-layout-alt:fixed;}
-    th,td{border:1pt solid #000;padding:1pt 2pt;text-align:center;vertical-align:middle;word-break:break-all;line-height:1.05;}
+    h1{text-align:center;font-size:21pt;font-weight:400;margin:0 0 2pt;line-height:1.15;}
+    .subtitle{text-align:center;font-size:10pt;margin:0 0 8pt;line-height:1.2;}
+    table{width:15.6cm;border-collapse:collapse;table-layout:fixed;font-size:10pt;mso-table-layout-alt:fixed;}
+    th,td{border:1pt solid #000;padding:4pt;text-align:center;vertical-align:middle;word-break:break-all;line-height:1.25;}
     th{background:#fff;font-weight:700;}
-    .area-row td{height:14pt;mso-height-rule:exactly;}
-    .head-row th{height:14pt;mso-height-rule:exactly;}
-    .item-row td{height:28pt;mso-height-rule:exactly;}
-    .package-sub-row td{height:20pt;mso-height-rule:exactly;}
-    .total-row td{height:12pt;mso-height-rule:exactly;}
-    .sheet-img{width:2cm;max-height:1.35cm;object-fit:cover;margin:0;}
-    .sheet-param{white-space:pre-line;line-height:1.05;}
-    .note{line-height:1.05;}
+    .area-row td{height:31.5pt;mso-height-rule:exactly;}
+    .head-row th{height:28.5pt;mso-height-rule:exactly;}
+    .item-row td{height:49.5pt;mso-height-rule:exactly;}
+    .package-sub-row td{height:37.5pt;mso-height-rule:exactly;}
+    .total-row td{height:24pt;mso-height-rule:exactly;}
+    .sheet-img{width:3cm;max-height:2.15cm;object-fit:cover;margin:0;}
+    .sheet-param{white-space:pre-line;line-height:1.25;}
+    .note{line-height:1.35;}
   `
 
   return `<!doctype html>
