@@ -931,7 +931,6 @@ h2{margin:0;font-size:17px}
   .crm-metrics article{padding:12px}
   .crm-metrics b{font-size:20px}
   .chart-panel,.lead-creation-panel,.lead-panel,.ranking-panel,.crm-panel{padding:12px;border-radius:14px}
-  .lead-panel{display:none!important}
   .chart-panel svg,.lead-creation-panel svg{min-height:210px}
   .lead-form{grid-template-columns:1fr}
   .batch-assign{grid-template-columns:1fr}
