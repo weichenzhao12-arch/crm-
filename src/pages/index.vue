@@ -3040,7 +3040,67 @@ th{background:#f5f5f5}
   }
   .product-row{
     grid-template-columns:1fr!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    box-sizing:border-box!important;
     padding:12px!important;
+    overflow:hidden!important;
+  }
+  .products,
+  .product-main,
+  .product-main dl,
+  .price-cell{
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    box-sizing:border-box!important;
+  }
+  .title-line{
+    align-items:flex-start!important;
+    flex-wrap:wrap!important;
+  }
+  .title-line b{
+    max-width:100%!important;
+    overflow-wrap:anywhere!important;
+    word-break:break-word!important;
+  }
+  .product-main p{
+    overflow-wrap:anywhere!important;
+    word-break:break-word!important;
+  }
+  .product-main dl{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:8px!important;
+  }
+  .product-main dl div{
+    min-width:0!important;
+    padding:10px!important;
+    box-sizing:border-box!important;
+  }
+  .product-main dd{
+    overflow-wrap:anywhere!important;
+    word-break:break-word!important;
+  }
+  .price-cell{
+    grid-template-columns:1fr!important;
+    align-content:start!important;
+    gap:8px!important;
+    border-left:0!important;
+    border-top:1px solid #e7edf1!important;
+    padding:12px 0 0!important;
+    text-align:left!important;
+  }
+  .price-cell b{
+    font-size:21px!important;
+  }
+  .price-cell small{
+    white-space:normal!important;
+    overflow-wrap:anywhere!important;
+  }
+  .price-cell button{
+    width:100%!important;
+    min-width:0!important;
   }
   .accessory-grid{
     display:grid!important;
