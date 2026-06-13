@@ -1834,15 +1834,15 @@ textarea{min-height:64px;resize:vertical}
 .param-toggles.compact .check-label{min-width:76px;font-size:12px}
 .summary-param-panel h3{margin-bottom:8px}
 .search{width:100%;margin-bottom:14px;background:#fff}
-.products{display:grid;gap:12px;max-height:660px;overflow:auto;padding-right:4px}
+.products{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;max-height:660px;overflow:auto;padding-right:4px}
 .product-row{
   display:grid;
-  grid-template-columns:minmax(0,1fr) 185px;
-  gap:14px;
+  grid-template-columns:1fr;
+  gap:10px;
   border:1px solid #e5dfd6;
   border-radius:6px;
   background:#fffefa;
-  padding:18px;
+  padding:14px;
 }
 .product-row:hover{border-color:#dfc89f;background:#fff}
 .title-line{display:flex;align-items:center;gap:10px;min-width:0}
@@ -1850,14 +1850,15 @@ textarea{min-height:64px;resize:vertical}
 .fill-badge{display:inline-grid;place-items:center;min-width:58px;height:28px;border-radius:6px;color:#fff;font-size:12px;font-weight:800;padding:0 8px;flex:0 0 auto}
 .fill-badge.free{background:#16875c}
 .fill-badge.paid{background:#b44b31}
-.product-main p{color:#8a8177;margin:7px 0 12px}
-dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0}
-dl div{border:1px solid #ebe6dd;border-radius:6px;background:#fffefa;padding:8px}
+.product-main p{color:#8a8177;margin:6px 0 9px}
+dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:0}
+dl div{border:1px solid #ebe6dd;border-radius:6px;background:#fffefa;padding:7px}
 dt{color:#8a8177;font-size:12px}
 dd{margin:3px 0 0;font-weight:800;color:#2f2a24}
-.price-cell{display:grid;align-content:center;gap:9px;text-align:right;border-left:1px solid #e7edf1;padding-left:14px}
+.price-cell{display:grid;grid-template-columns:1fr auto;align-items:center;gap:7px;text-align:left;border-left:0;border-top:1px solid #e7edf1;padding:10px 0 0}
 .price-cell b{font-size:20px;color:#8c672c}
-.price-cell small{color:#8a8177;word-break:break-all;line-height:1.35}
+.price-cell small{grid-column:1;color:#8a8177;word-break:break-all;line-height:1.35}
+.price-cell button{grid-column:2;grid-row:1 / span 2;min-width:108px}
 .accessory-grid{display:grid;grid-template-columns:1fr;gap:10px}
 .accessory,.option-line{
   align-items:center;
@@ -2040,6 +2041,7 @@ th{background:#f5f5f5}
   .toolbar{align-items:flex-start;flex-direction:column}
   .meta-band,.product-edit,.material-edit{grid-template-columns:1fr}
   .accessory{grid-template-columns:132px minmax(180px,1fr) 88px 52px 118px 104px auto}
+  .products{grid-template-columns:1fr}
   .product-row{grid-template-columns:1fr}
   .price-cell{text-align:left;border-left:0;border-top:1px solid #e7edf1;padding-left:0;padding-top:12px}
   dl{grid-template-columns:repeat(2,minmax(0,1fr))}
