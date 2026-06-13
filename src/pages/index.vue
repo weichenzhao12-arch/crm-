@@ -1082,10 +1082,29 @@ async function quotePdfDataUrl(fileName: string) {
 
 async function quotePdfBlob(fileName: string, visibleSheet?: HTMLElement | null) {
   const html2pdf = await loadHtml2Pdf()
-  const source = visibleSheet || document.createElement('div')
-  let shouldRemove = false
+  const source = visibleSheet ? visibleSheet.cloneNode(true) as HTMLElement : document.createElement('div')
+  let cleanupTarget: HTMLElement | null = null
 
-  if (!visibleSheet) {
+  if (visibleSheet) {
+    source.style.setProperty('border', '0', 'important')
+    source.style.setProperty('outline', '0', 'important')
+    source.style.setProperty('box-shadow', 'none', 'important')
+    source.style.setProperty('margin', '0 auto', 'important')
+    source.style.setProperty('background', '#ffffff', 'important')
+    const wrapper = document.createElement('div')
+    wrapper.style.position = 'fixed'
+    wrapper.style.left = '0'
+    wrapper.style.top = '0'
+    wrapper.style.width = '210mm'
+    wrapper.style.minHeight = '297mm'
+    wrapper.style.background = '#ffffff'
+    wrapper.style.pointerEvents = 'none'
+    wrapper.style.zIndex = '2147483647'
+    wrapper.appendChild(source)
+    document.body.appendChild(wrapper)
+    cleanupTarget = wrapper
+  }
+  else {
     source.style.position = 'fixed'
     source.style.left = '0'
     source.style.top = '0'
@@ -1100,7 +1119,7 @@ async function quotePdfBlob(fileName: string, visibleSheet?: HTMLElement | null)
     parsed.querySelectorAll('style').forEach(style => source.appendChild(style.cloneNode(true)))
     source.appendChild(parsed.body.firstElementChild?.cloneNode(true) || parsed.body.cloneNode(true))
     document.body.appendChild(source)
-    shouldRemove = true
+    cleanupTarget = source
   }
 
   try {
@@ -1117,8 +1136,7 @@ async function quotePdfBlob(fileName: string, visibleSheet?: HTMLElement | null)
       .outputPdf('blob')
   }
   finally {
-    if (shouldRemove)
-      source.remove()
+    cleanupTarget?.remove()
   }
 }
 
@@ -2119,7 +2137,7 @@ th{background:#f5f5f5}
   .sheet{
     width:156mm;
     min-height:auto;
-    border:0;
+    border:0!important;
     margin:0 auto;
     padding:0;
     box-sizing:border-box;
