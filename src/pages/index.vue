@@ -816,23 +816,23 @@ function quoteHtml() {
       width:15.6cm;
       margin:0 auto;
       padding:0;
-      font-size:10pt;
+      font-size:12pt;
       font-weight:700;
       background:#fff;
     }
-    h1{text-align:center;font-size:21pt;font-weight:400;margin:0 0 2pt;line-height:1.15;}
-    .subtitle{text-align:center;font-size:10pt;margin:0 0 8pt;line-height:1.2;}
-    table{width:15.6cm;border-collapse:collapse;table-layout:fixed;font-size:10pt;mso-table-layout-alt:fixed;}
-    th,td{border:1pt solid #000;padding:4pt;text-align:center;vertical-align:middle;word-break:break-all;line-height:1.25;}
+    h1{text-align:center;font-size:24pt;font-weight:400;margin:0 0 4pt;line-height:1.2;}
+    .subtitle{text-align:center;font-size:11pt;margin:0 0 10pt;line-height:1.35;}
+    table{width:15.6cm;border-collapse:collapse;table-layout:fixed;font-size:12pt;mso-table-layout-alt:fixed;}
+    th,td{border:1pt solid #000;padding:6pt;text-align:center;vertical-align:middle;word-break:break-all;line-height:1.45;}
     th{background:#fff;font-weight:700;}
-    .area-row td{height:31.5pt;mso-height-rule:exactly;}
-    .head-row th{height:28.5pt;mso-height-rule:exactly;}
-    .item-row td{height:49.5pt;mso-height-rule:exactly;}
-    .package-sub-row td{height:37.5pt;mso-height-rule:exactly;}
-    .total-row td{height:24pt;mso-height-rule:exactly;}
+    .area-row td{height:42pt;mso-height-rule:exactly;}
+    .head-row th{height:36pt;mso-height-rule:exactly;}
+    .item-row td{height:66pt;mso-height-rule:exactly;}
+    .package-sub-row td{height:50pt;mso-height-rule:exactly;}
+    .total-row td{height:34pt;mso-height-rule:exactly;}
     .sheet-img{width:3cm;max-height:2.15cm;object-fit:cover;margin:0;}
-    .sheet-param{white-space:pre-line;line-height:1.25;}
-    .note{line-height:1.35;}
+    .sheet-param{white-space:pre-line;line-height:1.45;}
+    .note{line-height:1.45;}
   `
 
   return `<!doctype html>
@@ -1914,8 +1914,8 @@ dd{margin:3px 0 0;font-weight:800;color:#2f2a24}
 .edit-row{display:grid;gap:8px;align-items:center;border:1px solid #ebe6dd;border-radius:6px;background:#fffefa;padding:10px;margin-bottom:8px}
 .product-edit{grid-template-columns:100px 145px 1fr 90px 120px 100px 100px 140px 100px 104px minmax(180px,1fr) 64px}
 .material-edit{grid-template-columns:120px 140px 1fr 100px 110px minmax(160px,1fr) 64px}
-.sheet{box-sizing:border-box;width:210mm;min-height:297mm;margin:18px auto;background:#fffefa;color:#000;padding:16mm 15mm 18mm;border:1px solid #111}
-.sheet h1{text-align:center;font-size:26px;font-family:SimSun,serif}
+.sheet{box-sizing:border-box;width:210mm;min-height:297mm;margin:18px auto;background:#fffefa;color:#000;padding:37mm 26mm 35mm 28mm;border:1px solid #111}
+.sheet h1{text-align:center;font-size:32px;font-family:SimSun,serif}
 .subtitle{text-align:center;margin-bottom:10px}
 .sheet-meta{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:12px;font-size:12px}
 table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px}
@@ -1923,20 +1923,20 @@ th,td{border:1px solid #111;padding:6px;text-align:center;word-break:break-word}
 th{background:#f5f5f5}
 .sheet-total{display:flex;justify-content:flex-end;gap:18px;margin-top:12px;font-size:14px}
 .remark{margin-top:12px;font-size:12px}
-.sheet{border:1px solid #000;font-family:SimSun,Microsoft YaHei,Arial;font-size:13px;font-weight:700}
-.sheet h1{font-size:28px;font-weight:400;margin:0 0 2px}
-.subtitle{font-size:12px;margin:0 0 14px}
-.quote-sheet-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:13px}
-.quote-sheet-table th,.quote-sheet-table td{border:1px solid #000;padding:6px;text-align:center;vertical-align:middle;word-break:break-word}
+.sheet{border:1px solid #000;font-family:SimSun,Microsoft YaHei,Arial;font-size:16px;font-weight:700}
+.sheet h1{font-size:32px;font-weight:400;margin:0 0 6px}
+.subtitle{font-size:15px;margin:0 0 18px}
+.quote-sheet-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:16px}
+.quote-sheet-table th,.quote-sheet-table td{border:1px solid #000;padding:8px;text-align:center;vertical-align:middle;word-break:break-word;line-height:1.45}
 .quote-sheet-table th{background:#fff}
-.area-row td{height:56px}
-.head-row th{height:48px}
-.item-row td{height:82px}
-.package-sub-row td{height:28px}
+.area-row td{height:64px}
+.head-row th{height:56px}
+.item-row td{height:100px}
+.package-sub-row td{height:76px}
 .sheet-img{max-width:120px;max-height:86px;object-fit:cover;margin:2px}
-.sheet-param{white-space:pre-line;line-height:1.4}
-.total-row td{height:42px}
-.note{line-height:1.35}
+.sheet-param{white-space:pre-line;line-height:1.45}
+.total-row td{height:52px}
+.note{line-height:1.45}
 .toolbar,
 .band,
 .summary,
@@ -2124,16 +2124,16 @@ th{background:#f5f5f5}
   }
   .sheet h1{margin-top:0}
   .quote-sheet-table{width:100%}
-  .sheet h1{font-size:24px}
-  .subtitle{margin-bottom:8px;font-size:11px}
-  .area-row td{height:42px}
-  .head-row th{height:38px}
-  .item-row td{height:66px}
-  .package-sub-row td{height:50px}
-  .total-row td{height:32px}
-  .quote-sheet-table{font-size:12px}
+  .sheet h1{font-size:32px}
+  .subtitle{margin-bottom:18px;font-size:15px}
+  .area-row td{height:64px}
+  .head-row th{height:56px}
+  .item-row td{height:100px}
+  .package-sub-row td{height:76px}
+  .total-row td{height:52px}
+  .quote-sheet-table{font-size:16px}
   .quote-sheet-table th,
-  .quote-sheet-table td{padding:4px}
+  .quote-sheet-table td{padding:8px;line-height:1.45}
   .sheet-img{max-width:104px;max-height:72px}
   .app-shell,.app-main{background:#fff!important}
 }
