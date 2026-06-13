@@ -2630,20 +2630,49 @@ th{background:#f5f5f5}
     color:#246ed8;
   }
   .product-row{
-    grid-template-columns:minmax(0,1fr) 190px;
+    grid-template-columns:minmax(0,1fr) 120px;
+    gap:8px;
     border-color:#e1e9f2;
-    border-radius:14px;
+    border-radius:10px;
     background:linear-gradient(180deg,#fff,#fbfdff);
-    padding:18px;
+    padding:10px;
   }
   .product-row:hover{
     border-color:#8fc0ff;
     box-shadow:0 16px 34px rgba(47,140,255,.12);
   }
+  .product-main p{
+    margin:3px 0 6px;
+    font-size:13px;
+  }
+  .title-line{
+    gap:6px;
+  }
+  .title-line b{
+    font-size:14px;
+  }
+  .fill-badge{
+    min-width:48px;
+    height:22px;
+    padding:0 7px;
+    font-size:11px;
+  }
+  dl{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:5px;
+  }
   dl div{
     border:0;
-    border-radius:12px;
+    border-radius:8px;
     background:#f6f8fb;
+    padding:5px 6px;
+  }
+  dt{
+    font-size:11px;
+  }
+  dd{
+    margin-top:2px;
+    font-size:13px;
   }
   .fill-badge{
     border-radius:999px;
@@ -2655,10 +2684,29 @@ th{background:#f5f5f5}
     background:#246ed8;
   }
   .price-cell{
+    grid-template-columns:1fr;
+    align-content:center;
+    gap:5px;
     border-left-color:#e6edf5;
+    border-top:0;
+    padding:0 0 0 10px;
   }
   .price-cell b{
+    font-size:17px;
     color:#246ed8;
+  }
+  .price-cell small{
+    grid-column:auto;
+    font-size:11px;
+    line-height:1.25;
+  }
+  .price-cell button{
+    grid-column:auto;
+    grid-row:auto;
+    min-width:0;
+    width:100%;
+    min-height:34px;
+    padding:6px 10px;
   }
   .price-cell button,
   .primary{
