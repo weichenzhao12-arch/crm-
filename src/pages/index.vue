@@ -1013,13 +1013,27 @@ function openPdfDataUrl(dataUrl: string) {
 function mobilePrintableQuoteHtml() {
   const actionBar = `
     <style>
+      @media screen{
+        body{margin:0!important;background:#eef3f8!important;}
+        .sheet{width:190mm!important;margin:10mm auto 16mm!important;padding:0!important;border:0!important;background:#fff!important;}
+        table{width:190mm!important;}
+      }
       .mobile-save-bar{position:sticky;top:0;z-index:9999;display:flex;gap:8px;justify-content:center;align-items:center;padding:10px;background:#f1f5f9;border-bottom:1px solid #cbd5e1;font-family:"Microsoft YaHei",Arial,sans-serif;}
       .mobile-save-bar button{border:0;border-radius:10px;padding:10px 16px;font-size:14px;font-weight:700;background:#2563eb;color:#fff;}
       .mobile-save-bar .ghost{background:#fff;color:#0f172a;border:1px solid #cbd5e1;}
-      @media print{.mobile-save-bar{display:none!important;}}
+      @media print{
+        @page{size:A4;margin:22mm 10mm 24mm 10mm;}
+        html,body{width:auto!important;min-width:0!important;margin:0!important;padding:0!important;background:#fff!important;}
+        .mobile-save-bar{display:none!important;}
+        .sheet{width:190mm!important;margin:0!important;padding:0!important;border:0!important;box-shadow:none!important;}
+        table{width:190mm!important;}
+        th,td{padding:5pt!important;line-height:1.35!important;}
+      }
     </style>
   `
-  return quoteHtml().replace('<body>', `<body>${actionBar}<div class="mobile-save-bar"><button onclick="window.print()">保存PDF</button><button class="ghost" onclick="window.close()">关闭</button></div>`)
+  return quoteHtml()
+    .replace('</head>', `${actionBar}</head>`)
+    .replace('<body>', '<body><div class="mobile-save-bar"><button onclick="window.print()">保存PDF</button><button class="ghost" onclick="window.close()">关闭</button></div>')
 }
 
 function openMobilePrintableQuote() {
