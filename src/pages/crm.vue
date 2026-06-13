@@ -969,6 +969,47 @@ h2{margin:0;font-size:17px}
   .lead-record-table article span:nth-child(12)::before{content:"负责人"}
   .lead-record-table article strong:nth-child(13)::before{content:"状态"}
   .stage-badge{justify-content:stretch;text-align:left}
+  .lead-record-table article{
+    position:relative;
+    gap:6px;
+    padding:14px;
+  }
+  .lead-record-table article > *{
+    display:none!important;
+  }
+  .lead-record-table article strong:nth-child(3),
+  .lead-record-table article span:nth-child(4),
+  .lead-record-table article span:nth-child(12){
+    display:grid!important;
+    grid-template-columns:74px minmax(0,1fr)!important;
+    align-items:center;
+    width:100%;
+    min-height:0;
+    padding:0;
+    border:0;
+    color:#10243f;
+    background:transparent;
+    line-height:1.45;
+  }
+  .lead-record-table article strong:nth-child(3){
+    grid-template-columns:1fr!important;
+    padding-bottom:4px;
+    font-size:18px;
+    font-weight:900;
+  }
+  .lead-record-table article strong:nth-child(3)::before{
+    display:none!important;
+  }
+  .lead-record-table article span:nth-child(4)::before{
+    content:"联系方式";
+    color:#64748b;
+    font-weight:900;
+  }
+  .lead-record-table article span:nth-child(12)::before{
+    content:"跟进人";
+    color:#64748b;
+    font-weight:900;
+  }
   .reminder-dialog,.password-dialog,.sample-dialog{width:100%;max-height:86vh}
 }
 </style>

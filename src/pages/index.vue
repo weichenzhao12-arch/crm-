@@ -3255,38 +3255,6 @@ th{background:#f5f5f5}
     width:100%!important;
     min-height:42px!important;
   }
-  .toolbar{
-    position:relative!important;
-    top:auto!important;
-    display:grid!important;
-    grid-template-columns:1fr!important;
-    gap:12px!important;
-    padding:14px!important;
-    border-radius:16px!important;
-  }
-  .toolbar > div{
-    display:block!important;
-    min-width:0!important;
-  }
-  .toolbar h1{
-    margin:0!important;
-    color:#10243f!important;
-    font-size:22px!important;
-    line-height:1.2!important;
-  }
-  .toolbar nav{
-    display:grid!important;
-    grid-template-columns:1fr 1fr!important;
-    gap:10px!important;
-    overflow:visible!important;
-  }
-  .toolbar nav button,
-  .toolbar nav .admin-link{
-    min-width:0!important;
-    width:100%!important;
-    min-height:42px!important;
-    font-size:14px!important;
-  }
   .meta-band{
     display:grid!important;
     grid-template-columns:1fr!important;
