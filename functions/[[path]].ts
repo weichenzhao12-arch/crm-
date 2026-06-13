@@ -283,7 +283,7 @@ app.post('/pdf', async (c) => {
   const rendered = await c.env.BROWSER.quickAction('pdf', {
     html,
     pdfOptions: {
-      format: 'A4',
+      format: 'a4',
       printBackground: true,
       margin: {
         top: '0mm',

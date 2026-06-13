@@ -7,13 +7,15 @@ describe('auth store', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     localStorage.clear()
+    sessionStorage.clear()
   })
 
-  it('persists token changes', () => {
+  it('keeps token for the current browser session only', () => {
     const auth = useAuthStore()
     auth.setToken('hello')
 
-    expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBe('hello')
+    expect(sessionStorage.getItem(AUTH_STORAGE_KEY)).toBe('hello')
+    expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull()
     expect(auth.isAuthenticated).toBe(true)
   })
 
@@ -24,13 +26,13 @@ describe('auth store', () => {
 
     auth.clearAuth()
 
-    expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull()
+    expect(sessionStorage.getItem(AUTH_STORAGE_KEY)).toBeNull()
     expect(auth.user).toBeNull()
     expect(auth.isAuthenticated).toBe(false)
   })
 
-  it('hydrates token from storage', () => {
-    localStorage.setItem(AUTH_STORAGE_KEY, 'persisted')
+  it('hydrates token from the current browser session', () => {
+    sessionStorage.setItem(AUTH_STORAGE_KEY, 'persisted')
     const auth = useAuthStore()
 
     auth.hydrate()
