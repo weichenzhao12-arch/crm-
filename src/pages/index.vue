@@ -1171,6 +1171,18 @@ async function printPdf() {
     }
     await nextTick()
     const mobileSafari = isMobileSafari()
+    const visibleSheet = document.querySelector<HTMLElement>('.sheet')
+    if (!mobileSafari && visibleSheet) {
+      const blob = await quotePdfBlob(fileName, visibleSheet)
+      const dataUrl = await blobToDataUrl(blob)
+      syncQuoteToCustomer('已打印/PDF', {
+        name: fileName,
+        dataUrl,
+      })
+      downloadBlob(blob, fileName)
+      return
+    }
+
     try {
       const blob = await renderCloudPdf(quoteHtml(), fileName)
       const dataUrl = await blobToDataUrl(blob)
@@ -1194,7 +1206,7 @@ async function printPdf() {
       showPdfDownloadModal(fileName, '')
       return
     }
-    const sheet = mobileSafari ? document.querySelector<HTMLElement>('.sheet') : null
+    const sheet = mobileSafari ? visibleSheet : null
     const blob = await quotePdfBlob(fileName, sheet)
     const dataUrl = await blobToDataUrl(blob)
     syncQuoteToCustomer('已打印/PDF', {
