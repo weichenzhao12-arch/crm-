@@ -808,11 +808,11 @@ function quoteHtml() {
   }).join('')
 
   const sheetStyles = `
-    @page WordSection1{size:21cm 29.7cm;margin:.35cm .45cm .35cm .45cm;}
+    @page WordSection1{size:21cm 29.7cm;margin:1.2cm 1.2cm .9cm 1.2cm;}
     body{margin:0;background:#fff;font-family:SimSun,"Microsoft YaHei",Arial,sans-serif;color:#000;}
     .sheet{
       box-sizing:border-box;
-      width:20.1cm;
+      width:18.6cm;
       margin:0 auto;
       padding:0;
       font-size:6.5pt;
@@ -821,7 +821,7 @@ function quoteHtml() {
     }
     h1{text-align:center;font-size:12pt;font-weight:400;margin:0 0 1pt;line-height:1;}
     .subtitle{text-align:center;font-size:5.5pt;margin:0 0 2pt;line-height:1;}
-    table{width:20.1cm;border-collapse:collapse;table-layout:fixed;font-size:6.5pt;mso-table-layout-alt:fixed;}
+    table{width:18.6cm;border-collapse:collapse;table-layout:fixed;font-size:6.5pt;mso-table-layout-alt:fixed;}
     th,td{border:1pt solid #000;padding:1pt 2pt;text-align:center;vertical-align:middle;word-break:break-all;line-height:1.05;}
     th{background:#fff;font-weight:700;}
     .area-row td{height:14pt;mso-height-rule:exactly;}
@@ -2098,15 +2098,15 @@ th{background:#f5f5f5}
   .modal-fields{grid-template-columns:1fr}
 }
 @media print{
-  @page{size:A4;margin:0}
+  @page{size:A4;margin:12mm 12mm 9mm}
   .no-print,.toolbar,.left,.summary:not(.printable){display:none!important}
   .quote-page{padding:0;background:#fff}
   .sheet{
-    width:210mm;
-    min-height:297mm;
+    width:186mm;
+    min-height:auto;
     border:0;
     margin:0 auto;
-    padding:10mm 14mm 10mm;
+    padding:0;
     box-sizing:border-box;
   }
   .sheet h1{margin-top:0}
