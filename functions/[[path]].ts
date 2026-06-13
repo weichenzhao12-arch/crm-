@@ -286,10 +286,10 @@ app.post('/pdf', async (c) => {
       format: 'a4',
       printBackground: true,
       margin: {
-        top: '8mm',
-        right: '8mm',
-        bottom: '8mm',
-        left: '8mm',
+        top: '37mm',
+        right: '26mm',
+        bottom: '35mm',
+        left: '28mm',
       },
     },
   })
