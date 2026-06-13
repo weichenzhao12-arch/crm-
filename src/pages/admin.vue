@@ -580,8 +580,13 @@ function changeOwnPassword() {
 .admin-table article:last-child{border-bottom:0}
 .product-admin-table .admin-head,.product-admin-table article{grid-template-columns:36px 118px 104px 128px 76px 84px 86px 90px 80px 112px 88px 150px 96px 120px 96px;min-width:1518px}
 .material-admin-table .admin-head,.material-admin-table article{grid-template-columns:36px 140px 150px 1fr 92px 110px 150px 220px 70px}
-.user-admin-table .admin-head,.user-admin-table article{grid-template-columns:110px 110px 110px 70px repeat(11,120px) minmax(260px,1fr) 76px;min-width:2080px}
+.user-admin-table .admin-head,.user-admin-table article{grid-template-columns:96px 96px 96px 52px repeat(11,82px) minmax(150px,1fr) 64px;min-width:1506px;gap:6px;padding:8px}
+.user-admin-table .admin-head{font-size:11px}
+.user-admin-table article input,
+.user-admin-table article select{min-height:32px;padding:5px 7px;font-size:13px}
+.user-admin-table article input[type="checkbox"]{width:16px;height:16px}
 .user-admin-table article input:nth-last-of-type(1){width:100%}
+.user-admin-table article button{min-height:32px;padding:5px 8px;font-size:12px}
 .admin-table input,.admin-table select,.admin-table textarea,.password-box input{min-width:0;min-height:36px;border:1px solid #d5dee9;border-radius:8px;background:#f8fafc;padding:7px 9px}
 .admin-table input[type="checkbox"]{width:18px;height:18px;min-height:0;justify-self:center}
 .admin-table textarea{min-height:38px;resize:vertical}
