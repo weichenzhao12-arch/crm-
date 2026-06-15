@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { handle } from 'hono/cloudflare-pages'
 import type { Context, Next } from 'hono'
+import { isPasswordHash, normalizePasswordForStorage, verifyPassword } from '../src/features/auth/password'
 
 interface Env {
   DB: D1Database
@@ -51,6 +52,21 @@ function jsonUser(row: AdminUserRow) {
   }
 }
 
+function userPermissions(row: AdminUserRow) {
+  try {
+    return JSON.parse(row.permissions || '{}') as Record<string, boolean>
+  }
+  catch {
+    return {}
+  }
+}
+
+function hasPermission(row: AdminUserRow, permission: string) {
+  if (row.role === 'owner' || row.role === 'manager')
+    return true
+  return Boolean(userPermissions(row)[permission])
+}
+
 function randomToken() {
   return crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '')
 }
@@ -63,7 +79,7 @@ function userPayloadToDbRow(user: AdminUserPayload) {
     displayName: String(user.displayName || account || '新账号').trim(),
     role: String(user.role || 'quoter').trim(),
     enabled: user.enabled === false ? 0 : 1,
-    password: String(user.password || '123456'),
+    password: normalizePasswordForStorage(user.password),
     permissions: JSON.stringify(user.permissions || {}),
   }
 }
@@ -228,12 +244,19 @@ app.post('/auth/login', async (c) => {
   const account = String(body.account || '').trim().toLowerCase()
   const password = String(body.password || '')
   const user = await c.env.DB
-    .prepare('SELECT * FROM users WHERE lower(account) = ? AND password = ? AND enabled = 1')
-    .bind(account, password)
+    .prepare('SELECT * FROM users WHERE lower(account) = ? AND enabled = 1')
+    .bind(account)
     .first<AdminUserRow>()
 
-  if (!user)
+  if (!user || !verifyPassword(password, user.password))
     return c.json({ message: '账号或密码不正确' }, 401)
+
+  if (!isPasswordHash(user.password)) {
+    await c.env.DB
+      .prepare('UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .bind(normalizePasswordForStorage(password), user.id)
+      .run()
+  }
 
   const token = randomToken()
   const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString()
@@ -258,6 +281,18 @@ app.put('/state/:key', async (c) => {
   const key = c.req.param('key')
   const user = c.get('user')
   const body = await c.req.json<{ value: unknown }>()
+  const canWrite
+    = key === 'admin-users'
+      ? hasPermission(user, 'manageUsers')
+      : key === 'pricing'
+        ? (hasPermission(user, 'manageProducts') || hasPermission(user, 'manageMaterials') || hasPermission(user, 'importExcel'))
+        : key === 'system-state'
+          ? hasPermission(user, 'restoreRecords')
+          : true
+
+  if (!canWrite)
+    return c.json({ message: '当前账号没有权限修改此数据' }, 403)
+
   await c.env.DB
     .prepare('INSERT INTO app_state (key, value, updated_by, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = CURRENT_TIMESTAMP')
     .bind(key, JSON.stringify(body.value ?? null), user.id)

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { getCloudState, putCloudState } from '~/api/cloud-storage'
+import { normalizePasswordForStorage, verifyPassword } from '~/features/auth/password'
 
 export type AdminRole = 'owner' | 'manager' | 'quoter' | 'viewer'
 
@@ -121,7 +122,7 @@ function normalizeUser(raw: Partial<AdminUser>): AdminUser {
     displayName: raw.displayName || raw.account || '新账号',
     role,
     enabled: raw.enabled !== false,
-    password: raw.password || '123456',
+    password: normalizePasswordForStorage(raw.password),
     permissions: normalizePermissions(raw.permissions, role),
   }
 }
@@ -134,7 +135,7 @@ function defaultUsers(): AdminUser[] {
       displayName: '主账号',
       role: 'owner',
       enabled: true,
-      password: '123456',
+      password: normalizePasswordForStorage('123456'),
       permissions: permissionsForRole('owner'),
     },
     {
@@ -143,7 +144,7 @@ function defaultUsers(): AdminUser[] {
       displayName: '销售一部',
       role: 'quoter',
       enabled: true,
-      password: '123456',
+      password: normalizePasswordForStorage('123456'),
       permissions: permissionsForRole('quoter'),
     },
     {
@@ -152,7 +153,7 @@ function defaultUsers(): AdminUser[] {
       displayName: '销售二部',
       role: 'quoter',
       enabled: true,
-      password: '123456',
+      password: normalizePasswordForStorage('123456'),
       permissions: permissionsForRole('quoter'),
     },
   ]
@@ -209,7 +210,7 @@ export const useAdminStore = defineStore('admin', {
         displayName: '新账号',
         role: 'quoter',
         enabled: true,
-        password: '123456',
+        password: normalizePasswordForStorage('123456'),
         permissions: permissionsForRole('quoter'),
       }
       this.users.push(user)
@@ -229,9 +230,17 @@ export const useAdminStore = defineStore('admin', {
       const user = this.currentUser
       if (!user || !nextPassword.trim())
         return false
-      if (user.password !== oldPassword)
+      if (!verifyPassword(oldPassword, user.password))
         return false
-      user.password = nextPassword.trim()
+      user.password = normalizePasswordForStorage(nextPassword.trim())
+      this.saveUsers()
+      return true
+    },
+    resetUserPassword(id: string, nextPassword = '123456') {
+      const user = this.users.find(item => item.id === id)
+      if (!user || !nextPassword.trim())
+        return false
+      user.password = normalizePasswordForStorage(nextPassword.trim())
       this.saveUsers()
       return true
     },

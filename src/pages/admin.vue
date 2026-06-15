@@ -32,7 +32,7 @@ const oldPassword = ref('')
 const newPassword = ref('')
 const selectedProductIds = ref<string[]>([])
 const selectedMaterialIds = ref<string[]>([])
-const showUserPasswords = ref(false)
+const resetPasswordDrafts = ref<Record<string, string>>({})
 
 watch(pricing, () => quote.savePricing(), { deep: true })
 
@@ -360,6 +360,21 @@ function removeAdminUser(user: any) {
   admin.removeUser(user.id)
 }
 
+function resetAdminUserPassword(user: any) {
+  const nextPassword = resetPasswordDrafts.value[user.id]?.trim()
+  if (!nextPassword) {
+    window.alert('请输入要重置的新密码')
+    return
+  }
+  if (!admin.resetUserPassword(user.id, nextPassword)) {
+    window.alert('重置失败，请检查账号状态')
+    return
+  }
+  resetPasswordDrafts.value[user.id] = ''
+  system.log('update', 'user', user.displayName || user.account, `重置账号密码：${user.account}`)
+  window.alert('密码已重置')
+}
+
 function changeOwnPassword() {
   if (!admin.updateOwnPassword(oldPassword.value, newPassword.value)) {
     window.alert('原密码不正确，或新密码为空')
@@ -477,8 +492,7 @@ function changeOwnPassword() {
       </div>
       <div class="admin-table user-admin-table">
         <div class="admin-head">
-          <span>账号</span><span>姓名</span><span>角色</span><span>启用</span><span>产品管理</span><span>辅料管理</span><span>产品导入</span><span>账号管理</span><span>看全部客户</span><span>导入客户</span><span>导出客户</span><span>删除客户</span><span>回收站恢复</span><span>报价导出</span><span>临时改价</span>
-          <button class="password-toggle" type="button" @click="showUserPasswords = !showUserPasswords">{{ showUserPasswords ? '隐藏密码' : '显示密码' }}</button><span>操作</span>
+          <span>账号</span><span>姓名</span><span>角色</span><span>启用</span><span>产品管理</span><span>辅料管理</span><span>产品导入</span><span>账号管理</span><span>看全部客户</span><span>导入客户</span><span>导出客户</span><span>删除客户</span><span>回收站恢复</span><span>报价导出</span><span>临时改价</span><span>重置密码</span><span>操作</span>
         </div>
         <article v-for="user in users" :key="user.id">
           <input v-model="user.account">
@@ -501,7 +515,10 @@ function changeOwnPassword() {
           <input v-model="user.permissions.restoreRecords" type="checkbox" title="恢复回收站">
           <input v-model="user.permissions.exportQuote" type="checkbox">
           <input v-model="user.permissions.temporaryEdit" type="checkbox">
-          <input v-model="user.password" :type="showUserPasswords ? 'text' : 'password'">
+          <div class="reset-password-cell">
+            <input v-model="resetPasswordDrafts[user.id]" type="password" placeholder="输入新密码">
+            <button type="button" @click="resetAdminUserPassword(user)">重置</button>
+          </div>
           <button :disabled="user.id === 'owner'" @click="removeAdminUser(user)">删除</button>
         </article>
       </div>
@@ -576,7 +593,6 @@ function changeOwnPassword() {
 .admin-table{overflow:auto;border:1px solid #e1e9f2;border-radius:12px}
 .admin-head,.admin-table article{display:grid;gap:8px;align-items:center;min-width:1260px;padding:10px;border-bottom:1px solid #e1e9f2}
 .admin-head{background:#f5f8fc;color:#50627a;font-size:12px;font-weight:900}
-.admin-head .password-toggle{min-height:28px;border-color:#bcd4f0;border-radius:7px;background:#eef6ff;color:#1f5f9d;padding:4px 8px;font-size:12px}
 .admin-table article:last-child{border-bottom:0}
 .product-admin-table .admin-head,.product-admin-table article{grid-template-columns:36px 118px 104px 128px 76px 84px 86px 90px 80px 112px 88px 150px 96px 120px 96px;min-width:1518px}
 .material-admin-table .admin-head,.material-admin-table article{grid-template-columns:36px 140px 150px 1fr 92px 110px 150px 220px 70px}
@@ -587,6 +603,8 @@ function changeOwnPassword() {
 .user-admin-table article input[type="checkbox"]{width:16px;height:16px}
 .user-admin-table article input:nth-last-of-type(1){width:100%}
 .user-admin-table article button{min-height:32px;padding:5px 8px;font-size:12px}
+.reset-password-cell{display:grid;grid-template-columns:minmax(120px,1fr) 52px;gap:6px;align-items:center}
+.reset-password-cell input{width:100%}
 .admin-table input,.admin-table select,.admin-table textarea,.password-box input{min-width:0;min-height:36px;border:1px solid #d5dee9;border-radius:8px;background:#f8fafc;padding:7px 9px}
 .admin-table input[type="checkbox"]{width:18px;height:18px;min-height:0;justify-self:center}
 .admin-table textarea{min-height:38px;resize:vertical}

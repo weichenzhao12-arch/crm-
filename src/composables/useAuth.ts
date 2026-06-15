@@ -1,6 +1,7 @@
 import { computed } from 'vue'
 import { useAdminStore } from '~/stores/admin'
 import { useAuthStore } from '~/stores/auth'
+import { normalizePasswordForStorage, verifyPassword } from '~/features/auth/password'
 
 export function useAuth() {
   const auth = useAuthStore()
@@ -20,10 +21,10 @@ export function useAuth() {
         const existing = admin.users.find(item => item.id === data.user.id)
         if (existing) {
           Object.assign(existing, data.user)
-          existing.password = password
+          existing.password = normalizePasswordForStorage(password)
         }
         else
-          admin.users.push({ ...data.user, password, enabled: data.user.enabled, displayName: data.user.displayName, permissions: data.user.permissions } as any)
+          admin.users.push({ ...data.user, password: normalizePasswordForStorage(password), enabled: data.user.enabled, displayName: data.user.displayName, permissions: data.user.permissions } as any)
         admin.setCurrentUser(data.user.id)
         auth.setToken(data.token)
         auth.setUser({
@@ -45,7 +46,7 @@ export function useAuth() {
     const user = admin.users.find(item =>
       item.enabled
       && item.account.trim().toLowerCase() === account.trim().toLowerCase()
-      && item.password === password,
+      && verifyPassword(password, item.password),
     )
 
     if (!user)
