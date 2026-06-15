@@ -220,6 +220,74 @@ async function syncNormalizedState(db: D1Database, key: string, value: unknown) 
     await syncSystemState(db, value)
 }
 
+function parseStoredJson<T>(value: string, fallback: T): T {
+  try {
+    return JSON.parse(value) as T
+  }
+  catch {
+    return fallback
+  }
+}
+
+async function readJsonRows(db: D1Database, table: string) {
+  const rows = await db.prepare(`SELECT value FROM ${table} ORDER BY rowid ASC`).all<{ value: string }>()
+  return (rows.results || [])
+    .map(row => parseStoredJson(row.value, null))
+    .filter(Boolean)
+}
+
+async function readNormalizedState(db: D1Database, key: string, fallback: any) {
+  if (key === 'customers') {
+    const customers = await readJsonRows(db, 'crm_customers')
+    return customers.length ? customers : fallback
+  }
+
+  if (key === 'pricing') {
+    const products = await readJsonRows(db, 'quote_products')
+    const materials = await readJsonRows(db, 'quote_materials')
+    if (products.length || materials.length) {
+      return {
+        ...(fallback && typeof fallback === 'object' ? fallback : {}),
+        products,
+        materials,
+      }
+    }
+    return fallback
+  }
+
+  if (key === 'system-state') {
+    const recycleBin = await readJsonRows(db, 'recycle_records')
+    const operationLogs = await readJsonRows(db, 'operation_logs')
+    if (recycleBin.length || operationLogs.length) {
+      return {
+        ...(fallback && typeof fallback === 'object' ? fallback : {}),
+        recycleBin,
+        operationLogs,
+      }
+    }
+    return fallback
+  }
+
+  if (key === 'admin-users') {
+    const rows = await db
+      .prepare('SELECT * FROM users ORDER BY CASE role WHEN ? THEN 0 WHEN ? THEN 1 ELSE 2 END, updated_at ASC, account ASC')
+      .bind('owner', 'manager')
+      .all<AdminUserRow>()
+    const users = (rows.results || []).map(row => ({
+      id: row.id,
+      account: row.account,
+      displayName: row.display_name,
+      role: row.role,
+      enabled: Boolean(row.enabled),
+      password: row.password,
+      permissions: parseStoredJson(row.permissions || '{}', {}),
+    }))
+    return users.length ? users : fallback
+  }
+
+  return fallback
+}
+
 async function requireLogin(c: Context<AppBindings>, next: Next) {
   const authorization = c.req.header('authorization') || ''
   const token = authorization.replace(/^Bearer\s+/i, '')
@@ -272,9 +340,14 @@ app.use('/pdf', requireLogin)
 app.get('/state/:key', async (c) => {
   const key = c.req.param('key')
   const row = await c.env.DB.prepare('SELECT value FROM app_state WHERE key = ?').bind(key).first<{ value: string }>()
-  if (!row)
-    return c.json({ value: null })
-  return c.json({ value: JSON.parse(row.value) })
+  const fallback = row ? parseStoredJson(row.value, null) : null
+  try {
+    const value = await readNormalizedState(c.env.DB, key, fallback)
+    return c.json({ value })
+  }
+  catch {
+    return c.json({ value: fallback })
+  }
 })
 
 app.put('/state/:key', async (c) => {
