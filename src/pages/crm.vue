@@ -10,6 +10,7 @@
 <script setup lang="ts">
 import * as XLSX from 'xlsx'
 import { storeToRefs } from 'pinia'
+import { leadImportMessage, summarizeLeadImport } from '~/features/crm/lead-import'
 import { sortCustomersByRecentActivity } from '~/features/crm/recent-customers'
 import { dailyLeadCreationSeries, type LeadCreationMode } from '~/features/crm/stats'
 import { useAuth } from '~/composables/useAuth'
@@ -315,9 +316,14 @@ function importLeadTable(event: Event) {
     const imported = rows
       .filter(hasImportableLeadRow)
       .map(rowToCustomer)
+    const skippedBlank = rows.length - imported.length
     if (imported.length) {
       customers.value = [...imported, ...customers.value]
       crm.save()
+      window.alert(leadImportMessage(summarizeLeadImport(rows.length, imported.length)))
+    }
+    else if (skippedBlank) {
+      window.alert(`未导入客资：表格中 ${skippedBlank} 行没有客户名称或联系方式。`)
     }
     input.value = ''
   }

@@ -1269,17 +1269,28 @@ async function printPdf() {
       await nextTick()
     }
     await nextTick()
-    const mobileSafari = isMobileSafari()
     const mobileDevice = isMobileDevice()
     if (mobileDevice) {
-      const htmlDataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(mobilePrintableQuoteHtml())}`
-      syncQuoteToCustomer('已生成手机预览', {
-        name: fileName.replace(/\.pdf$/i, '.html'),
-        dataUrl: htmlDataUrl,
-      })
-      openMobilePrintableQuote()
+      try {
+        const blob = await renderCloudPdf(quoteHtml(), fileName)
+        const dataUrl = await blobToDataUrl(blob)
+        syncQuoteToCustomer('已打印/PDF', {
+          name: fileName,
+          dataUrl,
+        })
+        downloadBlob(blob, fileName)
+      }
+      catch {
+        const htmlDataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(mobilePrintableQuoteHtml())}`
+        syncQuoteToCustomer('已生成手机预览', {
+          name: fileName.replace(/\.pdf$/i, '.html'),
+          dataUrl: htmlDataUrl,
+        })
+        openMobilePrintableQuote()
+      }
       return
     }
+    const mobileSafari = isMobileSafari()
     const visibleSheet = document.querySelector<HTMLElement>('.sheet')
     if (!mobileSafari && visibleSheet) {
       const blob = await quotePdfBlob(fileName, visibleSheet)

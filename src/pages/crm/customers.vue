@@ -10,6 +10,7 @@
 <script setup lang="ts">
 import * as XLSX from 'xlsx'
 import { storeToRefs } from 'pinia'
+import { leadImportMessage, summarizeLeadImport } from '~/features/crm/lead-import'
 import { useAdminStore } from '~/stores/admin'
 import { useCrmStore } from '~/stores/crm'
 import { useSystemStore } from '~/stores/system'
@@ -466,6 +467,7 @@ function importLeadTable(event: Event) {
     const imported = rows
       .filter(hasImportableLeadRow)
       .map(rowToCustomer)
+    const skippedBlank = rows.length - imported.length
     if (imported.length) {
       const duplicateCount = duplicateImportCount(imported)
       if (duplicateCount && !window.confirm(`导入文件中有 ${duplicateCount} 条可能和现有客户重复，是否继续导入？`)) {
@@ -475,6 +477,10 @@ function importLeadTable(event: Event) {
       customers.value = [...imported, ...customers.value]
       system.log('import', 'lead', `导入${imported.length}条客资`, file.name)
       crm.save()
+      window.alert(leadImportMessage(summarizeLeadImport(rows.length, imported.length, duplicateCount)))
+    }
+    else if (skippedBlank) {
+      window.alert(`未导入客资：表格中 ${skippedBlank} 行没有客户名称或联系方式。`)
     }
     input.value = ''
   }
