@@ -1023,12 +1023,13 @@ function openPdfDataUrl(dataUrl: string) {
 }
 
 function mobilePrintableQuoteHtml() {
+  const fileName = `${meta.value.customerName || '客户'}-报价单-${Date.now()}.pdf`
   const actionBar = `
     <style>
       @media screen{
         body{margin:0!important;background:#eef3f8!important;}
-        .sheet{width:210mm!important;min-height:297mm!important;margin:0 auto!important;padding:18mm 28mm!important;border:0!important;background:#fff!important;box-sizing:border-box!important;}
-        table,table[width]{width:130mm!important;margin:0 auto!important;}
+        .sheet{width:210mm!important;min-height:297mm!important;margin:0 auto!important;padding:18mm 24mm!important;border:0!important;background:#fff!important;box-sizing:border-box!important;}
+        table,table[width]{width:150mm!important;margin:0 auto!important;}
         col{width:auto!important;}
         col:nth-child(1){width:31%!important;}
         col:nth-child(2){width:24%!important;}
@@ -1042,10 +1043,10 @@ function mobilePrintableQuoteHtml() {
         @page{size:A4;margin:0;}
         html,body{width:auto!important;min-width:0!important;margin:0!important;padding:0!important;background:#fff!important;}
         .mobile-save-bar{display:none!important;}
-        .sheet{width:210mm!important;min-height:297mm!important;margin:0!important;padding:18mm 28mm!important;border:0!important;box-shadow:none!important;font-size:9pt!important;box-sizing:border-box!important;overflow:visible!important;background:#fff!important;}
+        .sheet{width:210mm!important;min-height:297mm!important;margin:0!important;padding:18mm 24mm!important;border:0!important;box-shadow:none!important;font-size:9pt!important;box-sizing:border-box!important;overflow:visible!important;background:#fff!important;}
         h1{font-size:18pt!important;margin:0 0 3pt!important;line-height:1.1!important;}
         .subtitle{font-size:8pt!important;margin:0 0 6pt!important;line-height:1.2!important;}
-        table,table[width]{width:130mm!important;margin:0 auto!important;font-size:9pt!important;}
+        table,table[width]{width:150mm!important;margin:0 auto!important;font-size:9pt!important;}
         col{width:auto!important;}
         col:nth-child(1){width:31%!important;}
         col:nth-child(2){width:24%!important;}
@@ -1060,10 +1061,45 @@ function mobilePrintableQuoteHtml() {
         .sheet-param{line-height:1.18!important;}
       }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.3/dist/html2pdf.bundle.min.js"><\/script>
+    <script>
+      async function saveMobilePdf(){
+        const button = document.querySelector('.mobile-save-bar button');
+        const oldText = button ? button.textContent : '';
+        if (button) {
+          button.textContent = '生成中...';
+          button.disabled = true;
+        }
+        try {
+          const sheet = document.querySelector('.sheet');
+          if (!sheet || !window.html2pdf)
+            throw new Error('PDF工具未加载完成');
+          await window.html2pdf()
+            .set({
+              filename: ${JSON.stringify(fileName)},
+              margin: 0,
+              image: { type: 'jpeg', quality: 0.98 },
+              html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0 },
+              jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            })
+            .from(sheet)
+            .save();
+        }
+        catch (error) {
+          alert('PDF保存失败，请刷新后再试一次');
+        }
+        finally {
+          if (button) {
+            button.textContent = oldText || '保存PDF';
+            button.disabled = false;
+          }
+        }
+      }
+    <\/script>
   `
   return quoteHtml()
     .replace('</head>', `${actionBar}</head>`)
-    .replace('<body>', '<body><div class="mobile-save-bar"><button onclick="window.print()">保存PDF</button><button class="ghost" onclick="window.close()">关闭</button></div>')
+    .replace('<body>', '<body><div class="mobile-save-bar"><button onclick="saveMobilePdf()">保存PDF</button><button class="ghost" onclick="window.close()">关闭</button></div>')
 }
 
 function openMobilePrintableQuote() {
