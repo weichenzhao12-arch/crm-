@@ -823,6 +823,11 @@ function quoteHtml() {
     h1{text-align:center;font-size:20pt;font-weight:400;margin:0 0 3pt;line-height:1.12;}
     .subtitle{text-align:center;font-size:9pt;margin:0 0 7pt;line-height:1.2;}
     table{width:15.6cm;border-collapse:collapse;table-layout:fixed;font-size:10pt;mso-table-layout-alt:fixed;}
+    col{width:auto;}
+    col:nth-child(1){width:31%;}
+    col:nth-child(2){width:24%;}
+    col:nth-child(3){width:29%;}
+    col:nth-child(4){width:16%;}
     th,td{border:1pt solid #000;padding:4pt;text-align:center;vertical-align:middle;word-break:break-all;line-height:1.25;}
     th{background:#fff;font-weight:700;}
     .area-row td{height:32pt;mso-height-rule:exactly;}
@@ -847,12 +852,12 @@ function quoteHtml() {
   <div class="sheet">
     <h1>${escapeHtml(meta.value.title || '足球场报价')}</h1>
     <p class="subtitle">以最终场地规划价格为准</p>
-    <table width="744" cellspacing="0" cellpadding="0">
+    <table class="quote-sheet-table" cellspacing="0" cellpadding="0">
       <colgroup>
-        <col width="193">
-        <col width="186">
-        <col width="186">
-        <col width="179">
+        <col>
+        <col>
+        <col>
+        <col>
       </colgroup>
       <tbody>
         <tr class="area-row" style="height:14pt;mso-height-rule:exactly;"><td colspan="2">场地面积（平方米）：</td><td colspan="2">${selectedArea.value}</td></tr>
@@ -1000,8 +1005,15 @@ function isMobileSafari() {
   return /iP(hone|ad|od)/.test(ua) && /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua)
 }
 
+function isMobileDevice() {
+  if (typeof navigator === 'undefined')
+    return false
+  const ua = navigator.userAgent || ''
+  return /Android|iPhone|iPad|iPod|Mobile|MicroMessenger/i.test(ua)
+}
+
 function openPdfDataUrl(dataUrl: string) {
-  if (isMobileSafari()) {
+  if (isMobileDevice()) {
     openMobilePrintableQuote()
     return
   }
@@ -1222,6 +1234,16 @@ async function printPdf() {
     }
     await nextTick()
     const mobileSafari = isMobileSafari()
+    const mobileDevice = isMobileDevice()
+    if (mobileDevice) {
+      const htmlDataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(mobilePrintableQuoteHtml())}`
+      syncQuoteToCustomer('已生成手机预览', {
+        name: fileName.replace(/\.pdf$/i, '.html'),
+        dataUrl: htmlDataUrl,
+      })
+      openMobilePrintableQuote()
+      return
+    }
     const visibleSheet = document.querySelector<HTMLElement>('.sheet')
     if (!mobileSafari && visibleSheet) {
       const blob = await quotePdfBlob(fileName, visibleSheet)
