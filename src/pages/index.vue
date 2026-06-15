@@ -1015,20 +1015,20 @@ function mobilePrintableQuoteHtml() {
     <style>
       @media screen{
         body{margin:0!important;background:#eef3f8!important;}
-        .sheet{width:162mm!important;margin:14mm auto 20mm!important;padding:0 10mm!important;border:0!important;background:#fff!important;box-sizing:border-box!important;}
-        table{width:142mm!important;margin:0 auto!important;}
+        .sheet{width:210mm!important;min-height:297mm!important;margin:0 auto!important;padding:18mm 28mm!important;border:0!important;background:#fff!important;box-sizing:border-box!important;}
+        table,table[width]{width:154mm!important;margin:0 auto!important;}
       }
       .mobile-save-bar{position:sticky;top:0;z-index:9999;display:flex;gap:8px;justify-content:center;align-items:center;padding:10px;background:#f1f5f9;border-bottom:1px solid #cbd5e1;font-family:"Microsoft YaHei",Arial,sans-serif;}
       .mobile-save-bar button{border:0;border-radius:10px;padding:10px 16px;font-size:14px;font-weight:700;background:#2563eb;color:#fff;}
       .mobile-save-bar .ghost{background:#fff;color:#0f172a;border:1px solid #cbd5e1;}
       @media print{
-        @page{size:A4;margin:18mm 24mm 18mm 24mm;}
+        @page{size:A4;margin:0;}
         html,body{width:auto!important;min-width:0!important;margin:0!important;padding:0!important;background:#fff!important;}
         .mobile-save-bar{display:none!important;}
-        .sheet{width:162mm!important;margin:0!important;padding:0 10mm!important;border:0!important;box-shadow:none!important;font-size:9pt!important;box-sizing:border-box!important;overflow:visible!important;}
+        .sheet{width:210mm!important;min-height:297mm!important;margin:0!important;padding:18mm 28mm!important;border:0!important;box-shadow:none!important;font-size:9pt!important;box-sizing:border-box!important;overflow:visible!important;background:#fff!important;}
         h1{font-size:18pt!important;margin:0 0 3pt!important;line-height:1.1!important;}
         .subtitle{font-size:8pt!important;margin:0 0 6pt!important;line-height:1.2!important;}
-        table{width:142mm!important;margin:0 auto!important;font-size:9pt!important;}
+        table,table[width]{width:154mm!important;margin:0 auto!important;font-size:9pt!important;}
         th,td{padding:3pt!important;line-height:1.18!important;}
         .area-row td{height:28pt!important;}
         .head-row th{height:24pt!important;}
