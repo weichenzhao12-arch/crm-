@@ -1977,7 +1977,7 @@ th{background:#f5f5f5}
 .sheet{border:1px solid #000;font-family:SimSun,Microsoft YaHei,Arial;font-size:13px;font-weight:700}
 .sheet h1{font-size:26px;font-weight:400;margin:0 0 4px}
 .subtitle{font-size:12px;margin:0 0 12px}
-.quote-sheet-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:13px}
+.quote-sheet-table{width:78%;margin:0 auto;border-collapse:collapse;table-layout:fixed;font-size:13px}
 .quote-sheet-table th,.quote-sheet-table td{border:1px solid #000;padding:5px;text-align:center;vertical-align:middle;word-break:break-word;line-height:1.28}
 .quote-sheet-table th{background:#fff}
 .area-row td{height:44px}
@@ -2175,7 +2175,7 @@ th{background:#f5f5f5}
     box-sizing:border-box;
   }
   .sheet h1{margin-top:0}
-  .quote-sheet-table{width:100%}
+  .quote-sheet-table{width:78%;margin:0 auto}
   .sheet h1{font-size:26px}
   .subtitle{margin-bottom:12px;font-size:12px}
   .area-row td{height:44px}
