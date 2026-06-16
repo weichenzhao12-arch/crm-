@@ -333,6 +333,28 @@ app.post('/auth/login', async (c) => {
   return c.json({ token, user: jsonUser(user) })
 })
 
+app.get('/health', async (c) => {
+  const services = {
+    d1: { ok: false, message: '' },
+    r2: { ok: Boolean(c.env.IMAGES), message: c.env.IMAGES ? 'bound' : 'missing binding' },
+    pdf: { ok: Boolean(c.env.BROWSER), message: c.env.BROWSER ? 'bound' : 'missing binding' },
+  }
+
+  try {
+    await c.env.DB.prepare('SELECT 1').first()
+    services.d1 = { ok: true, message: 'connected' }
+  }
+  catch (error) {
+    services.d1 = { ok: false, message: error instanceof Error ? error.message : 'connection failed' }
+  }
+
+  return c.json({
+    ok: services.d1.ok && services.r2.ok,
+    services,
+    checkedAt: new Date().toISOString(),
+  })
+})
+
 app.use('/state/*', requireLogin)
 app.use('/images', requireLogin)
 app.use('/pdf', requireLogin)
