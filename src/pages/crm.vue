@@ -578,8 +578,8 @@ async function handleLogout() {
   <main class="crm-page">
     <section class="crm-hero">
       <div>
-        <p>CRM 客资系统</p>
-        <h1>客户、客资分配、跟进、报价一体管理</h1>
+        <p>销售工作台</p>
+        <h1>掌握客户进展，优先处理今天的重要事项</h1>
       </div>
       <nav>
         <label v-if="canManageLeads" class="user-view">当前视角
@@ -587,11 +587,9 @@ async function handleLogout() {
             <option v-for="user in users" :key="user.id" :value="user.id">{{ user.displayName || user.account }}</option>
           </select>
         </label>
-        <RouterLink class="primary-link" to="/quote">进入报价</RouterLink>
-        <RouterLink v-if="canManageLeads" class="mobile-admin-link" to="/admin">管理后台</RouterLink>
-        <button @click="addCustomer">新增客户</button>
+        <RouterLink to="/crm/follow-ups">查看今日跟进</RouterLink>
+        <button class="primary-workbench-action" @click="addCustomer">＋ 新增客户</button>
         <button @click="openPasswordDialog">修改密码</button>
-        <button class="logout-btn" @click="handleLogout">退出登录</button>
       </nav>
     </section>
 
@@ -1031,3 +1029,15 @@ h2{margin:0;font-size:17px}
 }
 </style>
 
+<style scoped>
+.crm-page{min-height:calc(100vh - 64px);max-width:1600px;margin:0 auto;background:#f5f7fa;padding:24px 28px 32px;color:#172033}
+.crm-hero{max-width:none;margin:0 0 20px;padding:0;background:transparent;color:#172033;border-radius:0;box-shadow:none}
+.crm-hero p{margin:0 0 6px;color:#172033;font-size:25px;font-weight:900}
+.crm-hero h1{margin:0;color:#64748b;font-size:13px;font-weight:500}
+.crm-hero nav{gap:9px}.crm-hero nav>a,.crm-hero nav>button,.crm-hero .user-view{min-height:38px;border:1px solid #d9e2ec;border-radius:9px;background:#fff;color:#344255;padding:0 13px;font-size:12px;font-weight:800;box-shadow:none}
+.crm-hero .primary-workbench-action{border-color:#2563eb;background:#2563eb;color:#fff;box-shadow:0 7px 15px rgba(37,99,235,.2)}
+.crm-hero .user-view select{border:0;background:transparent;color:#172033;font-weight:800;outline:0}
+.crm-metrics{max-width:none;gap:12px;margin-bottom:16px}.crm-metrics article{min-height:100px;border:1px solid #e2e8f0;border-radius:11px;background:#fff;padding:17px 18px;box-shadow:none}.crm-metrics article span{color:#64748b;font-size:12px}.crm-metrics article b{font-size:23px}.crm-metrics article small{color:#94a3b8}
+.crm-grid{max-width:none;gap:14px}.crm-panel{border-color:#e2e8f0;border-radius:12px;box-shadow:0 3px 12px rgba(15,42,67,.035)}
+@media(max-width:720px){.crm-page{min-height:calc(100vh - 56px);padding:16px 12px 24px}.crm-hero{align-items:flex-start}.crm-hero p{font-size:22px}.crm-hero nav{width:100%}.crm-hero nav>*{flex:1}.crm-hero .user-view{flex-basis:100%}}
+</style>

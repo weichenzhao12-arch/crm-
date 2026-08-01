@@ -490,40 +490,55 @@ function changeOwnPassword() {
         <label>当前账号修改密码<input v-model="newPassword" type="password" placeholder="输入新密码"></label>
         <button @click="changeOwnPassword">修改密码</button>
       </div>
-      <div class="admin-table user-admin-table">
-        <div class="admin-head">
-          <span>账号</span><span>姓名</span><span>角色</span><span>启用</span><span>产品管理</span><span>辅料管理</span><span>产品导入</span><span>账号管理</span><span>看全部客户</span><span>导入客户</span><span>导出客户</span><span>删除客户</span><span>回收站恢复</span><span>报价导出</span><span>临时改价</span><span>重置密码</span><span>操作</span>
-        </div>
-        <article v-for="user in users" :key="user.id">
-          <input v-model="user.account">
-          <input v-model="user.displayName">
-          <select v-model="user.role" @change="applyUserRole(user)">
-            <option value="owner">主账号</option>
-            <option value="manager">管理员</option>
-            <option value="quoter">报价员</option>
-            <option value="viewer">只读</option>
-          </select>
-          <input v-model="user.enabled" type="checkbox">
-          <input v-model="user.permissions.manageProducts" type="checkbox">
-          <input v-model="user.permissions.manageMaterials" type="checkbox">
-          <input v-model="user.permissions.importExcel" type="checkbox">
-          <input v-model="user.permissions.manageUsers" type="checkbox">
-          <input v-model="user.permissions.viewAllCustomers" type="checkbox" title="查看全部客户">
-          <input v-model="user.permissions.importCustomers" type="checkbox" title="导入客户">
-          <input v-model="user.permissions.exportCustomers" type="checkbox" title="导出客户">
-          <input v-model="user.permissions.deleteCustomers" type="checkbox" title="删除客户">
-          <input v-model="user.permissions.restoreRecords" type="checkbox" title="恢复回收站">
-          <input v-model="user.permissions.exportQuote" type="checkbox">
-          <input v-model="user.permissions.temporaryEdit" type="checkbox">
-          <div class="reset-password-cell">
-            <input v-model="resetPasswordDrafts[user.id]" type="password" placeholder="输入新密码">
-            <button type="button" @click="resetAdminUserPassword(user)">重置</button>
+      <div class="user-cards">
+        <article v-for="user in users" :key="user.id" class="user-permission-card">
+          <header>
+            <div class="user-card-title"><i>{{ user.displayName.slice(0, 1) || '用' }}</i><div><b>{{ user.displayName || user.account }}</b><span>{{ user.account }}</span></div></div>
+            <label class="account-enabled"><input v-model="user.enabled" type="checkbox" @change="admin.saveUsers()">账号启用</label>
+          </header>
+          <div class="account-fields">
+            <label>登录账号<input v-model="user.account" @blur="admin.saveUsers()"></label>
+            <label>显示姓名<input v-model="user.displayName" @blur="admin.saveUsers()"></label>
+            <label>角色模板
+              <select v-model="user.role" @change="applyUserRole(user)">
+                <option value="owner">主账号</option>
+                <option value="manager">管理员</option>
+                <option value="quoter">报价员</option>
+                <option value="viewer">只读</option>
+              </select>
+            </label>
           </div>
-          <button :disabled="user.id === 'owner'" @click="removeAdminUser(user)">删除</button>
+          <div class="permission-groups">
+            <section>
+              <h3>客户与数据</h3>
+              <label><input v-model="user.permissions.viewAllCustomers" type="checkbox" @change="admin.saveUsers()"><span><b>查看全部客户与团队统计</b><small>关闭时，客户、今日跟进和数据统计都只显示本人数据</small></span></label>
+              <label><input v-model="user.permissions.importCustomers" type="checkbox" @change="admin.saveUsers()"><span><b>导入客户</b><small>允许通过 Excel 批量导入客资</small></span></label>
+              <label><input v-model="user.permissions.exportCustomers" type="checkbox" @change="admin.saveUsers()"><span><b>导出客户</b><small>允许下载可见范围内的客户数据</small></span></label>
+              <label><input v-model="user.permissions.deleteCustomers" type="checkbox" @change="admin.saveUsers()"><span><b>删除客户</b><small>允许单个或批量移入回收站</small></span></label>
+            </section>
+            <section>
+              <h3>报价与商品</h3>
+              <label><input v-model="user.permissions.exportQuote" type="checkbox" @change="admin.saveUsers()"><span><b>报价导出</b><small>允许导出报价单 PDF / Word</small></span></label>
+              <label><input v-model="user.permissions.temporaryEdit" type="checkbox" @change="admin.saveUsers()"><span><b>临时改价</b><small>允许在报价时临时调整单价</small></span></label>
+              <label><input v-model="user.permissions.manageProducts" type="checkbox" @change="admin.saveUsers()"><span><b>产品管理</b><small>新增、修改和删除产品</small></span></label>
+              <label><input v-model="user.permissions.manageMaterials" type="checkbox" @change="admin.saveUsers()"><span><b>辅料管理</b><small>新增、修改和删除辅料</small></span></label>
+              <label><input v-model="user.permissions.importExcel" type="checkbox" @change="admin.saveUsers()"><span><b>产品表格导入</b><small>批量导入产品价格表</small></span></label>
+            </section>
+            <section>
+              <h3>系统管理</h3>
+              <label><input v-model="user.permissions.manageUsers" type="checkbox" @change="admin.saveUsers()"><span><b>账号与权限管理</b><small>允许新增账号、调整角色和权限</small></span></label>
+              <label><input v-model="user.permissions.restoreRecords" type="checkbox" @change="admin.saveUsers()"><span><b>回收站恢复</b><small>恢复已删除记录并查看操作日志</small></span></label>
+              <div class="reset-password-cell">
+                <input v-model="resetPasswordDrafts[user.id]" type="password" placeholder="输入新密码">
+                <button type="button" @click="resetAdminUserPassword(user)">重置密码</button>
+              </div>
+              <button class="delete-account" :disabled="user.id === 'owner'" @click="removeAdminUser(user)">删除账号</button>
+            </section>
+          </div>
         </article>
       </div>
-      <section class="permission-guide">
-        <h3>权限说明</h3>
+      <details class="permission-guide">
+        <summary>查看完整权限字段说明</summary>
         <div class="permission-guide-table">
           <article v-for="item in permissionGuide" :key="item.field">
             <b>{{ item.group }}</b>
@@ -532,7 +547,7 @@ function changeOwnPassword() {
             <span>{{ item.detail }}</span>
           </article>
         </div>
-      </section>
+      </details>
     </section>
 
     <section v-else class="admin-panel">
@@ -666,4 +681,14 @@ function changeOwnPassword() {
   .record-card{align-items:flex-start;flex-direction:column}
   .user-admin-table article input:nth-last-of-type(1){width:100%}
 }
+</style>
+
+<style scoped>
+.permission-guide summary{cursor:pointer;color:#2563eb;font-size:12px;font-weight:800}.permission-guide[open] summary{margin-bottom:12px}
+</style>
+
+<style scoped>
+.admin-page{min-height:calc(100vh - 64px);max-width:1600px;margin:auto;background:#f5f7fa;padding:24px 28px 32px}.admin-hero{max-width:none;margin:0 0 14px;padding:0;background:transparent;color:#172033;border-radius:0}.admin-hero p{margin:0 0 6px;color:#172033;font-size:25px;font-weight:900}.admin-hero h1{color:#64748b;font-size:13px;font-weight:500}.admin-hero nav a,.admin-hero nav button{min-height:38px;border:1px solid #d9e2ec;border-radius:9px;background:#fff;color:#344255;padding:0 13px;font-size:12px;box-shadow:none}.admin-tabs{max-width:none;margin-bottom:14px;padding:5px;border:1px solid #e2e8f0;border-radius:11px;background:#fff}.admin-tabs button{min-height:36px;border:0;border-radius:8px;padding:0 14px;font-size:12px}.admin-tabs button.active{background:#2563eb}.admin-panel{max-width:none;border-color:#e2e8f0;border-radius:12px;box-shadow:0 3px 12px rgba(15,42,67,.035)}.user-cards{display:grid;gap:14px}.user-permission-card{overflow:hidden;border:1px solid #e2e8f0;border-radius:12px;background:#fff}.user-permission-card>header{display:flex!important;min-height:64px;align-items:center!important;margin:0!important;border-bottom:1px solid #edf1f5;padding:12px 16px}.user-card-title{display:flex;align-items:center;gap:10px}.user-card-title i{display:grid;width:38px;height:38px;place-items:center;border-radius:10px;background:#eff6ff;color:#2563eb;font-style:normal;font-weight:900}.user-card-title b,.user-card-title span{display:block}.user-card-title b{font-size:14px}.user-card-title span{margin-top:4px;color:#94a3b8;font-size:10px}.account-enabled{display:flex;align-items:center;gap:7px;color:#526579;font-size:11px;font-weight:800}.account-enabled input{width:16px;height:16px}.account-fields{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;border-bottom:1px solid #edf1f5;background:#fbfdff;padding:14px 16px}.account-fields label{display:grid;gap:6px;color:#64748b;font-size:10px;font-weight:800}.account-fields input,.account-fields select{height:36px;border:1px solid #dce4ec;border-radius:8px;background:#fff;padding:0 10px;color:#172033;font-size:12px}.permission-groups{display:grid;grid-template-columns:1.15fr 1.15fr 1fr;gap:0}.permission-groups>section{padding:15px 16px;border-right:1px solid #edf1f5}.permission-groups>section:last-child{border:0}.permission-groups h3{margin:0 0 10px;color:#334155;font-size:12px}.permission-groups label{display:grid;grid-template-columns:18px 1fr;align-items:start;gap:8px;border-radius:8px;padding:8px 7px;cursor:pointer}.permission-groups label:hover{background:#f8fafc}.permission-groups label input{width:16px;height:16px;margin-top:2px}.permission-groups label b,.permission-groups label small{display:block}.permission-groups label b{color:#334155;font-size:11px}.permission-groups label small{margin-top:3px;color:#94a3b8;font-size:9px;line-height:1.45;font-weight:500}.permission-groups .reset-password-cell{display:grid;grid-template-columns:1fr auto;margin-top:8px}.permission-groups .reset-password-cell input{height:34px;border:1px solid #dce4ec;border-radius:7px;padding:0 9px}.permission-groups .reset-password-cell button{min-height:34px;border-radius:7px;padding:0 9px;font-size:10px}.delete-account{width:100%;min-height:34px!important;margin-top:8px;border-color:#fecaca!important;background:#fff!important;color:#dc2626!important;font-size:10px!important}.permission-guide{margin-top:14px}.permission-guide-table article{grid-template-columns:82px 130px 140px minmax(0,1fr);font-size:11px}.password-box{border-color:#e2e8f0;background:#f8fafc}.password-box label{font-size:11px}
+@media(max-width:1000px){.permission-groups{grid-template-columns:1fr 1fr}.permission-groups>section:nth-child(2){border-right:0}.permission-groups>section:last-child{grid-column:1/-1;border-top:1px solid #edf1f5}.account-fields{grid-template-columns:1fr 1fr}}
+@media(max-width:720px){.admin-page{min-height:calc(100vh - 56px);padding:16px 12px 24px}.admin-hero p{font-size:22px}.admin-tabs{display:flex;overflow:auto;flex-wrap:nowrap}.admin-tabs button{width:auto!important;white-space:nowrap}.password-box{display:grid}.password-box label{min-width:0}.account-fields,.permission-groups{grid-template-columns:1fr}.permission-groups>section{border-right:0;border-bottom:1px solid #edf1f5}.permission-groups>section:last-child{grid-column:auto}.permission-guide-table article{grid-template-columns:1fr}.permission-guide-table code{overflow:auto}}
 </style>

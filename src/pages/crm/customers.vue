@@ -169,6 +169,41 @@ const filteredCustomers = computed(() => scopedCustomers.value.filter((customer)
   return statusMatched && yearMatched && monthMatched && todayMatched && (!keyword.value || text.includes(keyword.value.toLowerCase()))
 }))
 
+const myCustomerCount = computed(() => customers.value.filter(customer => customerBelongsToUser(customer, loginUser.value?.id)).length)
+const todayFollowCount = computed(() => scopedCustomers.value.filter(hasTodayFollowOrReminder).length)
+const quotedCount = computed(() => scopedCustomers.value.filter(customer => customer.stage === 'quoted').length)
+const wonCount = computed(() => scopedCustomers.value.filter(customer => customer.stage === 'won').length)
+
+function latestActivity(customer: CrmCustomer) {
+  return customer.followUps[0]?.content || customer.communication || customer.remark || '暂无跟进记录'
+}
+
+function nextFollow(customer: CrmCustomer) {
+  return customer.followUps
+    .filter(follow => follow.reminderDate && !follow.reminderDone)
+    .sort((a, b) => `${a.reminderDate} ${a.reminderTime || ''}`.localeCompare(`${b.reminderDate} ${b.reminderTime || ''}`))[0]
+}
+
+function followClass(customer: CrmCustomer) {
+  const follow = nextFollow(customer)
+  if (!follow?.reminderDate)
+    return ''
+  const today = dateOnly(new Date())
+  return follow.reminderDate < today ? 'overdue' : follow.reminderDate === today ? 'today' : ''
+}
+
+function followLabel(customer: CrmCustomer) {
+  const follow = nextFollow(customer)
+  if (!follow?.reminderDate)
+    return '暂无安排'
+  const today = dateOnly(new Date())
+  if (follow.reminderDate < today)
+    return '已逾期'
+  if (follow.reminderDate === today)
+    return `今天 ${follow.reminderTime || ''}`.trim()
+  return `${follow.reminderDate} ${follow.reminderTime || ''}`.trim()
+}
+
 const filteredCustomerIds = computed(() => filteredCustomers.value.map(customer => customer.id))
 const selectedCount = computed(() => selectedCustomerIds.value.length)
 const allFilteredSelected = computed(() =>
@@ -597,19 +632,29 @@ function batchTransferCustomers() {
   <main class="customers-page">
     <section class="customers-hero">
       <div>
-        <p>CRM 客资系统</p>
-        <h1>客户列表</h1>
-        <span>完整客资记录，支持横向查看、导入导出、寄样和物流跟踪。</span>
+        <p>客户管理</p>
+        <h1>集中管理客户资料、跟进与报价</h1>
+        <span>聚焦下一步行动，减少无效信息和横向滚动。</span>
       </div>
       <nav>
-        <RouterLink to="/crm">返回首页</RouterLink>
-        <button @click="addCustomer">新增客户</button>
-        <label v-if="canImportCustomers">导入客资<input type="file" accept=".xlsx,.xls" @change="importLeadTable"></label>
-
-        <button v-if="canExportCustomers" @click="exportLeadTable">导出客资</button>
-
-        <button v-else @click="downloadLeadTemplate">下载模板</button>
+        <details class="more-actions">
+          <summary>更多操作</summary>
+          <div>
+            <label v-if="canImportCustomers">导入客资<input type="file" accept=".xlsx,.xls" @change="importLeadTable"></label>
+            <button v-if="canExportCustomers" @click="exportLeadTable">导出客资</button>
+            <button @click="downloadLeadTemplate">下载模板</button>
+          </div>
+        </details>
+        <button class="primary-action" @click="addCustomer">＋ 新增客户</button>
       </nav>
+    </section>
+
+    <section class="customer-metrics">
+      <button :class="{ active: stageFilter === '全部' }" @click="stageFilter = '全部'"><span>全部客户</span><b>{{ scopedCustomers.length }}</b><small>总计</small></button>
+      <button :class="{ active: selectedUserId === loginUser?.id }" @click="selectedUserId = loginUser?.id || 'all'"><span>我的客户</span><b>{{ myCustomerCount }}</b><small>当前账号</small></button>
+      <button :class="{ active: stageFilter === 'todayFollow' }" @click="stageFilter = 'todayFollow'"><span>待跟进</span><b>{{ todayFollowCount }}</b><small class="warning">需处理</small></button>
+      <button :class="{ active: stageFilter === 'quoted' }" @click="stageFilter = 'quoted'"><span>已报价</span><b>{{ quotedCount }}</b><small>报价阶段</small></button>
+      <button :class="{ active: stageFilter === 'won' }" @click="stageFilter = 'won'"><span>已成交</span><b>{{ wonCount }}</b><small class="success">已转化</small></button>
     </section>
 
     <section v-if="sampleCustomer" class="modal-mask">
@@ -683,47 +728,22 @@ function batchTransferCustomers() {
     </section>
 
     <section class="customers-panel">
-      <header>
-        <div>
-          <h2>完整客资记录表</h2>
-          <small>当前显示 {{ filteredCustomers.length }} 条</small>
-        </div>
+      <div class="filter-bar compact">
         <div class="customers-tools">
-          <input v-model="keyword" placeholder="搜索客户、联系方式、来源、地址、沟通内容">
+          <span>⌕</span>
+          <input v-model="keyword" placeholder="搜索客户、电话、微信">
         </div>
-      </header>
-
-      <div class="filter-bar">
         <label v-if="canManageLeads">当前视角
           <select v-model="selectedUserId">
             <option value="all">全部客户</option>
             <option v-for="user in users" :key="user.id" :value="user.id">{{ user.displayName || user.account }}</option>
           </select>
         </label>
-        <div v-if="canDeleteCustomers" class="batch-tools">
-          <label class="select-all">
-            <input :checked="allFilteredSelected" type="checkbox" @change="toggleAllFilteredCustomers">
-            全选
-          </label>
-          <button :disabled="!selectedCount" @click="batchDeleteCustomers">批量删除 {{ selectedCount ? `(${selectedCount})` : '' }}</button>
-        </div>
-        <div v-if="canDeleteCustomers" class="transfer-tools">
-          <select v-model="transferTargetUserId">
-            <option value="">转移给</option>
-            <option v-for="user in salesUsers" :key="user.id" :value="user.id">{{ user.displayName || user.account }}</option>
+        <label>客户阶段
+          <select v-model="stageFilter">
+            <option v-for="filter in customerFilters" :key="filter.value" :value="filter.value">{{ filter.label }}</option>
           </select>
-          <button :disabled="!selectedCount || !transferTargetUserId" @click="batchTransferCustomers">批量转移</button>
-        </div>
-        <div class="customer-tabs">
-          <button
-            v-for="filter in customerFilters"
-            :key="filter.value"
-            :class="{ active: stageFilter === filter.value }"
-            @click="stageFilter = filter.value"
-          >
-            {{ filter.label }}
-          </button>
-        </div>
+        </label>
         <div class="date-filter-tools">
           <select v-model="yearFilter">
             <option value="all">全部年份</option>
@@ -733,41 +753,45 @@ function batchTransferCustomers() {
             <option value="all">全部月份</option>
             <option v-for="month in monthOptions" :key="month" :value="month">{{ Number(month) }}月</option>
           </select>
-          <button class="ghost" @click="clearDateFilters">清空日期</button>
+          <button class="ghost" @click="clearDateFilters">重置</button>
         </div>
       </div>
 
-      <div class="lead-record-table" :class="{ 'with-select': canDeleteCustomers }">
-        <div class="lead-record-head">
-          <span v-if="canDeleteCustomers">选择</span>
-          <span>序号</span><span>日期</span><span>客户名称</span><span>客户联系方式</span><span>抖音账号来源</span><span>成交属性高中低无效</span><span>客户属性BC端</span><span>地址</span><span>客户情况沟通内容</span><span>数量(平方)</span><span>使用时间</span><span>负责人</span><span>状态</span><span>寄样</span><span>操作</span><span>重点</span>
+      <div v-if="canDeleteCustomers && selectedCount" class="batch-bar">
+        <b>已选择 {{ selectedCount }} 位客户</b>
+        <select v-model="transferTargetUserId">
+          <option value="">转移给</option>
+          <option v-for="user in salesUsers" :key="user.id" :value="user.id">{{ user.displayName || user.account }}</option>
+        </select>
+        <button :disabled="!transferTargetUserId" @click="batchTransferCustomers">批量转移</button>
+        <button class="danger" @click="batchDeleteCustomers">批量删除</button>
+      </div>
+
+      <div class="customer-core-table">
+        <div class="core-head">
+          <span v-if="canDeleteCustomers"><input :checked="allFilteredSelected" type="checkbox" aria-label="全选" @change="toggleAllFilteredCustomers"></span>
+          <span>客户信息</span><span>来源</span><span>阶段</span><span>负责人</span><span>下次跟进</span><span>最新动态</span><span>操作</span>
         </div>
-        <article v-for="(customer, index) in filteredCustomers" :key="customer.id" @click="router.push(`/crm/customer/${customer.id}`)">
+        <article v-for="customer in filteredCustomers" :key="customer.id" @click="router.push(`/crm/customer/${customer.id}`)">
           <span v-if="canDeleteCustomers" class="select-cell">
             <input v-model="selectedCustomerIds" :value="customer.id" type="checkbox" @click.stop>
           </span>
-          <span>{{ index + 1 }}</span>
-          <span>{{ customer.date }}</span>
-          <strong>{{ customer.name }}</strong>
-          <span>{{ customerContact(customer) || '未填' }}</span>
-          <span :class="{ 'mobile-empty': !customer.sourceAccount }">{{ customer.sourceAccount || '-' }}</span>
-          <span :class="{ 'mobile-empty': !customer.dealAttribute }">{{ customer.dealAttribute || '-' }}</span>
-          <span :class="{ 'mobile-empty': !customer.customerAttribute }">{{ customer.customerAttribute || '-' }}</span>
-          <span :class="{ 'mobile-empty': !customer.region }">{{ customer.region || '-' }}</span>
-          <span class="wrap-cell" :class="{ 'mobile-empty': !(customer.communication || customer.remark) }">{{ customer.communication || customer.remark || '-' }}</span>
-          <span :class="{ 'mobile-empty': !customer.area }">{{ customer.area || '-' }}</span>
-          <span :class="{ 'mobile-empty': !customer.usageTime }">{{ customer.usageTime || '-' }}</span>
+          <strong class="customer-identity"><i>{{ customer.name.slice(0, 1) }}</i><span>{{ customer.name }}<small>{{ customerContact(customer) || '未填联系方式' }}</small></span></strong>
+          <span>{{ customer.sourceAccount || '未记录' }}</span>
+          <strong class="stage-badge" :data-stage="customer.stage">{{ stageLabels[customer.stage] }}</strong>
           <span>{{ customer.owner || '未分配' }}</span>
-          <strong class="stage-badge">{{ stageLabels[customer.stage] }}</strong>
-          <span class="sample-cell">
-            <button @click.stop="openSampleDialog(customer)">{{ customer.sampleSent ? '已寄样' : '寄样' }}</button>
-            <a v-if="customer.sampleTrackingNo" :href="trackingUrl(customer.sampleTrackingNo)" target="_blank" rel="noopener" @click.stop>物流跟踪</a>
+          <span class="next-follow" :class="followClass(customer)"><b>{{ followLabel(customer) }}</b><small>{{ nextFollow(customer)?.nextAction || '尚未设置下一步' }}</small></span>
+          <span class="latest-activity">{{ latestActivity(customer) }}</span>
+          <span class="row-actions">
+            <button @click.stop="router.push(`/crm/customer/${customer.id}`)">查看</button>
+            <button @click.stop="openSampleDialog(customer)">寄样</button>
+            <button class="important-star" :class="{ active: customer.important }" @click.stop="toggleImportant(customer)">{{ customer.important ? '★' : '☆' }}</button>
+            <button v-if="canDeleteCustomers" class="delete-customer" @click.stop="deleteCustomer(customer.id)">删除</button>
           </span>
-          <button v-if="canDeleteCustomers" class="delete-customer" @click.stop="deleteCustomer(customer.id)">删除</button>
-          <span v-else>-</span>
-          <button class="important-star" :class="{ active: customer.important }" :title="customer.important ? '取消重点关注' : '设为重点关注'" @click.stop="toggleImportant(customer)">{{ customer.important ? '★' : '☆' }}</button>
         </article>
+        <div v-if="!filteredCustomers.length" class="empty-state">没有符合当前筛选条件的客户</div>
       </div>
+      <footer class="table-footer">共 {{ filteredCustomers.length }} 位客户</footer>
     </section>
   </main>
 </template>
@@ -1027,4 +1051,23 @@ h2{margin:0;font-size:22px}
     font-weight:900;
   }
 }
+</style>
+
+<style scoped>
+.customers-page{min-height:calc(100vh - 64px);max-width:1600px;margin:0 auto;background:#f5f7fa;padding:24px 28px 32px;color:#172033}
+.customers-hero{max-width:none;margin:0 0 20px;padding:0;background:transparent;color:#172033;border-radius:0}
+.customers-hero p{margin:0 0 6px;color:#172033;font-size:25px;font-weight:900}
+.customers-hero h1{margin:0;color:#64748b;font-size:13px;font-weight:500}
+.customers-hero span{display:none}.customers-hero nav{align-self:flex-start;gap:10px}
+.customers-hero nav>button,.more-actions summary{display:inline-flex;min-height:38px;align-items:center;justify-content:center;border:1px solid #d9e2ec;border-radius:9px;background:#fff;color:#344255;padding:0 15px;font-size:13px;font-weight:800;cursor:pointer}
+.customers-hero nav>.primary-action{border-color:#2563eb;background:#2563eb;color:#fff;box-shadow:0 7px 15px rgba(37,99,235,.2)}
+.more-actions{position:relative}.more-actions summary{list-style:none}.more-actions summary::-webkit-details-marker{display:none}.more-actions[open] summary{border-color:#2563eb;color:#2563eb}.more-actions>div{position:absolute;right:0;top:44px;z-index:15;display:grid;min-width:150px;overflow:hidden;border:1px solid #e2e8f0;border-radius:10px;background:#fff;padding:6px;box-shadow:0 12px 30px rgba(15,42,67,.14)}
+.more-actions label,.more-actions button{display:flex;min-height:36px;align-items:center;border:0;border-radius:7px;background:#fff;color:#334155;padding:0 11px;font-size:12px;font-weight:700;cursor:pointer}.more-actions label:hover,.more-actions button:hover{background:#f1f5f9}.more-actions input{display:none}
+.customer-metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}.customer-metrics button{position:relative;min-height:88px;border:1px solid #e2e8f0;border-radius:11px;background:#fff;padding:16px 18px;text-align:left;cursor:pointer}.customer-metrics button.active{border-color:#bed3ff}.customer-metrics button.active:before{content:"";position:absolute;left:0;top:15px;bottom:15px;width:3px;border-radius:0 4px 4px 0;background:#2563eb}.customer-metrics span{display:block;color:#64748b;font-size:12px}.customer-metrics b{display:block;margin-top:6px;color:#172033;font-size:22px}.customer-metrics button.active b{color:#2563eb}.customer-metrics small{position:absolute;right:17px;bottom:18px;color:#94a3b8;font-size:11px}.customer-metrics .warning{color:#d97706}.customer-metrics .success{color:#198754}
+.customers-panel{max-width:none;margin:0;border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:0;box-shadow:0 3px 12px rgba(15,42,67,.035);overflow:hidden}
+.filter-bar.compact{display:grid;grid-template-columns:minmax(220px,1.5fr) minmax(160px,.8fr) minmax(150px,.7fr) 1.2fr;gap:10px;margin:0;border:0;border-bottom:1px solid #edf1f5;border-radius:0;background:#fff;padding:15px 16px}.filter-bar.compact label{display:flex;min-height:38px;align-items:center;gap:8px;border:1px solid #dce4ec;border-radius:8px;padding:0 10px;color:#64748b;font-size:11px;font-weight:700}.filter-bar.compact label select{min-width:0;flex:1;border:0;background:#fff;padding:0;outline:0;font-size:12px}.customers-tools{display:flex;min-width:0;height:38px;align-items:center;gap:7px;border:1px solid #dce4ec;border-radius:8px;background:#f8fafc;padding:0 11px;color:#94a3b8}.customers-tools input{min-width:0;min-height:0;flex:1;border:0;background:transparent;padding:0;outline:0;font-size:12px}.date-filter-tools{display:grid;grid-template-columns:1fr 1fr auto;gap:7px}.date-filter-tools select{min-width:0!important;min-height:38px!important;border:1px solid #dce4ec!important;border-radius:8px!important;background:#fff!important;padding:0 8px!important;font-size:11px}.date-filter-tools .ghost{min-height:38px;border:0;background:transparent;color:#2563eb;font-size:11px}
+.batch-bar{display:flex;align-items:center;gap:10px;border-bottom:1px solid #dbeafe;background:#eff6ff;padding:10px 16px;color:#1e4f91;font-size:12px}.batch-bar select,.batch-bar button{height:32px;border:1px solid #bdd3ee;border-radius:7px;background:#fff;padding:0 10px}.batch-bar .danger{margin-left:auto;border-color:#fecaca;color:#dc2626}
+.customer-core-table{padding:0 16px}.core-head,.customer-core-table article{display:grid;grid-template-columns:20% 8% 10% 10% 15% minmax(180px,1fr) 17%;align-items:center;column-gap:12px}.core-head:has(span:nth-child(8)),.customer-core-table:has(.select-cell) article{grid-template-columns:26px 19% 8% 9% 9% 15% minmax(170px,1fr) 16%;column-gap:10px}.core-head{min-height:46px;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:11px;font-weight:800}.customer-core-table article{min-height:70px;border-bottom:1px solid #edf1f5;color:#526579;font-size:12px;cursor:pointer}.customer-core-table article:hover{background:#f8fbff}.customer-identity{display:flex;min-width:0;align-items:center;gap:10px;color:#172033;font-size:13px}.customer-identity i{display:grid;flex:0 0 36px;height:36px;place-items:center;border-radius:9px;background:#eff6ff;color:#2563eb;font-style:normal}.customer-identity span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.customer-identity small,.next-follow small{display:block;margin-top:5px;overflow:hidden;color:#8998aa;font-size:10px;font-weight:500;text-overflow:ellipsis;white-space:nowrap}.stage-badge{justify-self:start;display:inline-flex!important;min-height:25px!important;align-items:center!important;border:0!important;border-radius:13px!important;background:#eef2f6!important;color:#526579!important;padding:0 9px!important;font-size:10px!important}.stage-badge[data-stage="quoted"]{background:#fff3dd!important;color:#b66a06!important}.stage-badge[data-stage="follow"]{background:#e7f0ff!important;color:#2563eb!important}.stage-badge[data-stage="won"]{background:#e7f7ed!important;color:#198754!important}.stage-badge[data-stage="lost"]{background:#feecec!important;color:#c24141!important}.next-follow b{display:block;color:#334155;font-size:11px}.next-follow.today b{color:#d97706}.next-follow.overdue b{color:#dc2626}.latest-activity{display:-webkit-box;overflow:hidden;color:#485a6d;line-height:1.5;-webkit-box-orient:vertical;-webkit-line-clamp:2}.row-actions{display:flex!important;align-items:center;gap:4px}.row-actions button{min-height:30px;border:0!important;background:transparent!important;color:#2563eb!important;padding:0 4px!important;font-size:11px!important;font-weight:800!important;cursor:pointer}.row-actions .important-star{font-size:17px!important}.row-actions .delete-customer{color:#dc2626!important}.select-cell input,.core-head input{width:15px;height:15px}.empty-state{padding:60px;text-align:center;color:#94a3b8}.table-footer{height:52px;display:flex;align-items:center;border-top:1px solid #edf1f5;padding:0 16px;color:#8391a3;font-size:11px}
+@media(max-width:1100px){.customer-metrics{overflow:auto;grid-template-columns:repeat(5,minmax(150px,1fr))}.core-head,.customer-core-table article,.core-head:has(span:nth-child(8)),.customer-core-table:has(.select-cell) article{grid-template-columns:26px minmax(190px,1.2fr) 80px 90px 90px 140px minmax(190px,1fr) 150px;min-width:1000px}.customer-core-table{overflow:auto}.filter-bar.compact{grid-template-columns:1.3fr 1fr 1fr}.date-filter-tools{grid-column:1/-1}}
+@media(max-width:720px){.customers-page{min-height:calc(100vh - 56px);padding:16px 12px 24px}.customers-hero{align-items:flex-start;gap:14px}.customers-hero p{font-size:22px}.customers-hero nav{display:flex!important;width:auto!important;grid-template-columns:none!important}.customers-hero nav>button,.more-actions summary{min-height:36px!important;padding:0 10px!important}.customer-metrics{grid-template-columns:repeat(5,140px);gap:8px}.customer-metrics button{min-height:82px}.filter-bar.compact{display:grid;grid-template-columns:1fr;padding:12px}.date-filter-tools{grid-column:auto}.customer-core-table{display:grid;gap:10px;border:0;background:#f5f7fa;padding:12px;overflow:visible}.core-head{display:none}.customer-core-table article,.customer-core-table:has(.select-cell) article{position:relative;display:grid;min-width:0;grid-template-columns:26px 1fr auto;gap:10px;border:1px solid #e2e8f0;border-radius:11px;background:#fff;padding:14px}.customer-core-table article>span,.customer-core-table article>strong{grid-column:2/-1}.customer-core-table article>.select-cell{position:absolute;left:12px;top:23px;grid-column:auto}.customer-identity{grid-column:1/-1!important;padding-left:25px}.customer-core-table article>span:nth-last-child(n+4):not(.next-follow){display:none}.next-follow,.latest-activity{display:block!important}.row-actions{grid-column:1/-1!important;justify-content:flex-end;border-top:1px solid #edf1f5;padding-top:8px}.table-footer{background:#fff}}
 </style>
