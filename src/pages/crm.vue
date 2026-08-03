@@ -364,6 +364,13 @@ const salesStats = computed(() => ({
   wonCustomers: scopedCustomers.value.filter(customer => customer.stage === 'won' || customer.quotes.some(quote => quote.isWon)).length,
 }))
 
+const dashboardCounts = computed(() => ({
+  newCustomers: scopedCustomers.value.filter(customer => customer.stage === 'new').length,
+  following: scopedCustomers.value.filter(customer => customer.stage === 'follow').length,
+  quoted: scopedCustomers.value.filter(customer => customer.stage === 'quoted').length,
+  pending: dueReminders.value.length,
+}))
+
 const salesRanking = computed(() => {
   const start = startOfMonth()
   return salesUsers.value
@@ -578,8 +585,9 @@ async function handleLogout() {
   <main class="crm-page">
     <section class="crm-hero">
       <div>
-        <p>销售工作台</p>
-        <h1>掌握客户进展，优先处理今天的重要事项</h1>
+        <p>客资 CRM · 销售数据中心</p>
+        <h1>上午好，{{ loginUser?.displayName || loginUser?.account || '销售同事' }}</h1>
+        <small>今天有 {{ dashboardCounts.pending }} 项跟进待处理，建议优先联系高意向客户</small>
       </div>
       <nav>
         <label v-if="canManageLeads" class="user-view">当前视角
@@ -655,10 +663,21 @@ async function handleLogout() {
     </section>
 
     <section class="crm-metrics">
-      <article><span>可见客户</span><b>{{ scopedCustomers.length }}</b><small>{{ canViewAll ? '全部客户信息' : '仅自己的客户信息' }}</small></article>
-      <article><span>昨日成交</span><b>¥{{ salesStats.yesterday.toFixed(2) }}</b><small>昨日已成交金额</small></article>
-      <article><span>本月成交</span><b>¥{{ salesStats.month.toFixed(2) }}</b><small>本月已成交金额</small></article>
-      <article><span>成交客户</span><b>{{ salesStats.wonCustomers }}</b><small>按已成交客户统计</small></article>
+      <article class="metric-blue"><i>客</i><div><span>客户总览</span><b>{{ scopedCustomers.length }}</b><small>新客 {{ dashboardCounts.newCustomers }} · 跟进中 {{ dashboardCounts.following }}</small></div></article>
+      <article class="metric-cyan"><i>日</i><div><span>昨日成交</span><b>¥{{ salesStats.yesterday.toFixed(2) }}</b><small>实时汇总成交金额</small></div></article>
+      <article class="metric-violet"><i>月</i><div><span>本月成交</span><b>¥{{ salesStats.month.toFixed(2) }}</b><small>已报价 {{ dashboardCounts.quoted }} 个客户</small></div></article>
+      <article class="metric-orange"><i>成</i><div><span>成交客户</span><b>{{ salesStats.wonCustomers }}</b><small>本月完成客户统计</small></div></article>
+    </section>
+
+    <section class="dashboard-quick">
+      <header><div><b>快捷入口</b><span>常用业务一步直达</span></div></header>
+      <nav>
+        <button @click="addCustomer"><i>＋</i><span>新增客户</span><small>建立客资档案</small></button>
+        <RouterLink to="/crm/follow-ups"><i>◷</i><span>今日跟进</span><small>{{ dashboardCounts.pending }} 项待处理</small></RouterLink>
+        <RouterLink to="/quote?view=quote"><i>¥</i><span>快速报价</span><small>进入报价计算</small></RouterLink>
+        <RouterLink to="/crm/customers"><i>☷</i><span>客户管理</span><small>查看全部客户</small></RouterLink>
+        <RouterLink to="/crm/statistics"><i>◔</i><span>数据统计</span><small>分析销售趋势</small></RouterLink>
+      </nav>
     </section>
 
     <section class="crm-grid" :class="{ 'owner-grid': isOwner }">
@@ -1027,17 +1046,24 @@ h2{margin:0;font-size:17px}
   }
   .reminder-dialog,.password-dialog,.sample-dialog{width:100%;max-height:86vh}
 }
+/* Enterprise dashboard visual system */
+.crm-page{background:linear-gradient(180deg,#f2f8ff 0,#f7faff 260px,#f4f7fb 100%);padding:18px 22px 32px}
+.crm-hero{position:relative;min-height:116px;margin-bottom:14px;overflow:hidden;border:1px solid rgba(116,175,240,.34);border-radius:16px;background:linear-gradient(112deg,#0868d8 0%,#159de1 56%,#19b9c2 100%);padding:22px 26px;color:#fff;box-shadow:0 14px 32px rgba(24,113,202,.17)}
+.crm-hero::after{content:"";position:absolute;right:-52px;top:-105px;width:320px;height:320px;border:1px solid rgba(255,255,255,.22);border-radius:50%;box-shadow:0 0 0 48px rgba(255,255,255,.055)}
+.crm-hero>div,.crm-hero nav{position:relative;z-index:1}.crm-hero p{margin-bottom:7px;color:#dff7ff;font-size:12px;letter-spacing:.08em}.crm-hero h1{font-size:25px;line-height:1.2}.crm-hero small{display:block;margin-top:8px;color:#e9f8ff;font-size:12px}.crm-hero nav>a,.crm-hero nav>button,.crm-hero .user-view{border-color:rgba(255,255,255,.36);background:rgba(255,255,255,.13);color:#fff;backdrop-filter:blur(8px)}.crm-hero .primary-workbench-action{border-color:#fff;background:#fff;color:#096dcc;box-shadow:0 9px 22px rgba(0,66,137,.2)}.crm-hero .user-view select{color:#0d5a9d}
+.crm-metrics{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px}.crm-metrics article{display:flex;align-items:center;gap:13px;min-height:96px;border-color:#e1ebf6;border-radius:14px;padding:15px 16px;box-shadow:0 8px 24px rgba(43,91,139,.055)}.crm-metrics article i{display:grid;flex:0 0 42px;width:42px;height:42px;place-items:center;border-radius:13px;font-style:normal;font-weight:900}.crm-metrics article div{min-width:0}.crm-metrics article b{margin-top:3px;font-size:21px;white-space:nowrap}.metric-blue i{background:#e8f3ff;color:#1976e8}.metric-cyan i{background:#e4fbf8;color:#18a994}.metric-violet i{background:#f1edff;color:#7457e6}.metric-orange i{background:#fff3df;color:#ef9b28}
+.dashboard-quick{max-width:none;margin:0 auto 14px;border:1px solid #e1ebf6;border-radius:14px;background:#fff;padding:14px 16px;box-shadow:0 8px 24px rgba(43,91,139,.05)}.dashboard-quick header{margin-bottom:11px}.dashboard-quick header div{display:flex;align-items:baseline;gap:10px}.dashboard-quick header b{color:#183653;font-size:15px}.dashboard-quick header span{color:#91a1b4;font-size:11px}.dashboard-quick nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}.dashboard-quick a,.dashboard-quick button{display:grid;grid-template-columns:40px minmax(0,1fr);grid-template-rows:auto auto;column-gap:10px;align-items:center;min-height:68px;border:1px solid #e5edf6;border-radius:12px;background:linear-gradient(180deg,#fff,#f8fbff);padding:10px 12px;color:#1b3855;text-align:left;text-decoration:none;cursor:pointer}.dashboard-quick a:hover,.dashboard-quick button:hover{border-color:#8dc4ff;box-shadow:0 8px 20px rgba(34,123,213,.1);transform:translateY(-1px)}.dashboard-quick i{grid-row:1/3;display:grid;width:40px;height:40px;place-items:center;border-radius:11px;background:#eaf4ff;color:#1673d2;font-style:normal;font-size:19px;font-weight:900}.dashboard-quick span{font-size:13px;font-weight:900}.dashboard-quick small{color:#91a1b4;font-size:10px}
+.crm-grid{grid-template-columns:minmax(0,1.35fr) minmax(330px,.65fr);gap:12px}.crm-grid.owner-grid{grid-template-areas:"chart ranking" "leadCreation lead"}.chart-panel,.lead-creation-panel,.lead-panel,.ranking-panel,.crm-panel{border-color:#e1ebf6;border-radius:14px;box-shadow:0 8px 24px rgba(43,91,139,.05)}.chart-panel header,.lead-creation-panel header,.lead-panel header,.ranking-panel header,.crm-panel header{padding-bottom:10px;border-bottom:1px solid #edf2f7}.chart-panel svg polyline{stroke:#1684ea}.lead-creation-panel svg polyline{stroke:#20b5a5}.rank-row{border-color:#e9eff6;background:#fbfdff}.rank-row i{background:linear-gradient(90deg,#1578e6,#28b7d4)}.lead-record-head{background:linear-gradient(90deg,#1479df,#21a6cc);color:#fff}.lead-record-head span{border-color:rgba(255,255,255,.2)}
+@media(max-width:1100px){.dashboard-quick nav{grid-template-columns:repeat(3,minmax(0,1fr))}.crm-metrics{grid-template-columns:1fr 1fr}}
+@media(max-width:720px){.crm-page{padding:10px 10px 78px}.crm-hero{min-height:0;padding:18px}.crm-hero::after{display:none}.crm-hero h1{font-size:21px}.crm-metrics{grid-template-columns:1fr 1fr}.crm-metrics article{min-height:88px;padding:12px}.crm-metrics article i{width:36px;height:36px;flex-basis:36px}.crm-metrics article b{font-size:17px}.dashboard-quick nav{grid-template-columns:1fr 1fr}.dashboard-quick a,.dashboard-quick button{min-height:64px}.dashboard-quick nav>*:last-child{grid-column:1/-1}}
 </style>
 
 <style scoped>
-.crm-page{min-height:calc(100vh - 64px);max-width:1600px;margin:0 auto;background:#f5f7fa;padding:24px 28px 32px;color:#172033}
-.crm-hero{max-width:none;margin:0 0 20px;padding:0;background:transparent;color:#172033;border-radius:0;box-shadow:none}
-.crm-hero p{margin:0 0 6px;color:#172033;font-size:25px;font-weight:900}
-.crm-hero h1{margin:0;color:#64748b;font-size:13px;font-weight:500}
-.crm-hero nav{gap:9px}.crm-hero nav>a,.crm-hero nav>button,.crm-hero .user-view{min-height:38px;border:1px solid #d9e2ec;border-radius:9px;background:#fff;color:#344255;padding:0 13px;font-size:12px;font-weight:800;box-shadow:none}
-.crm-hero .primary-workbench-action{border-color:#2563eb;background:#2563eb;color:#fff;box-shadow:0 7px 15px rgba(37,99,235,.2)}
-.crm-hero .user-view select{border:0;background:transparent;color:#172033;font-weight:800;outline:0}
-.crm-metrics{max-width:none;gap:12px;margin-bottom:16px}.crm-metrics article{min-height:100px;border:1px solid #e2e8f0;border-radius:11px;background:#fff;padding:17px 18px;box-shadow:none}.crm-metrics article span{color:#64748b;font-size:12px}.crm-metrics article b{font-size:23px}.crm-metrics article small{color:#94a3b8}
-.crm-grid{max-width:none;gap:14px}.crm-panel{border-color:#e2e8f0;border-radius:12px;box-shadow:0 3px 12px rgba(15,42,67,.035)}
-@media(max-width:720px){.crm-page{min-height:calc(100vh - 56px);padding:16px 12px 24px}.crm-hero{align-items:flex-start}.crm-hero p{font-size:22px}.crm-hero nav{width:100%}.crm-hero nav>*{flex:1}.crm-hero .user-view{flex-basis:100%}}
+.crm-page{min-height:calc(100vh - 64px);max-width:1600px;margin:0 auto;background:linear-gradient(180deg,#f2f8ff 0,#f7faff 260px,#f4f7fb 100%);padding:18px 22px 32px;color:#172033}
+.crm-hero{position:relative;min-height:116px;max-width:none;margin:0 0 14px;overflow:hidden;border:1px solid rgba(116,175,240,.34);border-radius:16px;background:linear-gradient(112deg,#0868d8 0%,#159de1 56%,#19b9c2 100%);padding:22px 26px;color:#fff;box-shadow:0 14px 32px rgba(24,113,202,.17)}
+.crm-hero p{margin:0 0 7px;color:#dff7ff;font-size:12px;font-weight:800;letter-spacing:.08em}.crm-hero h1{margin:0;color:#fff;font-size:25px;font-weight:900;line-height:1.2}.crm-hero small{display:block;margin-top:8px;color:#e9f8ff;font-size:12px}.crm-hero nav>a,.crm-hero nav>button,.crm-hero .user-view{min-height:38px;border-color:rgba(255,255,255,.36);background:rgba(255,255,255,.13);color:#fff;box-shadow:none;backdrop-filter:blur(8px)}.crm-hero .primary-workbench-action{border-color:#fff;background:#fff;color:#096dcc;box-shadow:0 9px 22px rgba(0,66,137,.2)}
+.crm-metrics{max-width:none;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px}.crm-metrics article{display:flex;align-items:center;gap:13px;min-height:96px;border-color:#e1ebf6;border-radius:14px;padding:15px 16px;box-shadow:0 8px 24px rgba(43,91,139,.055)}.crm-metrics article b{margin-top:3px;font-size:21px}.crm-grid{max-width:none;grid-template-columns:minmax(0,1.35fr) minmax(330px,.65fr);gap:12px}.crm-panel{max-width:none}
+@media(max-width:1100px){.crm-metrics{grid-template-columns:1fr 1fr}.crm-grid,.crm-grid.owner-grid{grid-template-columns:1fr;grid-template-areas:"chart" "leadCreation" "ranking" "lead"}}
+@media(max-width:720px){.crm-page{min-height:calc(100vh - 56px);padding:10px 10px 78px}.crm-hero{min-height:0;padding:18px}.crm-hero h1{font-size:21px}.crm-metrics{grid-template-columns:1fr 1fr}.crm-metrics article{min-height:88px;padding:12px}.crm-metrics article b{font-size:17px}}
 </style>
+
