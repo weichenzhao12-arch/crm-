@@ -379,6 +379,9 @@ const stageDistribution = computed(() => [
 ])
 
 const stageTotal = computed(() => Math.max(stageDistribution.value.reduce((sum, item) => sum + item.value, 0), 1))
+const customerConversionRate = computed(() => scopedCustomers.value.length
+  ? Math.round((salesStats.value.wonCustomers / scopedCustomers.value.length) * 100)
+  : 0)
 const stageDonut = computed(() => {
   let offset = 0
   const stops = stageDistribution.value.map((item) => {
@@ -613,8 +616,6 @@ async function handleLogout() {
             <option v-for="user in users" :key="user.id" :value="user.id">{{ user.displayName || user.account }}</option>
           </select>
         </label>
-        <RouterLink to="/crm/follow-ups">查看今日跟进</RouterLink>
-        <button class="primary-workbench-action" @click="addCustomer">＋ 新增客户</button>
         <button @click="openPasswordDialog">修改密码</button>
       </nav>
     </section>
@@ -687,18 +688,6 @@ async function handleLogout() {
       <article class="metric-orange"><i>成</i><div><span>成交客户</span><b>{{ salesStats.wonCustomers }}</b><small>本月完成客户统计</small></div></article>
     </section>
 
-    <section class="command-bar">
-      <div>
-        <b>工作概览</b>
-        <span>{{ canViewAll ? '全部客户数据' : '个人客户数据' }} · 数据实时更新</span>
-      </div>
-      <nav>
-        <button @click="addCustomer">＋ 新增客户</button>
-        <RouterLink to="/quote?view=quote">快速报价</RouterLink>
-        <RouterLink to="/crm/customers">客户管理</RouterLink>
-      </nav>
-    </section>
-
     <section class="executive-grid">
       <article class="executive-card trend-card">
         <header><div><b>销售成交趋势</b><span>近12个月成交金额</span></div><RouterLink to="/crm/statistics">查看数据</RouterLink></header>
@@ -713,7 +702,7 @@ async function handleLogout() {
 
       <article class="executive-card stage-card">
         <header><div><b>客户阶段分布</b><span>当前客户转化结构</span></div></header>
-        <div class="donut-wrap"><div class="stage-donut" :style="stageDonut"><strong>{{ scopedCustomers.length }}<small>客户</small></strong></div></div>
+        <div class="donut-wrap"><div class="stage-donut" :style="stageDonut"><strong>{{ customerConversionRate }}%<small>成交转化率</small></strong></div></div>
         <div class="stage-legend"><p v-for="item in stageDistribution" :key="item.label"><i :style="{ background: item.color }"></i><span>{{ item.label }}</span><b>{{ item.value }}</b></p></div>
       </article>
 
