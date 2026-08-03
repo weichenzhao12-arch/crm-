@@ -17,6 +17,7 @@ import { useAuth } from '~/composables/useAuth'
 import { useAdminStore } from '~/stores/admin'
 import { useCrmStore } from '~/stores/crm'
 import type { CrmCustomer, IntentLevel } from '~/stores/crm'
+import CrmStatisticsPage from '~/pages/crm/statistics.vue'
 
 const router = useRouter()
 const crm = useCrmStore()
@@ -603,7 +604,8 @@ async function handleLogout() {
 </script>
 
 <template>
-  <main class="crm-page">
+  <CrmStatisticsPage v-if="isOwner" />
+  <main v-else class="crm-page">
     <section class="crm-hero">
       <div>
         <p>客资 CRM · 销售数据中心</p>

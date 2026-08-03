@@ -22,13 +22,13 @@ const pendingFollowCount = computed(() => crm.customers.reduce((count, customer)
   count + customer.followUps.filter(follow => follow.reminderDate && !follow.reminderDone).length, 0))
 
 const navItems = computed(() => [
-  { label: '工作台', to: '/crm', icon: 'dashboard', exact: true },
+  { label: admin.currentUser?.role === 'owner' ? '数据主页' : '工作台', to: '/crm', icon: 'dashboard', exact: true },
   { label: '客户管理', to: '/crm/customers', icon: 'customers' },
   { label: '今日跟进', to: '/crm/follow-ups', icon: 'clock', badge: pendingFollowCount.value ? String(pendingFollowCount.value) : '' },
   { label: '报价管理', to: '/quote', icon: 'quote' },
   { label: '产品资料', to: '/admin', icon: 'product', adminOnly: true },
-  { label: '数据统计', to: '/crm/statistics', icon: 'stats' },
-].filter(item => !item.adminOnly || canManage.value))
+  { label: '数据统计', to: '/crm/statistics', icon: 'stats', hideForOwner: true },
+].filter(item => (!item.adminOnly || canManage.value) && (!item.hideForOwner || admin.currentUser?.role !== 'owner')))
 
 const quoteNavItems = computed(() => [
   { label: '计算', to: '/quote?view=quote', icon: 'calculator' },
