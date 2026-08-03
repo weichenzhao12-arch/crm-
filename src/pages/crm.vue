@@ -371,6 +371,24 @@ const dashboardCounts = computed(() => ({
   pending: dueReminders.value.length,
 }))
 
+const stageDistribution = computed(() => [
+  { label: '新客资', value: dashboardCounts.value.newCustomers, color: '#2487ec' },
+  { label: '跟进中', value: dashboardCounts.value.following, color: '#22b7a8' },
+  { label: '已报价', value: dashboardCounts.value.quoted, color: '#7d68e8' },
+  { label: '已成交', value: salesStats.value.wonCustomers, color: '#f4a22c' },
+])
+
+const stageTotal = computed(() => Math.max(stageDistribution.value.reduce((sum, item) => sum + item.value, 0), 1))
+const stageDonut = computed(() => {
+  let offset = 0
+  const stops = stageDistribution.value.map((item) => {
+    const start = offset
+    offset += (item.value / stageTotal.value) * 100
+    return `${item.color} ${start}% ${offset}%`
+  })
+  return { background: `conic-gradient(${stops.join(',')})` }
+})
+
 const salesRanking = computed(() => {
   const start = startOfMonth()
   return salesUsers.value
@@ -669,7 +687,59 @@ async function handleLogout() {
       <article class="metric-orange"><i>成</i><div><span>成交客户</span><b>{{ salesStats.wonCustomers }}</b><small>本月完成客户统计</small></div></article>
     </section>
 
-    <section class="dashboard-quick">
+    <section class="command-bar">
+      <div>
+        <b>工作概览</b>
+        <span>{{ canViewAll ? '全部客户数据' : '个人客户数据' }} · 数据实时更新</span>
+      </div>
+      <nav>
+        <button @click="addCustomer">＋ 新增客户</button>
+        <RouterLink to="/quote?view=quote">快速报价</RouterLink>
+        <RouterLink to="/crm/customers">客户管理</RouterLink>
+      </nav>
+    </section>
+
+    <section class="executive-grid">
+      <article class="executive-card trend-card">
+        <header><div><b>销售成交趋势</b><span>近12个月成交金额</span></div><RouterLink to="/crm/statistics">查看数据</RouterLink></header>
+        <svg viewBox="0 0 560 250" role="img" aria-label="每月成交额曲线">
+          <defs><linearGradient id="trendArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2387ed" stop-opacity=".28"/><stop offset="1" stop-color="#2387ed" stop-opacity="0"/></linearGradient></defs>
+          <line x1="30" y1="210" x2="535" y2="210" />
+          <polygon :points="`34,210 ${trendPolyline} 529,210`" fill="url(#trendArea)" />
+          <polyline :points="trendPolyline" />
+          <g v-for="point in trendPoints" :key="point.label"><circle :cx="point.x" :cy="point.y" r="4"/><text :x="point.x" y="235">{{ point.label }}</text></g>
+        </svg>
+      </article>
+
+      <article class="executive-card stage-card">
+        <header><div><b>客户阶段分布</b><span>当前客户转化结构</span></div></header>
+        <div class="donut-wrap"><div class="stage-donut" :style="stageDonut"><strong>{{ scopedCustomers.length }}<small>客户</small></strong></div></div>
+        <div class="stage-legend"><p v-for="item in stageDistribution" :key="item.label"><i :style="{ background: item.color }"></i><span>{{ item.label }}</span><b>{{ item.value }}</b></p></div>
+      </article>
+
+      <article class="executive-card todo-card">
+        <header><div><b>今日待办</b><span>{{ dashboardCounts.pending }} 项跟进提醒</span></div><RouterLink to="/crm/follow-ups">全部待办</RouterLink></header>
+        <div class="todo-list">
+          <button v-for="item in dueReminders.slice(0, 5)" :key="`${item.customerId}-${item.followId}`" @click="router.push(`/crm/customer/${item.customerId}`)"><i></i><span><b>{{ item.customerName }}</b><small>{{ item.nextAction || item.content || '需要跟进' }}</small></span><em>{{ item.reminderTime || '今日' }}</em></button>
+          <p v-if="!dueReminders.length" class="dashboard-empty">今天没有待跟进事项</p>
+        </div>
+      </article>
+
+      <article class="executive-card rank-card">
+        <header><div><b>销售排名</b><span>本月成交额</span></div></header>
+        <div class="compact-ranks"><p v-for="(item,index) in salesRanking.slice(0,5)" :key="item.id"><strong>{{ index + 1 }}</strong><span><b>{{ item.name }}</b><i :style="{ width: `${Math.max(8,(item.amount/rankingMax)*100)}%` }"></i></span><em>¥{{ item.amount.toFixed(0) }}</em></p></div>
+      </article>
+    </section>
+
+    <section class="recent-section executive-card">
+      <header><div><b>最近客户</b><span>按最近活跃时间排序</span></div><RouterLink to="/crm/customers">查看全部</RouterLink></header>
+      <div class="recent-customer-grid">
+        <button v-for="customer in previewCustomers" :key="customer.id" @click="router.push(`/crm/customer/${customer.id}`)"><i>{{ customer.name.slice(0,1) }}</i><span><b>{{ customer.name }}</b><small>{{ customerContact(customer) || '未填联系方式' }}</small></span><em :data-stage="customer.stage">{{ stageLabels[customer.stage] }}</em><strong>{{ customer.owner || '未分配' }}</strong></button>
+        <p v-if="!previewCustomers.length" class="dashboard-empty">暂无客户数据</p>
+      </div>
+    </section>
+
+    <section v-if="false" class="dashboard-quick">
       <header><div><b>快捷入口</b><span>常用业务一步直达</span></div></header>
       <nav>
         <button @click="addCustomer"><i>＋</i><span>新增客户</span><small>建立客资档案</small></button>
@@ -680,7 +750,7 @@ async function handleLogout() {
       </nav>
     </section>
 
-    <section class="crm-grid" :class="{ 'owner-grid': isOwner }">
+    <section v-if="false" class="crm-grid" :class="{ 'owner-grid': isOwner }">
       <article class="chart-panel">
         <header>
           <h2>每月成交额曲线</h2>
@@ -766,7 +836,7 @@ async function handleLogout() {
       </article>
     </section>
 
-    <section class="crm-panel">
+    <section v-if="false" class="crm-panel">
       <header>
         <div>
           <h2>客户列表预览</h2>
@@ -1047,6 +1117,8 @@ h2{margin:0;font-size:17px}
   .reminder-dialog,.password-dialog,.sample-dialog{width:100%;max-height:86vh}
 }
 /* Enterprise dashboard visual system */
+.command-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 12px;border:1px solid #e1ebf6;border-radius:14px;background:#fff;padding:13px 16px;box-shadow:0 8px 24px rgba(43,91,139,.045)}.command-bar>div{display:grid;gap:3px}.command-bar b{color:#183653;font-size:15px}.command-bar span{color:#91a1b4;font-size:11px}.command-bar nav{display:flex;gap:8px}.command-bar a,.command-bar button{min-height:34px;border:1px solid #d9e6f3;border-radius:9px;background:#f8fbff;color:#276da9;padding:7px 12px;text-decoration:none;font-size:12px;font-weight:900;cursor:pointer}.command-bar button{border-color:#1d80e8;background:#1d80e8;color:#fff}
+.executive-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(260px,.55fr) minmax(300px,.7fr);grid-template-areas:"trend stage todo" "trend rank todo";gap:12px;margin-bottom:12px}.executive-card{border:1px solid #e1ebf6;border-radius:14px;background:#fff;box-shadow:0 8px 24px rgba(43,91,139,.05)}.executive-card>header{display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid #edf2f7;padding:14px 16px}.executive-card>header div{display:grid;gap:3px}.executive-card>header b{color:#183653;font-size:14px}.executive-card>header span{color:#91a1b4;font-size:10px}.executive-card>header a{color:#2382dc;text-decoration:none;font-size:11px;font-weight:900}.trend-card{grid-area:trend;display:flex;min-height:410px;flex-direction:column}.trend-card svg{width:100%;min-height:300px;flex:1;padding:8px 12px 2px}.trend-card svg line{stroke:#dce8f3;stroke-width:2}.trend-card svg polyline{fill:none;stroke:#2387ed;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}.trend-card svg circle{fill:#fff;stroke:#2387ed;stroke-width:3}.trend-card svg text{fill:#7890a7;font-size:11px;text-anchor:middle}.stage-card{grid-area:stage}.donut-wrap{display:grid;place-items:center;padding:18px 12px 10px}.stage-donut{position:relative;display:grid;width:126px;height:126px;place-items:center;border-radius:50%}.stage-donut::after{content:"";position:absolute;width:78px;height:78px;border-radius:50%;background:#fff}.stage-donut strong{position:relative;z-index:1;display:grid;color:#173a5b;font-size:22px;text-align:center}.stage-donut small{color:#91a1b4;font-size:10px}.stage-legend{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 14px 15px}.stage-legend p{display:grid;grid-template-columns:8px 1fr auto;align-items:center;gap:6px;margin:0;color:#657c92;font-size:10px}.stage-legend i{width:8px;height:8px;border-radius:50%}.stage-legend b{color:#294967}.todo-card{grid-area:todo}.todo-list{display:grid;padding:6px 14px}.todo-list button{display:grid;grid-template-columns:8px minmax(0,1fr) auto;gap:9px;align-items:center;border:0;border-bottom:1px solid #edf2f7;background:#fff;padding:13px 2px;text-align:left;cursor:pointer}.todo-list button>i{width:8px;height:8px;border-radius:50%;background:#22b6a7;box-shadow:0 0 0 4px #e5faf7}.todo-list span{display:grid;gap:3px}.todo-list span b{color:#23415d;font-size:12px}.todo-list span small{overflow:hidden;color:#8294a6;font-size:10px;text-overflow:ellipsis;white-space:nowrap}.todo-list em{color:#2390db;font-size:10px;font-style:normal;font-weight:900}.rank-card{grid-area:rank}.compact-ranks{display:grid;padding:7px 14px}.compact-ranks p{display:grid;grid-template-columns:25px minmax(0,1fr) auto;gap:9px;align-items:center;margin:0;padding:8px 0}.compact-ranks>p>strong{display:grid;width:22px;height:22px;place-items:center;border-radius:7px;background:#eaf4ff;color:#247ddd;font-size:10px}.compact-ranks span{display:grid;gap:4px}.compact-ranks span b{color:#294967;font-size:11px}.compact-ranks span i{display:block;height:4px;border-radius:99px;background:linear-gradient(90deg,#2485e9,#24b8bc)}.compact-ranks em{color:#294967;font-size:10px;font-style:normal;font-weight:900}.recent-section{margin-bottom:14px}.recent-customer-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;padding:14px}.recent-customer-grid button{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:9px;align-items:center;border:1px solid #e6eef6;border-radius:11px;background:#fbfdff;padding:11px;text-align:left;cursor:pointer}.recent-customer-grid button>i{display:grid;width:38px;height:38px;place-items:center;border-radius:11px;background:linear-gradient(135deg,#e7f3ff,#dff8f6);color:#1c7fd7;font-style:normal;font-weight:900}.recent-customer-grid button>span{display:grid;gap:3px;min-width:0}.recent-customer-grid span b{overflow:hidden;color:#213e59;font-size:12px;text-overflow:ellipsis;white-space:nowrap}.recent-customer-grid span small{overflow:hidden;color:#8a9aab;font-size:9px;text-overflow:ellipsis;white-space:nowrap}.recent-customer-grid em{border-radius:99px;background:#eaf4ff;color:#217adc;padding:4px 6px;font-size:9px;font-style:normal;font-weight:900}.recent-customer-grid button>strong{grid-column:2/4;color:#8a9aab;font-size:9px}.dashboard-empty{grid-column:1/-1;margin:0;padding:30px;color:#91a1b4;text-align:center;font-size:12px}
 .crm-page{background:linear-gradient(180deg,#f2f8ff 0,#f7faff 260px,#f4f7fb 100%);padding:18px 22px 32px}
 .crm-hero{position:relative;min-height:116px;margin-bottom:14px;overflow:hidden;border:1px solid rgba(116,175,240,.34);border-radius:16px;background:linear-gradient(112deg,#0868d8 0%,#159de1 56%,#19b9c2 100%);padding:22px 26px;color:#fff;box-shadow:0 14px 32px rgba(24,113,202,.17)}
 .crm-hero::after{content:"";position:absolute;right:-52px;top:-105px;width:320px;height:320px;border:1px solid rgba(255,255,255,.22);border-radius:50%;box-shadow:0 0 0 48px rgba(255,255,255,.055)}
@@ -1055,7 +1127,9 @@ h2{margin:0;font-size:17px}
 .dashboard-quick{max-width:none;margin:0 auto 14px;border:1px solid #e1ebf6;border-radius:14px;background:#fff;padding:14px 16px;box-shadow:0 8px 24px rgba(43,91,139,.05)}.dashboard-quick header{margin-bottom:11px}.dashboard-quick header div{display:flex;align-items:baseline;gap:10px}.dashboard-quick header b{color:#183653;font-size:15px}.dashboard-quick header span{color:#91a1b4;font-size:11px}.dashboard-quick nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}.dashboard-quick a,.dashboard-quick button{display:grid;grid-template-columns:40px minmax(0,1fr);grid-template-rows:auto auto;column-gap:10px;align-items:center;min-height:68px;border:1px solid #e5edf6;border-radius:12px;background:linear-gradient(180deg,#fff,#f8fbff);padding:10px 12px;color:#1b3855;text-align:left;text-decoration:none;cursor:pointer}.dashboard-quick a:hover,.dashboard-quick button:hover{border-color:#8dc4ff;box-shadow:0 8px 20px rgba(34,123,213,.1);transform:translateY(-1px)}.dashboard-quick i{grid-row:1/3;display:grid;width:40px;height:40px;place-items:center;border-radius:11px;background:#eaf4ff;color:#1673d2;font-style:normal;font-size:19px;font-weight:900}.dashboard-quick span{font-size:13px;font-weight:900}.dashboard-quick small{color:#91a1b4;font-size:10px}
 .crm-grid{grid-template-columns:minmax(0,1.35fr) minmax(330px,.65fr);gap:12px}.crm-grid.owner-grid{grid-template-areas:"chart ranking" "leadCreation lead"}.chart-panel,.lead-creation-panel,.lead-panel,.ranking-panel,.crm-panel{border-color:#e1ebf6;border-radius:14px;box-shadow:0 8px 24px rgba(43,91,139,.05)}.chart-panel header,.lead-creation-panel header,.lead-panel header,.ranking-panel header,.crm-panel header{padding-bottom:10px;border-bottom:1px solid #edf2f7}.chart-panel svg polyline{stroke:#1684ea}.lead-creation-panel svg polyline{stroke:#20b5a5}.rank-row{border-color:#e9eff6;background:#fbfdff}.rank-row i{background:linear-gradient(90deg,#1578e6,#28b7d4)}.lead-record-head{background:linear-gradient(90deg,#1479df,#21a6cc);color:#fff}.lead-record-head span{border-color:rgba(255,255,255,.2)}
 @media(max-width:1100px){.dashboard-quick nav{grid-template-columns:repeat(3,minmax(0,1fr))}.crm-metrics{grid-template-columns:1fr 1fr}}
+@media(max-width:1250px){.executive-grid{grid-template-columns:minmax(0,1.25fr) minmax(280px,.75fr);grid-template-areas:"trend stage" "trend rank" "todo todo"}.recent-customer-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:720px){.crm-page{padding:10px 10px 78px}.crm-hero{min-height:0;padding:18px}.crm-hero::after{display:none}.crm-hero h1{font-size:21px}.crm-metrics{grid-template-columns:1fr 1fr}.crm-metrics article{min-height:88px;padding:12px}.crm-metrics article i{width:36px;height:36px;flex-basis:36px}.crm-metrics article b{font-size:17px}.dashboard-quick nav{grid-template-columns:1fr 1fr}.dashboard-quick a,.dashboard-quick button{min-height:64px}.dashboard-quick nav>*:last-child{grid-column:1/-1}}
+@media(max-width:720px){.command-bar{align-items:flex-start;flex-direction:column}.command-bar nav{display:grid;width:100%;grid-template-columns:repeat(3,1fr)}.command-bar a,.command-bar button{padding:7px 6px;text-align:center}.executive-grid{grid-template-columns:1fr;grid-template-areas:"trend" "stage" "todo" "rank"}.trend-card{min-height:330px}.trend-card svg{min-height:245px}.stage-legend{grid-template-columns:1fr 1fr}.recent-customer-grid{grid-template-columns:1fr}.recent-customer-grid button>strong{grid-column:2/4}}
 </style>
 
 <style scoped>
