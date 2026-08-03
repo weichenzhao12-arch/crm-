@@ -1,0 +1,276 @@
+/* Unified enterprise CRM visual language. Keep print/export sheets untouched. */
+:root {
+  --crm-bg: #f3f7fc;
+  --crm-surface: #ffffff;
+  --crm-surface-soft: #f8fbff;
+  --crm-line: #e1eaf4;
+  --crm-line-strong: #d4e1ee;
+  --crm-text: #183653;
+  --crm-muted: #75889d;
+  --crm-faint: #94a3b8;
+  --crm-blue: #1f7fe5;
+  --crm-blue-dark: #1267c5;
+  --crm-cyan: #20b5b0;
+  --crm-danger: #dc3b48;
+  --crm-warning: #e79a24;
+  --crm-radius: 14px;
+  --crm-shadow: 0 8px 24px rgba(43, 91, 139, 0.055);
+}
+
+body {
+  background: var(--crm-bg);
+  color: var(--crm-text);
+}
+
+body .app-content > main,
+body .app-content > .stats-page,
+body .app-content > .follow-page,
+body .app-content > .customers-page,
+body .app-content > .detail-page,
+body .app-content > .admin-page {
+  width: 100%;
+  max-width: 1600px !important;
+  min-height: calc(100vh - 64px) !important;
+  margin: 0 auto !important;
+  padding: 20px 24px 32px !important;
+  background: linear-gradient(180deg, #f2f8ff 0, #f7faff 260px, var(--crm-bg) 100%) !important;
+  color: var(--crm-text) !important;
+}
+
+/* Consistent page headings: no isolated oversized dark banners. */
+body .app-content .page-heading,
+body .app-content .detail-hero,
+body .app-content .admin-hero,
+body:not(.quote-sheet-mode) .quote-page > .toolbar {
+  display: flex !important;
+  min-height: auto !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  max-width: none !important;
+  margin: 0 0 16px !important;
+  padding: 0 0 16px !important;
+  overflow: visible !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--crm-line) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--crm-text) !important;
+}
+
+body .app-content .page-heading h1,
+body .app-content .detail-hero h1,
+body .app-content .admin-hero p {
+  margin: 0 !important;
+  color: var(--crm-text) !important;
+  font-size: 24px !important;
+  font-weight: 900 !important;
+  line-height: 1.25 !important;
+}
+
+body .app-content .page-heading p,
+body .app-content .detail-hero p,
+body .app-content .admin-hero h1 {
+  margin: 5px 0 0 !important;
+  color: var(--crm-muted) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
+body .app-content .detail-hero nav,
+body .app-content .admin-hero nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Panels and cards. */
+body .app-content :is(.card,.detail-panel,.customers-panel,.follow-panel,.admin-panel,.crm-panel,.chart-panel,.lead-panel,.ranking-panel,.lead-creation-panel) {
+  border: 1px solid var(--crm-line) !important;
+  border-radius: var(--crm-radius) !important;
+  background: var(--crm-surface) !important;
+  box-shadow: var(--crm-shadow) !important;
+}
+
+body .app-content :is(.card,.detail-panel,.admin-panel) > header {
+  border-bottom-color: #edf2f7 !important;
+}
+
+body .app-content :is(.stats-metrics,.follow-metrics,.customer-metrics,.crm-metrics) article,
+body .app-content .follow-metrics button {
+  border: 1px solid var(--crm-line) !important;
+  border-radius: 12px !important;
+  background: var(--crm-surface) !important;
+  box-shadow: var(--crm-shadow) !important;
+}
+
+body .app-content :is(.stats-metrics,.follow-metrics,.customer-metrics) span {
+  color: var(--crm-muted) !important;
+}
+
+body .app-content :is(.stats-metrics,.follow-metrics,.customer-metrics) b {
+  color: var(--crm-text);
+}
+
+/* Form controls and actions. */
+body .app-content :is(input,select,textarea) {
+  border-color: var(--crm-line-strong);
+  border-radius: 9px;
+  background: var(--crm-surface-soft);
+  color: var(--crm-text);
+  outline: 0;
+}
+
+body .app-content :is(input,select,textarea):focus {
+  border-color: #7bb6f1;
+  box-shadow: 0 0 0 3px rgba(31, 127, 229, 0.11);
+}
+
+body .app-content button,
+body .app-content a.admin-link,
+body .app-content a.view-all-link,
+body .app-content .detail-hero a,
+body .app-content .admin-hero a {
+  border-radius: 9px !important;
+}
+
+body .app-content :is(.primary,.done,.view-all-link,.primary-workbench-action) {
+  border-color: var(--crm-blue) !important;
+  background: var(--crm-blue) !important;
+  color: #fff !important;
+  box-shadow: 0 7px 16px rgba(31, 127, 229, 0.17);
+}
+
+body .app-content button.danger,
+body .app-content .delete-customer,
+body .app-content .delete-account {
+  border-color: #f3c8cd !important;
+  background: #fff7f8 !important;
+  color: var(--crm-danger) !important;
+  box-shadow: none !important;
+}
+
+/* Tabs and segmented controls. */
+body .app-content :is(.admin-tabs,.customer-tabs,.rank-switch) {
+  border-color: var(--crm-line) !important;
+  background: var(--crm-surface-soft) !important;
+}
+
+body .app-content :is(.admin-tabs,.customer-tabs,.rank-switch) button.active {
+  background: var(--crm-blue) !important;
+  color: #fff !important;
+  box-shadow: 0 6px 14px rgba(31, 127, 229, 0.16) !important;
+}
+
+/* Tables and dense records. */
+body .app-content :is(.lead-record-head,.permission-guide-table > header) {
+  background: linear-gradient(90deg, var(--crm-blue), #26a9c8) !important;
+  color: #fff !important;
+}
+
+body .app-content :is(.lead-record-table article,.follow-list article,.rank-row,.permission-guide-table article) {
+  border-color: #e8eef5 !important;
+}
+
+body .app-content :is(.lead-record-table article,.follow-list article,.rank-row):hover {
+  background: #f5faff !important;
+}
+
+body .app-content :is(.stage-badge,.status,.intent-strip span,.detail-panel header span) {
+  border-radius: 999px !important;
+  background: #eaf4ff !important;
+  color: var(--crm-blue) !important;
+}
+
+/* Customer detail has the same page rhythm as lists and statistics. */
+body .app-content .detail-grid {
+  max-width: none !important;
+  gap: 14px !important;
+}
+
+body .app-content .detail-panel {
+  padding: 18px !important;
+}
+
+body .app-content .detail-panel h2 {
+  color: var(--crm-text);
+  font-size: 17px !important;
+}
+
+/* Admin permission cards follow the same surface system. */
+body .app-content :is(.user-permission-card,.permission-guide,.password-box) {
+  border-color: var(--crm-line) !important;
+  border-radius: 12px !important;
+  background: var(--crm-surface) !important;
+  box-shadow: none !important;
+}
+
+body .app-content .account-fields,
+body .app-content .permission-groups label:hover {
+  background: var(--crm-surface-soft) !important;
+}
+
+/* Quote workspace adopts the CRM shell; generated/printed quote remains unchanged. */
+body:not(.quote-sheet-mode) .quote-page {
+  width: 100% !important;
+  max-width: 1600px !important;
+  min-height: calc(100vh - 64px) !important;
+  margin: 0 auto !important;
+  padding: 20px 24px 32px !important;
+  background: linear-gradient(180deg, #f2f8ff, var(--crm-bg)) !important;
+  color: var(--crm-text) !important;
+}
+
+body:not(.quote-sheet-mode) .quote-page :is(.band,.summary,.settings) {
+  border-color: var(--crm-line) !important;
+  border-radius: var(--crm-radius) !important;
+  background: var(--crm-surface) !important;
+  box-shadow: var(--crm-shadow) !important;
+}
+
+body:not(.quote-sheet-mode) .quote-page button.active,
+body:not(.quote-sheet-mode) .quote-page button.primary {
+  border-color: var(--crm-blue) !important;
+  background: var(--crm-blue) !important;
+  color: #fff !important;
+}
+
+/* Modals. */
+body .app-content :is(.reminder-dialog,.password-dialog,.sample-dialog,.modal-card) {
+  border: 1px solid var(--crm-line);
+  border-radius: 16px !important;
+  background: var(--crm-surface) !important;
+  box-shadow: 0 24px 70px rgba(20, 57, 91, 0.22) !important;
+}
+
+@media (max-width: 720px) {
+  body .app-content > main,
+  body .app-content > .stats-page,
+  body .app-content > .follow-page,
+  body .app-content > .customers-page,
+  body .app-content > .detail-page,
+  body .app-content > .admin-page,
+  body:not(.quote-sheet-mode) .quote-page {
+    min-height: calc(100vh - 56px) !important;
+    padding: 14px 10px 78px !important;
+  }
+
+  body .app-content .page-heading,
+  body .app-content .detail-hero,
+  body .app-content .admin-hero {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+    padding-bottom: 13px !important;
+  }
+
+  body .app-content .page-heading h1,
+  body .app-content .detail-hero h1,
+  body .app-content .admin-hero p {
+    font-size: 21px !important;
+  }
+
+  body .app-content .detail-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
