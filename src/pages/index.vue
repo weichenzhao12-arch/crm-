@@ -27,7 +27,13 @@ const { pricing, meta, charges, lines, categories } = storeToRefs(quote)
 
 watch(pricing, () => quote.savePricing(), { deep: true })
 
-const view = ref<'quote' | 'print' | 'settings'>('quote')
+type QuoteView = 'quote' | 'print' | 'settings'
+
+function routeQuoteView(value: unknown): QuoteView {
+  return value === 'print' || value === 'settings' ? value : 'quote'
+}
+
+const view = ref<QuoteView>(routeQuoteView(route.query.view))
 const settingsTab = ref<'products' | 'materials'>('products')
 const category = ref(ALL)
 const keyword = ref('')
@@ -70,9 +76,15 @@ watch(linkedCustomer, (customer) => {
     meta.value.projectName = customer.projectType || customer.scenario || ''
 }, { immediate: true })
 
+watch(() => route.query.view, (value) => {
+  view.value = routeQuoteView(value)
+})
+
 watch(view, (value) => {
   if (typeof document !== 'undefined')
     document.body.classList.toggle('quote-sheet-mode', value === 'print')
+  if (route.path === '/quote' && route.query.view !== value)
+    router.replace({ query: { ...route.query, view: value } })
 }, { immediate: true })
 
 const construction = ref<ConstructionInput>({
@@ -1347,42 +1359,8 @@ async function printPdf() {
 
 <template>
   <main class="quote-page">
-    <section class="toolbar no-print">
-      <div>
-        <p class="eyebrow">报价系统</p>
-        <h1>{{ meta.title }}</h1>
-      </div>
-      <nav>
-        <button :class="{ active: view === 'quote' }" @click="view = 'quote'">计算</button>
-        <button :class="{ active: view === 'print' }" @click="view = 'print'">报价单</button>
-        <button class="mobile-optional" :class="{ active: view === 'settings' }" @click="view = 'settings'">数据维护</button>
-        <button v-if="linkedCustomerId" class="admin-link primary" @click="returnToCustomer">返回当前客户</button>
-        <RouterLink class="admin-link" to="/">返回CRM</RouterLink>
-        <RouterLink class="admin-link mobile-optional" to="/admin">管理后台</RouterLink>
-      </nav>
-    </section>
-
     <section v-if="view === 'quote'" class="workspace">
       <div class="left">
-        <section class="overview-panel">
-          <article>
-            <span>场地面积</span>
-            <b>{{ selectedArea }}㎡</b>
-          </article>
-          <article>
-            <span>已选产品</span>
-            <b>{{ productLines.length }}项</b>
-          </article>
-          <article>
-            <span>不含税合计</span>
-            <b>{{ money(totals.untaxedTotal) }}</b>
-          </article>
-          <article class="accent">
-            <span>报价总价</span>
-            <b>{{ money(totals.grandTotal) }}</b>
-          </article>
-        </section>
-
         <section class="band meta-band">
           <label>标题<input v-model="meta.title"></label>
           <label>客户名称<input v-model="meta.customerName"></label>
@@ -3557,4 +3535,3 @@ th{background:#f5f5f5}
   }
 }
 </style>
-

@@ -30,6 +30,14 @@ const navItems = computed(() => [
   { label: '数据统计', to: '/crm/statistics', icon: 'stats' },
 ].filter(item => !item.adminOnly || canManage.value))
 
+const quoteNavItems = computed(() => [
+  { label: '计算', to: '/quote?view=quote', icon: 'calculator' },
+  { label: '报价单', to: '/quote?view=print', icon: 'document' },
+  { label: '数据维护', to: '/quote?view=settings', icon: 'maintenance' },
+  { label: '返回CRM', to: '/crm', icon: 'back' },
+  { label: '管理后台', to: '/admin', icon: 'settings', adminOnly: true },
+].filter(item => !item.adminOnly || canManage.value))
+
 function navActive(item: { to: string, exact?: boolean }) {
   const [path, query] = item.to.split('?')
   if (query) {
@@ -39,6 +47,14 @@ function navActive(item: { to: string, exact?: boolean }) {
   if (item.exact)
     return route.path === path && !route.query.focus
   return route.path.startsWith(path || item.to)
+}
+
+function quoteNavActive(item: { to: string }) {
+  const [path, query = ''] = item.to.split('?')
+  if (route.path !== path)
+    return false
+  const expectedView = new URLSearchParams(query).get('view')
+  return expectedView ? String(route.query.view || 'quote') === expectedView : true
 }
 
 async function handleLogout() {
@@ -69,6 +85,21 @@ async function handleLogout() {
           <small v-if="item.badge">{{ item.badge }}</small>
         </RouterLink>
       </nav>
+      <template v-if="isQuote">
+        <p class="nav-label quote-nav-label">报价工具</p>
+        <nav class="main-nav quote-nav">
+          <RouterLink
+            v-for="item in quoteNavItems"
+            :key="item.label"
+            :class="{ active: quoteNavActive(item) }"
+            :to="item.to"
+            @click="mobileNavOpen = false"
+          >
+            <span class="nav-icon" :data-icon="item.icon" />
+            <span>{{ item.label }}</span>
+          </RouterLink>
+        </nav>
+      </template>
       <nav class="sidebar-foot">
         <RouterLink to="/admin" @click="mobileNavOpen = false"><span class="nav-icon" data-icon="trash" /><span>回收站</span></RouterLink>
         <RouterLink v-if="canManage" to="/admin" @click="mobileNavOpen = false"><span class="nav-icon" data-icon="settings" /><span>系统管理</span></RouterLink>
@@ -97,4 +128,5 @@ async function handleLogout() {
 .app-shell{min-height:100vh;background:#f5f7fa;color:#172033}.app-sidebar{position:fixed;inset:0 auto 0 0;z-index:40;display:flex;width:220px;flex-direction:column;background:#102a43;color:#c9d6e2;box-shadow:4px 0 18px rgba(15,42,67,.08)}.brand{display:flex;height:64px;align-items:center;gap:11px;border-bottom:1px solid rgba(255,255,255,.09);padding:0 24px;color:#fff;text-decoration:none;font-size:18px}.brand-mark{display:grid;width:34px;height:34px;place-items:center;border-radius:10px;background:#2563eb;box-shadow:0 7px 18px rgba(37,99,235,.35)}.nav-label{margin:0;padding:22px 26px 8px;color:#718aa1;font-size:11px;font-weight:700;letter-spacing:.13em}.main-nav,.sidebar-foot{display:grid;gap:5px;padding:0 14px}.main-nav a,.sidebar-foot a{display:flex;height:42px;align-items:center;gap:12px;border-radius:9px;padding:0 12px;color:#b9cad8;text-decoration:none;font-size:14px}.main-nav a:hover,.sidebar-foot a:hover{background:rgba(255,255,255,.06)}.main-nav a.active{background:#2563eb;color:#fff;box-shadow:0 8px 18px rgba(37,99,235,.25)}.main-nav small{margin-left:auto;display:grid;min-width:22px;height:20px;place-items:center;border-radius:10px;background:#f59e0b;color:#fff;font-size:11px}.sidebar-foot{margin-top:auto;border-top:1px solid rgba(255,255,255,.09);padding-top:12px;padding-bottom:18px}.nav-icon{width:18px;text-align:center}.nav-icon:before{content:"•";font-size:20px}.nav-icon[data-icon="dashboard"]:before{content:"▦"}.nav-icon[data-icon="customers"]:before{content:"♙"}.nav-icon[data-icon="clock"]:before{content:"◷"}.nav-icon[data-icon="quote"]:before{content:"▤"}.nav-icon[data-icon="product"]:before{content:"◇"}.nav-icon[data-icon="stats"]:before{content:"▥"}.nav-icon[data-icon="trash"]:before{content:"♲"}.nav-icon[data-icon="settings"]:before{content:"⚙"}.app-content{min-width:0;margin-left:220px}.app-topbar{position:sticky;top:0;z-index:30;display:grid;height:64px;grid-template-columns:1fr minmax(280px,540px) 1fr;align-items:center;border-bottom:1px solid #e2e8f0;background:rgba(255,255,255,.97);padding:0 28px;backdrop-filter:blur(12px)}.breadcrumb{display:flex;align-items:center;gap:9px;color:#94a3b8;font-size:13px}.breadcrumb i{font-style:normal}.breadcrumb b{color:#354359}.global-search{display:flex;height:38px;align-items:center;gap:8px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;padding:0 12px;color:#94a3b8}.global-search input{width:100%;border:0;outline:0;background:transparent;color:#334155;font-size:13px}.top-actions{justify-self:end;display:flex;align-items:center;gap:9px}.top-actions button{cursor:pointer}.icon-button,.notification{position:relative;display:grid;width:35px;height:35px;place-items:center;border:1px solid #e2e8f0;border-radius:9px;background:#fff;color:#59697c}.notification i{position:absolute;right:7px;top:6px;width:7px;height:7px;border:2px solid #fff;border-radius:50%;background:#ef4444}.avatar{display:grid;width:34px;height:34px;place-items:center;border-radius:10px;background:#dbeafe;color:#2563eb;font-weight:800}.user-name{font-size:12px}.user-name small{display:block;margin-top:2px;color:#94a3b8}.logout{border:0;background:transparent;color:#64748b;font-size:12px}.mobile-menu,.nav-backdrop{display:none}
 @media(max-width:980px){.app-sidebar{width:72px}.brand{justify-content:center;padding:0}.brand b,.nav-label,.main-nav a span:not(.nav-icon),.sidebar-foot a span:not(.nav-icon),.main-nav small{display:none}.main-nav a,.sidebar-foot a{justify-content:center;padding:0}.app-content{margin-left:72px}.app-topbar{grid-template-columns:1fr minmax(250px,1.2fr) 1fr}.user-name,.logout{display:none}}
 @media(max-width:720px){.app-sidebar{transform:translateX(-100%);width:220px;transition:transform .2s}.nav-open .app-sidebar{transform:none}.app-content{margin-left:0}.nav-backdrop{position:fixed;inset:0;z-index:35;display:block;border:0;background:rgba(15,23,42,.42)}.brand b,.nav-label,.main-nav a span:not(.nav-icon),.sidebar-foot a span:not(.nav-icon),.main-nav small{display:initial}.main-nav a,.sidebar-foot a{justify-content:flex-start;padding:0 12px}.app-topbar{grid-template-columns:auto 1fr auto;height:56px;padding:0 12px}.mobile-menu{display:grid;width:34px;height:34px;place-items:center;border:1px solid #e2e8f0;border-radius:8px;background:#fff}.global-search{display:none}.breadcrumb{padding-left:10px}.icon-button,.user-name,.logout{display:none}}
+.nav-icon[data-icon="calculator"]:before{content:"⊞"}.nav-icon[data-icon="document"]:before{content:"▤"}.nav-icon[data-icon="maintenance"]:before{content:"⚒"}.nav-icon[data-icon="back"]:before{content:"←"}.quote-nav-label{padding-top:18px}.quote-nav{padding-bottom:10px}
 </style>
