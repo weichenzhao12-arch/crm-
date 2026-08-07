@@ -10,6 +10,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
+import * as XLSX from 'xlsx'
+import { applyProductImport, buildProductImportPreview, productImportColumns } from '~/features/quote/product-import'
+import type { ProductImportPreviewRow } from '~/features/quote/product-import'
 import { applyNeedleAdditionToDensity, baggedTonQuantity, bucketQuantity, linePerSquare, lineSubtotal, packageUnitPrice, quantityByUsage, quoteTotals, resolveArea, selectUnitPrice } from '~/features/quote/pricing'
 import type { ConstructionInput, MaterialRecord, QuoteLine } from '~/features/quote/types'
 import { renderCloudPdf, uploadCloudImage } from '~/api/cloud-storage'
@@ -43,6 +46,9 @@ const densityFilter = ref(ALL)
 const poundWeightFilter = ref(ALL)
 const isCompactQuoteUi = ref(false)
 const settingsKeyword = ref('')
+const productImportPreview = ref<ProductImportPreviewRow[]>([])
+const productImportFileName = ref('')
+const productImportOpen = ref(false)
 const areaInput = ref({ mode: 'direct' as const, area: 1000, length: 50, width: 20 })
 const quoteParamVisible = ref({
   height: true,
@@ -787,6 +793,74 @@ async function restoreDefaultPricing() {
   settingsKeyword.value = ''
   settingsTab.value = 'products'
   window.alert('商品和辅料数据已恢复。')
+}
+
+function downloadProductImportTemplate() {
+  const sample = {
+    产品分类: '仿真草坪',
+    货号: '示例-A001',
+    '产品名称/型号': '示例产品（导入前可删除本行）',
+    草高: '25MM',
+    针排: '3/8',
+    密度: '16800针',
+    'DTEX/磅重': '1400D',
+    基布与背胶: 'PP底布+网格布',
+    抗老化: '5年',
+    '出厂价格/阶梯价格': '28.50',
+    加针价格: '',
+    图片网址: '',
+    备注: '示例数据',
+  }
+  const sheet = XLSX.utils.json_to_sheet([sample], { header: [...productImportColumns] })
+  sheet['!cols'] = productImportColumns.map(column => ({ wch: Math.max(12, column.length * 2 + 4) }))
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, sheet, '产品导入模板')
+  XLSX.writeFile(workbook, 'CRM产品批量导入模板.xlsx')
+}
+
+function importProductFile(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file)
+    return
+
+  const reader = new FileReader()
+  reader.onload = () => {
+    try {
+      const workbook = XLSX.read(reader.result, { type: 'array' })
+      const sheet = workbook.Sheets[workbook.SheetNames[0]]
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' })
+      productImportPreview.value = buildProductImportPreview(rows, pricing.value.products)
+      productImportFileName.value = file.name
+      productImportOpen.value = true
+    }
+    catch {
+      window.alert('文件无法解析，请使用下载的产品导入模板。')
+    }
+    finally {
+      input.value = ''
+    }
+  }
+  reader.readAsArrayBuffer(file)
+}
+
+const productImportCounts = computed(() => ({
+  total: productImportPreview.value.length,
+  added: productImportPreview.value.filter(row => row.status === 'new').length,
+  updated: productImportPreview.value.filter(row => row.status === 'update').length,
+  errors: productImportPreview.value.filter(row => row.status === 'error').length,
+}))
+
+function confirmProductImport() {
+  const validCount = productImportCounts.value.added + productImportCounts.value.updated
+  if (!validCount)
+    return
+
+  pricing.value.products = applyProductImport(pricing.value.products, productImportPreview.value)
+  quote.savePricing()
+  settingsKeyword.value = ''
+  productImportOpen.value = false
+  window.alert(`导入完成：新增 ${productImportCounts.value.added} 条，更新 ${productImportCounts.value.updated} 条，跳过错误 ${productImportCounts.value.errors} 条。`)
 }
 
 function uploadPackage(event: Event, index: number) {
@@ -1668,6 +1742,8 @@ async function printPdf() {
         <div class="settings-actions">
           <button @click="settingsTab = 'products'">产品</button>
           <button @click="settingsTab = 'materials'">辅料</button>
+          <button v-if="settingsTab === 'products'" @click="downloadProductImportTemplate">下载模板</button>
+          <label v-if="settingsTab === 'products'" class="settings-file-button">批量导入<input type="file" accept=".xlsx,.xls,.csv" @change="importProductFile"></label>
           <button @click="restoreDefaultPricing">恢复内置数据</button>
           <button @click="quote.savePricing()">保存</button>
           <button @click="quote.exportPricingJson()">导出数据</button>
@@ -1799,6 +1875,40 @@ async function printPdf() {
       </section>
     </div>
 
+    <div v-if="productImportOpen" class="modal-mask no-print">
+      <section class="modal-card product-import-card">
+        <header>
+          <div>
+            <h2>产品批量导入预览</h2>
+            <p>{{ productImportFileName }}</p>
+          </div>
+          <button aria-label="关闭" @click="productImportOpen = false">×</button>
+        </header>
+        <div class="import-summary">
+          <span>共 {{ productImportCounts.total }} 行</span>
+          <span class="new">新增 {{ productImportCounts.added }}</span>
+          <span class="update">更新 {{ productImportCounts.updated }}</span>
+          <span :class="{ error: productImportCounts.errors }">错误 {{ productImportCounts.errors }}</span>
+        </div>
+        <div class="import-preview-table">
+          <div class="import-preview-head"><span>行</span><span>结果</span><span>货号</span><span>产品名称/型号</span><span>分类</span><span>价格</span><span>说明</span></div>
+          <div v-for="row in productImportPreview" :key="row.rowNumber" class="import-preview-row" :class="row.status">
+            <span>{{ row.rowNumber }}</span>
+            <span>{{ row.status === 'new' ? '新增' : row.status === 'update' ? '更新' : '错误' }}</span>
+            <span>{{ row.product.itemNo || '—' }}</span>
+            <span>{{ row.product.model || '—' }}</span>
+            <span>{{ row.product.category || '—' }}</span>
+            <span>{{ row.product.priceText || '—' }}</span>
+            <span>{{ row.errors.join('、') || (row.status === 'update' ? '按货号更新现有商品' : '新增商品') }}</span>
+          </div>
+        </div>
+        <footer>
+          <button @click="productImportOpen = false">取消</button>
+          <button class="primary" :disabled="!productImportCounts.added && !productImportCounts.updated" @click="confirmProductImport">确认导入有效数据</button>
+        </footer>
+      </section>
+    </div>
+
     <div v-if="pdfDownloadModal.open" class="modal-mask no-print">
       <section class="modal-card pdf-save-card">
         <header>
@@ -1833,6 +1943,8 @@ async function printPdf() {
   box-shadow:0 18px 42px rgba(48,39,29,.08);
 }
 .toolbar nav,.settings-actions{display:flex;flex-wrap:wrap;gap:8px}
+.settings-file-button{display:inline-flex;align-items:center;padding:9px 14px;border:1px solid #cbdcf1;border-radius:10px;background:#fff;color:#0b3158;font-weight:700;cursor:pointer}
+.settings-file-button input{display:none}
 .eyebrow{margin:0 0 5px;color:#8a8177;font-size:13px;font-weight:700}
 h1,h2,h3,p{margin:0}
 h1{font-size:34px;letter-spacing:0;color:#1c1a17}
@@ -3043,6 +3155,21 @@ th{background:#f5f5f5}
     gap:10px;
     padding:16px 22px 22px;
   }
+
+  .product-import-card{width:min(1120px,calc(100vw - 32px));max-height:88vh}
+  .product-import-card header p{margin:4px 0 0;color:#d8e6f5;font-size:13px}
+  .import-summary{display:flex;flex-wrap:wrap;gap:10px;padding:14px 22px}
+  .import-summary span{padding:7px 12px;border-radius:999px;background:#edf4fb;color:#31506f;font-weight:700}
+  .import-summary .new{background:#e8f8ef;color:#137443}
+  .import-summary .update{background:#e8f2ff;color:#1766c2}
+  .import-summary .error{background:#fff0f0;color:#c43b3b}
+  .import-preview-table{overflow:auto;max-height:52vh;margin:0 22px;border:1px solid #d8e4f1;border-radius:12px}
+  .import-preview-head,.import-preview-row{display:grid;grid-template-columns:52px 70px 130px minmax(180px,1fr) 120px 130px minmax(180px,1fr);min-width:900px;align-items:center}
+  .import-preview-head{position:sticky;top:0;z-index:1;background:#eff5fb;color:#35516e;font-weight:800}
+  .import-preview-head span,.import-preview-row span{padding:10px;border-bottom:1px solid #e2ebf4;overflow-wrap:anywhere}
+  .import-preview-row.new{background:#fbfffc}
+  .import-preview-row.update{background:#fbfdff}
+  .import-preview-row.error{background:#fff8f8;color:#a83232}
   .pdf-save-card p{
     padding:20px 22px 0;
     color:#64748b;
