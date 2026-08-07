@@ -26,7 +26,7 @@ const { pricing } = storeToRefs(quote)
 const { users } = storeToRefs(admin)
 const { activeRecycleBin, recentLogs } = storeToRefs(system)
 
-const activeTab = ref<'products' | 'materials' | 'users' | 'recycle'>('products')
+const activeTab = ref<'products' | 'materials' | 'users' | 'recycle'>('users')
 const keyword = ref('')
 const oldPassword = ref('')
 const newPassword = ref('')
@@ -392,18 +392,11 @@ function changeOwnPassword() {
     <section class="admin-hero">
       <div>
         <p>管理后台</p>
-        <h1>报价系统后台</h1>
+        <h1>统一管理账号权限、回收站与操作记录</h1>
       </div>
-      <nav>
-        <RouterLink to="/crm">CRM</RouterLink>
-        <RouterLink to="/quote">返回报价</RouterLink>
-        <button @click="saveAll">保存后台数据</button>
-      </nav>
     </section>
 
     <section class="admin-tabs">
-      <button :class="{ active: activeTab === 'products' }" @click="activeTab = 'products'">产品管理</button>
-      <button :class="{ active: activeTab === 'materials' }" @click="activeTab = 'materials'">辅料管理</button>
       <button :class="{ active: activeTab === 'users' }" @click="activeTab = 'users'">账号权限</button>
       <button :class="{ active: activeTab === 'recycle' }" @click="activeTab = 'recycle'">回收站/记录</button>
     </section>
