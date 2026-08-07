@@ -778,6 +778,17 @@ function uploadOne(event: Event, done: (url: string) => void) {
     })
 }
 
+async function restoreDefaultPricing() {
+  const confirmed = window.confirm('将恢复系统内置的 230 条商品和 48 条辅料，并替换当前空白数据。是否继续？')
+  if (!confirmed)
+    return
+
+  await quote.restoreDefaultPricing()
+  settingsKeyword.value = ''
+  settingsTab.value = 'products'
+  window.alert('商品和辅料数据已恢复。')
+}
+
 function uploadPackage(event: Event, index: number) {
   uploadOne(event, (url) => {
     construction.value.package.imageDataUrls[index] = url
@@ -1657,6 +1668,7 @@ async function printPdf() {
         <div class="settings-actions">
           <button @click="settingsTab = 'products'">产品</button>
           <button @click="settingsTab = 'materials'">辅料</button>
+          <button @click="restoreDefaultPricing">恢复内置数据</button>
           <button @click="quote.savePricing()">保存</button>
           <button @click="quote.exportPricingJson()">导出数据</button>
         </div>

@@ -115,10 +115,7 @@ function loadPricing(): PricingData {
 
   try {
     const parsed = JSON.parse(saved) as PricingData
-    return {
-      products: Array.isArray(parsed.products) ? parsed.products : defaults.products,
-      materials: Array.isArray(parsed.materials) ? parsed.materials : defaults.materials,
-    }
+    return repairPricing(parsed, defaults)
   }
   catch {
     return defaults
@@ -305,13 +302,19 @@ export const useQuoteStore = defineStore('quote', {
     async loadCloudPricing() {
       const pricing = await getCloudState<PricingData>('pricing').catch(() => null)
       if (pricing?.products && pricing?.materials) {
-        const repaired = repairPricing(pricing, this.pricing)
+        const defaults = cloneData(pricingData as PricingData)
+        const repaired = repairPricing(pricing, defaults)
         const repairedBlankCloudData = repaired.products !== pricing.products || repaired.materials !== pricing.materials
         this.pricing = repaired
         localStorage.setItem(STORAGE_KEY, JSON.stringify(this.pricing))
         if (repairedBlankCloudData)
           await putCloudState('pricing', this.pricing).catch(() => {})
       }
+    },
+    async restoreDefaultPricing() {
+      this.pricing = cloneData(pricingData as PricingData)
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.pricing))
+      await putCloudState('pricing', this.pricing).catch(() => {})
     },
     resetPricing() {
       this.pricing = cloneData(pricingData as PricingData)
