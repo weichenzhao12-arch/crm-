@@ -28,6 +28,11 @@ export interface AdminUser {
   permissions: AdminPermission
 }
 
+/** 主账号和只读账号不属于销售人员，不参与销售业绩与排行榜。 */
+export function isSalesUser(user: Pick<AdminUser, 'enabled' | 'role'>) {
+  return user.enabled && (user.role === 'manager' || user.role === 'quoter')
+}
+
 const STORAGE_KEY = 'quote-admin-users'
 const CURRENT_USER_KEY = 'quote-admin-current-user'
 

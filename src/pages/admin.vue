@@ -494,7 +494,7 @@ function changeOwnPassword() {
             <label>显示姓名<input v-model="user.displayName" @blur="admin.saveUsers()"></label>
             <label>角色模板
               <select v-model="user.role" @change="applyUserRole(user)">
-                <option value="owner">主账号</option>
+                <option value="owner">主账号（仅管理与数据查看）</option>
                 <option value="manager">管理员</option>
                 <option value="quoter">报价员</option>
                 <option value="viewer">只读</option>

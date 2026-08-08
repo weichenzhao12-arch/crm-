@@ -11,7 +11,7 @@
 import * as XLSX from 'xlsx'
 import { storeToRefs } from 'pinia'
 import { leadImportMessage, summarizeLeadImport } from '~/features/crm/lead-import'
-import { useAdminStore } from '~/stores/admin'
+import { isSalesUser, useAdminStore } from '~/stores/admin'
 import { useCrmStore } from '~/stores/crm'
 import { useSystemStore } from '~/stores/system'
 import type { CrmCustomer, IntentLevel } from '~/stores/crm'
@@ -109,7 +109,7 @@ const canDeleteCustomers = computed(() => isPrivileged.value || Boolean(loginUse
 const canExportCustomers = computed(() => isPrivileged.value || Boolean(loginUser.value?.permissions.exportCustomers))
 const canImportCustomers = computed(() => isPrivileged.value || Boolean(loginUser.value?.permissions.importCustomers))
 const activeUser = computed(() => canManageLeads.value && selectedUserId.value !== 'all' ? users.value.find(user => user.id === selectedUserId.value) || loginUser.value : loginUser.value)
-const salesUsers = computed(() => users.value.filter(user => user.enabled && user.role !== 'owner' && user.role !== 'viewer'))
+const salesUsers = computed(() => users.value.filter(isSalesUser))
 
 function customerBelongsToUser(customer: CrmCustomer, userId?: string) {
   if (!userId)

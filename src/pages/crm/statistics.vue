@@ -10,7 +10,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useAdminStore } from '~/stores/admin'
+import { isSalesUser, useAdminStore } from '~/stores/admin'
 import { useCrmStore } from '~/stores/crm'
 
 const crm = useCrmStore()
@@ -47,7 +47,7 @@ const stages = computed(() => [
 ])
 const maxStage = computed(() => Math.max(...stages.value.map(item => item.count), 1))
 
-const ownerRanking = computed(() => users.value.filter(user => user.enabled && (canViewAll.value || user.id === loginUser.value?.id)).map((user) => {
+const ownerRanking = computed(() => users.value.filter(user => isSalesUser(user) && (canViewAll.value || user.id === loginUser.value?.id)).map((user) => {
   const owned = visibleCustomers.value.filter(customer => customer.assignedToUserId === user.id || customer.owner === user.displayName || customer.owner === user.account)
   const deals = owned.filter(customer => customer.stage === 'won' || customer.quotes.some(quote => quote.isWon))
   const amount = owned.flatMap(customer => customer.quotes).reduce((sum, quote) => sum + Number(quote.dealAmount || (quote.isWon ? quote.amount : 0) || 0), 0)

@@ -14,7 +14,7 @@ import { leadImportMessage, summarizeLeadImport } from '~/features/crm/lead-impo
 import { sortCustomersByRecentActivity } from '~/features/crm/recent-customers'
 import { dailyLeadCreationSeries, type LeadCreationMode } from '~/features/crm/stats'
 import { useAuth } from '~/composables/useAuth'
-import { useAdminStore } from '~/stores/admin'
+import { isSalesUser, useAdminStore } from '~/stores/admin'
 import { useCrmStore } from '~/stores/crm'
 import type { CrmCustomer, IntentLevel } from '~/stores/crm'
 import CrmStatisticsPage from '~/pages/crm/statistics.vue'
@@ -115,7 +115,7 @@ const canViewAll = computed(() => isPrivileged.value || Boolean(loginUser.value?
 const canManageLeads = computed(() => canViewAll.value || Boolean(loginUser.value?.permissions.manageUsers))
 const activeUser = computed(() => canManageLeads.value ? users.value.find(user => user.id === selectedUserId.value) || loginUser.value : loginUser.value)
 const canDeleteCustomers = computed(() => isPrivileged.value || Boolean(loginUser.value?.permissions.deleteCustomers))
-const salesUsers = computed(() => users.value.filter(user => user.enabled && user.role !== 'owner' && user.role !== 'viewer'))
+const salesUsers = computed(() => users.value.filter(isSalesUser))
 
 function customerBelongsToUser(customer: CrmCustomer, userId?: string) {
   if (!userId)
