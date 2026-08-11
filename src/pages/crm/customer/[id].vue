@@ -10,7 +10,7 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useAdminStore } from '~/stores/admin'
+import { isSalesUser, useAdminStore } from '~/stores/admin'
 import { useCrmStore } from '~/stores/crm'
 import type { CrmFollowUp, CrmQuoteRecord } from '~/stores/crm'
 
@@ -32,6 +32,16 @@ const reminderItems = computed(() => customer.value?.followUps.filter(follow => 
 const followItems = computed(() => customer.value?.followUps.filter(follow => !follow.reminderDate) || [])
 const lastSavedSnapshot = ref('')
 const hasUnsavedChanges = ref(false)
+const showMoreDetails = ref(false)
+const assignableUsers = computed(() => users.value.filter(isSalesUser))
+
+function updateAssignedOwner() {
+  const current = customer.value
+  if (!current)
+    return
+  const user = users.value.find(item => item.id === current.assignedToUserId)
+  current.owner = user?.displayName || user?.account || ''
+}
 
 function customerSnapshot() {
   if (!customer.value)
@@ -218,29 +228,27 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
   <main class="detail-page">
     <template v-if="customer">
       <section class="detail-hero">
-        <div>
+        <div class="customer-heading">
           <h1>{{ customer.name }}</h1>
+          <p>{{ customer.phone || '未填写联系方式' }} · {{ stageLabels[customer.stage] }} · {{ customer.intentLevel }}级意向</p>
         </div>
         <nav>
-          <RouterLink to="/crm/customers">返回客户管理</RouterLink>
-          <RouterLink to="/">返回 CRM</RouterLink>
+          <RouterLink to="/crm/customers">返回客户列表</RouterLink>
           <button @click="newQuote">新建报价</button>
-          <button @click="save">{{ hasUnsavedChanges ? '保存客户（未保存）' : '保存客户' }}</button>
+          <button class="save-button" @click="save">{{ hasUnsavedChanges ? '保存（有修改）' : '保存客户' }}</button>
         </nav>
       </section>
 
       <section class="detail-grid">
         <article class="detail-panel customer-form">
           <header><h2>客户资料</h2><span>{{ stageLabels[customer.stage] }}</span></header>
-          <label>日期<input v-model="customer.date" type="date"></label>
           <label>客户名称<input v-model="customer.name"></label>
           <label>客户联系方式<input v-model="customer.phone" placeholder="电话 / 微信 / 其他联系方式"></label>
-          <label>抖音账号来源<input v-model="customer.sourceAccount"></label>
-          <label>成交属性高中低无效<input v-model="customer.dealAttribute" placeholder="高 / 中 / 低 / 无效"></label>
-          <label>客户属性BC端<input v-model="customer.customerAttribute" placeholder="B端 / C端"></label>
-          <label>地址<input v-model="customer.region"></label>
-          <label>数量(平方)<input v-model.number="customer.area" type="number"></label>
-          <label>使用时间<input v-model="customer.usageTime"></label>
+          <label>负责人<select v-model="customer.assignedToUserId" @change="updateAssignedOwner">
+            <option value="">未分配</option>
+            <option v-for="user in assignableUsers" :key="user.id" :value="user.id">{{ user.displayName || user.account }}</option>
+          </select></label>
+          <label>日期<input v-model="customer.date" type="date"></label>
           <label>意向等级<select v-model="customer.intentLevel">
             <option value="A">A 高意向</option>
             <option value="B">B 较高</option>
@@ -249,15 +257,22 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
             <option value="E">E 低意向</option>
             <option value="F">F 无效/暂缓</option>
           </select></label>
-          <label>分配给<select v-model="customer.assignedToUserId">
-            <option v-for="user in users" :key="user.id" :value="user.id">{{ user.displayName || user.account }}</option>
-          </select></label>
-          <label>负责人<input v-model="customer.owner"></label>
           <label>跟进阶段<select v-model="customer.stage">
             <option v-for="option in stageOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
           </select></label>
-          <label class="wide">客户情况沟通内容<textarea v-model="customer.communication"></textarea></label>
-          <label class="wide">备注<textarea v-model="customer.remark"></textarea></label>
+          <label class="wide communication-field">客户需求概述<textarea v-model="customer.communication" placeholder="记录客户场地、采购需求和长期背景"></textarea></label>
+          <button class="more-details-toggle wide" type="button" @click="showMoreDetails = !showMoreDetails">
+            <span>{{ showMoreDetails ? '收起补充资料' : '展开补充资料' }}</span><i>{{ showMoreDetails ? '⌃' : '⌄' }}</i>
+          </button>
+          <template v-if="showMoreDetails">
+            <label>抖音账号来源<input v-model="customer.sourceAccount"></label>
+            <label>成交属性<input v-model="customer.dealAttribute" placeholder="高 / 中 / 低 / 无效"></label>
+            <label>客户属性<input v-model="customer.customerAttribute" placeholder="B端 / C端"></label>
+            <label>地址<input v-model="customer.region"></label>
+            <label>数量（平方）<input v-model.number="customer.area" type="number"></label>
+            <label>使用时间<input v-model="customer.usageTime"></label>
+            <label class="wide">备注<textarea v-model="customer.remark"></textarea></label>
+          </template>
         </article>
 
         <article class="detail-panel activity-panel">
@@ -286,7 +301,7 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
                   <b>{{ followMonthDay(follow.date) }}</b>
                 </label>
                 <textarea v-model="follow.content" placeholder="新增跟进记录" @blur="save"></textarea>
-                <button class="danger" @click="deleteFollowUp(follow)">删除</button>
+                <button class="danger compact-delete" @click="deleteFollowUp(follow)">删除</button>
               </div>
             </section>
 
@@ -352,21 +367,21 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
       <h1>客户不存在</h1>
       <RouterLink to="/crm/customers">返回客户管理</RouterLink>
     </section>
-    <RouterLink class="floating-back" to="/crm/customers">返回客户管理</RouterLink>
   </main>
 </template>
 
 <style scoped>
-.detail-page{min-height:100vh;background:#eef3f8;padding:24px;color:#142235}
-.detail-hero{display:flex;align-items:center;justify-content:space-between;gap:18px;max-width:1500px;margin:0 auto 18px;padding:26px;border-radius:18px;background:linear-gradient(135deg,#10243f,#1f5f8b);color:#fff}
-.detail-hero p{margin:0 0 8px;color:#cce5ff;font-weight:800}
-.detail-hero h1{margin:0;font-size:34px}
+.detail-page{min-height:100vh;background:#eef3f8;padding:18px 24px 28px;color:#142235}
+.detail-hero{display:flex;align-items:center;justify-content:space-between;gap:18px;max-width:1500px;margin:0 auto 14px;padding:14px 18px;border:1px solid #d7e2ee;border-radius:14px;background:#fff;color:#142235;box-shadow:0 6px 20px rgba(38,59,84,.05)}
+.detail-hero p{margin:5px 0 0;color:#64748b;font-size:12px;font-weight:600}
+.detail-hero h1{margin:0;font-size:25px;line-height:1.2}
 .detail-hero nav{display:flex;flex-wrap:wrap;gap:10px}
-.detail-hero a,.detail-hero button,.detail-panel button{min-height:40px;border:1px solid rgba(255,255,255,.36);border-radius:10px;background:#fff;color:#183f68;padding:9px 14px;text-decoration:none;font-weight:800;cursor:pointer}
-.detail-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(360px,.8fr);align-items:start;gap:18px;max-width:1500px;margin:0 auto}
-.detail-panel{border:1px solid #d7e2ee;border-radius:16px;background:#fff;padding:20px;box-shadow:0 12px 34px rgba(38,59,84,.075)}
-.detail-panel header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
-.detail-panel h2{margin:0;font-size:22px}
+.detail-hero a,.detail-hero button,.detail-panel button{min-height:36px;border:1px solid #cbd9e7;border-radius:9px;background:#fff;color:#183f68;padding:7px 12px;text-decoration:none;font-weight:800;cursor:pointer}
+.detail-hero .save-button{border-color:#246ed8;background:#246ed8;color:#fff}
+.detail-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(390px,.9fr);align-items:start;gap:14px;max-width:1500px;margin:0 auto}
+.detail-panel{border:1px solid #d7e2ee;border-radius:14px;background:#fff;padding:16px;box-shadow:0 8px 26px rgba(38,59,84,.06)}
+.detail-panel header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.detail-panel h2{margin:0;font-size:18px}
 .detail-panel header span{border-radius:999px;background:#eff6ff;color:#246ed8;padding:7px 10px;font-weight:800}
 .header-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
 .header-actions .action-button{display:inline-flex;align-items:center;gap:6px;border-color:#c7daf0;background:#f4f9ff;color:#185b99;box-shadow:0 6px 14px rgba(30,86,140,.08)}
@@ -374,17 +389,20 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
 .header-actions .action-button span{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:rgba(36,110,216,.12);font-size:16px;line-height:1}
 .header-actions .action-button.primary span{background:rgba(255,255,255,.22)}
 .detail-panel button.danger{border-color:#ffd1d1;background:#fff5f5;color:#c62828}
-.activity-panel{position:relative;height:calc(100vh - 140px);max-height:760px;min-height:560px;display:flex;flex-direction:column;overflow:hidden;padding-top:78px}
+.activity-panel{position:relative;height:auto;min-height:430px;max-height:720px;display:flex;flex-direction:column;overflow:hidden;padding-top:68px}
 .activity-panel header{position:absolute;top:20px;left:20px;right:20px;z-index:10;align-items:center;min-height:48px;border-bottom:1px solid #e1e9f2;background:#fff;padding-bottom:12px}
 .activity-tabs{display:flex;flex-shrink:0;gap:4px;border:1px solid #dbe6f2;border-radius:999px;background:#f4f8fc;padding:4px}
 .activity-tabs button{min-height:34px;border:0;border-radius:999px;background:transparent;color:#50627a;padding:7px 16px;font-weight:900;cursor:pointer}
 .activity-tabs button.active{background:#246ed8;color:#fff;box-shadow:0 8px 18px rgba(36,110,216,.22)}
 .activity-content{flex:1;min-height:0;overflow:auto;overflow-x:hidden;padding:12px 6px 0 0}
-.customer-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;gap:12px}
+.customer-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-content:start;gap:9px 10px}
 .customer-form header,.customer-form .wide{grid-column:1/-1}
-label{display:grid;gap:6px;color:#50627a;font-weight:800}
-input,select,textarea{min-height:40px;border:1px solid #d5dee9;border-radius:10px;background:#f8fafc;padding:8px 12px;color:#142235}
-textarea{min-height:76px;resize:vertical}
+label{display:grid;gap:4px;color:#50627a;font-size:12px;font-weight:800}
+input,select,textarea{min-height:36px;border:1px solid #d5dee9;border-radius:9px;background:#f8fafc;padding:7px 10px;color:#142235;font-size:13px}
+textarea{min-height:64px;resize:vertical}
+.communication-field textarea{min-height:58px;max-height:110px}
+.more-details-toggle{display:flex;align-items:center;justify-content:space-between;min-height:34px!important;border:1px dashed #bfd0e2!important;background:#f8fbff!important;color:#506b87!important;padding:6px 12px!important;font-size:12px}
+.more-details-toggle i{font-size:16px;font-style:normal}
 .record-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;border:1px solid #e1e9f2;border-radius:12px;background:#fbfdff;padding:14px;margin-bottom:10px}
 .record-row p{margin:5px 0 0;color:#64748b}
 .record-row strong{color:#246ed8}
@@ -400,10 +418,10 @@ textarea{min-height:76px;resize:vertical}
 .follow-section{border-bottom:1px solid #e1e9f2;margin-bottom:16px;padding-bottom:16px}
 .reminder-section h3,.follow-section h3{margin:0 0 10px;font-size:16px;color:#183f68}
 .reminder-edit-row{display:grid;grid-template-columns:1fr;gap:10px;align-items:start;border:1px solid #e1e9f2;border-radius:12px;background:#fbfdff;padding:12px;margin-bottom:10px}
-.follow-row{display:grid;grid-template-columns:74px minmax(0,1fr);gap:10px;align-items:start;border:1px solid #e1e9f2;border-radius:12px;background:#fbfdff;padding:12px;margin-bottom:10px}
-.follow-row textarea{min-height:88px}
-.follow-row .danger{grid-column:2}
-.follow-date-tile{position:relative;width:74px;height:74px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;border:1px solid #cfe0f1;border-radius:12px;background:linear-gradient(180deg,#f8fbff,#edf5ff);color:#183f68;text-align:center;overflow:hidden}
+.follow-row{display:grid;grid-template-columns:66px minmax(0,1fr) auto;gap:9px;align-items:start;border:1px solid #e1e9f2;border-radius:12px;background:#fbfdff;padding:10px;margin-bottom:10px}
+.follow-row textarea{min-height:74px}
+.follow-row .danger{grid-column:auto;align-self:start;min-height:32px;padding:5px 9px;font-size:11px}
+.follow-date-tile{position:relative;width:66px;height:66px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1px solid #cfe0f1;border-radius:11px;background:linear-gradient(180deg,#f8fbff,#edf5ff);color:#183f68;text-align:center;overflow:hidden}
 .follow-date-tile span{font-size:13px;font-weight:900;line-height:1}
 .follow-date-tile b{font-size:15px;line-height:1.2}
 .follow-date-tile input{position:absolute;inset:0;width:100%;height:100%;min-height:0;opacity:0;cursor:pointer}
@@ -416,14 +434,11 @@ textarea{min-height:76px;resize:vertical}
 .modal-actions{display:flex;justify-content:flex-end;gap:10px}
 .modal-actions .primary{background:#246ed8;color:#fff;border-color:#246ed8}
 .not-found{max-width:600px;margin:100px auto;text-align:center}
-.floating-back{position:fixed;right:28px;bottom:28px;z-index:25;display:inline-flex;align-items:center;justify-content:center;min-height:44px;border:1px solid #246ed8;border-radius:999px;background:#246ed8;color:#fff;padding:10px 18px;text-decoration:none;font-weight:900;box-shadow:0 14px 34px rgba(36,110,216,.28)}
-.floating-back:hover{background:#1d5fc1;border-color:#1d5fc1}
 @media(max-width:1000px){
   .detail-hero{align-items:flex-start;flex-direction:column}
   .detail-grid,.customer-form,.follow-row,.reminder-edit-row,.modal-box{grid-template-columns:1fr}
   .activity-panel{height:auto;max-height:none;padding-top:20px}
   .activity-panel header{position:relative;top:auto;left:auto;right:auto}
-  .floating-back{right:16px;bottom:16px;min-height:40px;padding:8px 14px}
 }
 @media(max-width:720px){
   .detail-page{
@@ -520,8 +535,5 @@ textarea{min-height:76px;resize:vertical}
   .contract-upload .file-chip{width:100%}
   .modal-box{width:100%;max-height:88vh;overflow:auto;padding:16px}
   .modal-actions{display:grid;grid-template-columns:1fr 1fr}
-  .floating-back{left:10px;right:10px;bottom:10px;border-radius:12px}
 }
 </style>
-
-
