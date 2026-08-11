@@ -32,7 +32,6 @@ const reminderItems = computed(() => customer.value?.followUps.filter(follow => 
 const followItems = computed(() => customer.value?.followUps.filter(follow => !follow.reminderDate) || [])
 const lastSavedSnapshot = ref('')
 const hasUnsavedChanges = ref(false)
-const showMoreDetails = ref(false)
 const assignableUsers = computed(() => users.value.filter(isSalesUser))
 
 function updateAssignedOwner() {
@@ -242,6 +241,7 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
       <section class="detail-grid">
         <article class="detail-panel customer-form">
           <header><h2>客户资料</h2><span>{{ stageLabels[customer.stage] }}</span></header>
+          <div class="form-section-title"><b>基本信息</b><small>客户身份与当前跟进状态</small></div>
           <label>客户名称<input v-model="customer.name"></label>
           <label>客户联系方式<input v-model="customer.phone" placeholder="电话 / 微信 / 其他联系方式"></label>
           <label>负责人<select v-model="customer.assignedToUserId" @change="updateAssignedOwner">
@@ -260,19 +260,16 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
           <label>跟进阶段<select v-model="customer.stage">
             <option v-for="option in stageOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
           </select></label>
+          <div class="form-section-title"><b>项目资料</b><small>来源、属性及场地需求</small></div>
+          <label>抖音账号来源<input v-model="customer.sourceAccount"></label>
+          <label>成交属性<input v-model="customer.dealAttribute" placeholder="高 / 中 / 低 / 无效"></label>
+          <label>客户属性<input v-model="customer.customerAttribute" placeholder="B端 / C端"></label>
+          <label>地址<input v-model="customer.region"></label>
+          <label>数量（平方）<input v-model.number="customer.area" type="number"></label>
+          <label>使用时间<input v-model="customer.usageTime"></label>
+          <div class="form-section-title"><b>需求与备注</b><small>长期保留的客户背景信息</small></div>
           <label class="wide communication-field">客户需求概述<textarea v-model="customer.communication" placeholder="记录客户场地、采购需求和长期背景"></textarea></label>
-          <button class="more-details-toggle wide" type="button" @click="showMoreDetails = !showMoreDetails">
-            <span>{{ showMoreDetails ? '收起补充资料' : '展开补充资料' }}</span><i>{{ showMoreDetails ? '⌃' : '⌄' }}</i>
-          </button>
-          <template v-if="showMoreDetails">
-            <label>抖音账号来源<input v-model="customer.sourceAccount"></label>
-            <label>成交属性<input v-model="customer.dealAttribute" placeholder="高 / 中 / 低 / 无效"></label>
-            <label>客户属性<input v-model="customer.customerAttribute" placeholder="B端 / C端"></label>
-            <label>地址<input v-model="customer.region"></label>
-            <label>数量（平方）<input v-model.number="customer.area" type="number"></label>
-            <label>使用时间<input v-model="customer.usageTime"></label>
-            <label class="wide">备注<textarea v-model="customer.remark"></textarea></label>
-          </template>
+          <label class="wide remark-field">备注<textarea v-model="customer.remark" placeholder="其他需要长期保留的信息"></textarea></label>
         </article>
 
         <article class="detail-panel activity-panel">
@@ -378,7 +375,7 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
 .detail-hero nav{display:flex;flex-wrap:wrap;gap:10px}
 .detail-hero a,.detail-hero button,.detail-panel button{min-height:36px;border:1px solid #cbd9e7;border-radius:9px;background:#fff;color:#183f68;padding:7px 12px;text-decoration:none;font-weight:800;cursor:pointer}
 .detail-hero .save-button{border-color:#246ed8;background:#246ed8;color:#fff}
-.detail-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(390px,.9fr);align-items:start;gap:14px;max-width:1500px;margin:0 auto}
+.detail-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(390px,.9fr);align-items:stretch;gap:14px;max-width:1500px;margin:0 auto}
 .detail-panel{border:1px solid #d7e2ee;border-radius:14px;background:#fff;padding:16px;box-shadow:0 8px 26px rgba(38,59,84,.06)}
 .detail-panel header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
 .detail-panel h2{margin:0;font-size:18px}
@@ -389,20 +386,24 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
 .header-actions .action-button span{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:rgba(36,110,216,.12);font-size:16px;line-height:1}
 .header-actions .action-button.primary span{background:rgba(255,255,255,.22)}
 .detail-panel button.danger{border-color:#ffd1d1;background:#fff5f5;color:#c62828}
-.activity-panel{position:relative;height:auto;min-height:430px;max-height:720px;display:flex;flex-direction:column;overflow:hidden;padding-top:68px}
+.activity-panel{position:relative;height:100%;min-height:520px;max-height:720px;display:flex;flex-direction:column;overflow:hidden;padding-top:68px}
 .activity-panel header{position:absolute;top:20px;left:20px;right:20px;z-index:10;align-items:center;min-height:48px;border-bottom:1px solid #e1e9f2;background:#fff;padding-bottom:12px}
 .activity-tabs{display:flex;flex-shrink:0;gap:4px;border:1px solid #dbe6f2;border-radius:999px;background:#f4f8fc;padding:4px}
 .activity-tabs button{min-height:34px;border:0;border-radius:999px;background:transparent;color:#50627a;padding:7px 16px;font-weight:900;cursor:pointer}
 .activity-tabs button.active{background:#246ed8;color:#fff;box-shadow:0 8px 18px rgba(36,110,216,.22)}
 .activity-content{flex:1;min-height:0;overflow:auto;overflow-x:hidden;padding:12px 6px 0 0}
 .customer-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-content:start;gap:9px 10px}
-.customer-form header,.customer-form .wide{grid-column:1/-1}
+.customer-form header,.customer-form .wide,.form-section-title{grid-column:1/-1}
+.form-section-title{display:flex;align-items:center;gap:9px;margin-top:3px;border-top:1px solid #e8eef5;padding-top:10px;color:#183f68}
+.customer-form header + .form-section-title{margin-top:-2px;border-top:0;padding-top:0}
+.form-section-title::before{content:"";width:3px;height:15px;border-radius:2px;background:#2f80ed}
+.form-section-title b{font-size:13px}
+.form-section-title small{color:#94a3b8;font-size:10px;font-weight:500}
 label{display:grid;gap:4px;color:#50627a;font-size:12px;font-weight:800}
 input,select,textarea{min-height:36px;border:1px solid #d5dee9;border-radius:9px;background:#f8fafc;padding:7px 10px;color:#142235;font-size:13px}
 textarea{min-height:64px;resize:vertical}
-.communication-field textarea{min-height:58px;max-height:110px}
-.more-details-toggle{display:flex;align-items:center;justify-content:space-between;min-height:34px!important;border:1px dashed #bfd0e2!important;background:#f8fbff!important;color:#506b87!important;padding:6px 12px!important;font-size:12px}
-.more-details-toggle i{font-size:16px;font-style:normal}
+.communication-field textarea{min-height:58px;max-height:100px}
+.remark-field textarea{min-height:50px;max-height:90px}
 .record-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;border:1px solid #e1e9f2;border-radius:12px;background:#fbfdff;padding:14px;margin-bottom:10px}
 .record-row p{margin:5px 0 0;color:#64748b}
 .record-row strong{color:#246ed8}
@@ -418,9 +419,9 @@ textarea{min-height:64px;resize:vertical}
 .follow-section{border-bottom:1px solid #e1e9f2;margin-bottom:16px;padding-bottom:16px}
 .reminder-section h3,.follow-section h3{margin:0 0 10px;font-size:16px;color:#183f68}
 .reminder-edit-row{display:grid;grid-template-columns:1fr;gap:10px;align-items:start;border:1px solid #e1e9f2;border-radius:12px;background:#fbfdff;padding:12px;margin-bottom:10px}
-.follow-row{display:grid;grid-template-columns:66px minmax(0,1fr) auto;gap:9px;align-items:start;border:1px solid #e1e9f2;border-radius:12px;background:#fbfdff;padding:10px;margin-bottom:10px}
+.follow-row{display:grid;grid-template-columns:66px minmax(0,1fr);gap:9px;align-items:start;border:1px solid #e1e9f2;border-radius:12px;background:#fbfdff;padding:10px;margin-bottom:10px}
 .follow-row textarea{min-height:74px}
-.follow-row .danger{grid-column:auto;align-self:start;min-height:32px;padding:5px 9px;font-size:11px}
+.follow-row .danger{grid-column:2;justify-self:end;min-height:28px;padding:4px 10px;font-size:11px}
 .follow-date-tile{position:relative;width:66px;height:66px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1px solid #cfe0f1;border-radius:11px;background:linear-gradient(180deg,#f8fbff,#edf5ff);color:#183f68;text-align:center;overflow:hidden}
 .follow-date-tile span{font-size:13px;font-weight:900;line-height:1}
 .follow-date-tile b{font-size:15px;line-height:1.2}
