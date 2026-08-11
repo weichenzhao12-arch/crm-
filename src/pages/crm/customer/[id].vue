@@ -386,8 +386,8 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
 .header-actions .action-button span{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:rgba(36,110,216,.12);font-size:16px;line-height:1}
 .header-actions .action-button.primary span{background:rgba(255,255,255,.22)}
 .detail-panel button.danger{border-color:#ffd1d1;background:#fff5f5;color:#c62828}
-.activity-panel{position:relative;height:100%;min-height:520px;max-height:720px;display:flex;flex-direction:column;overflow:hidden;padding-top:68px}
-.activity-panel header{position:absolute;top:20px;left:20px;right:20px;z-index:10;align-items:center;min-height:48px;border-bottom:1px solid #e1e9f2;background:#fff;padding-bottom:12px}
+.activity-panel{position:relative;height:100%;min-height:520px;max-height:720px;display:flex;flex-direction:column;overflow:hidden}
+.activity-panel header{position:relative;flex:0 0 auto;z-index:10;align-items:center;min-height:48px;border-bottom:1px solid #e1e9f2;background:#fff;padding-bottom:12px}
 .activity-tabs{display:flex;flex-shrink:0;gap:4px;border:1px solid #dbe6f2;border-radius:999px;background:#f4f8fc;padding:4px}
 .activity-tabs button{min-height:34px;border:0;border-radius:999px;background:transparent;color:#50627a;padding:7px 16px;font-weight:900;cursor:pointer}
 .activity-tabs button.active{background:#246ed8;color:#fff;box-shadow:0 8px 18px rgba(36,110,216,.22)}
@@ -438,7 +438,7 @@ textarea{min-height:64px;resize:vertical}
 @media(max-width:1000px){
   .detail-hero{align-items:flex-start;flex-direction:column}
   .detail-grid,.customer-form,.follow-row,.reminder-edit-row,.modal-box{grid-template-columns:1fr}
-  .activity-panel{height:auto;max-height:none;padding-top:20px}
+  .activity-panel{height:auto;max-height:none}
   .activity-panel header{position:relative;top:auto;left:auto;right:auto}
 }
 @media(max-width:720px){
@@ -489,7 +489,6 @@ textarea{min-height:64px;resize:vertical}
     min-height:0;
     height:auto;
     max-height:none;
-    padding-top:14px;
     overflow:visible;
   }
   .activity-panel header{
