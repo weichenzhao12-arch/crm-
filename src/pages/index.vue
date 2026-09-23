@@ -30,10 +30,10 @@ const { pricing, meta, charges, lines, categories } = storeToRefs(quote)
 
 watch(pricing, () => quote.savePricing(), { deep: true })
 
-type QuoteView = 'quote' | 'print' | 'settings'
+type QuoteView = 'quote' | 'print' | 'settings' | 'cost'
 
 function routeQuoteView(value: unknown): QuoteView {
-  return value === 'print' || value === 'settings' ? value : 'quote'
+  return value === 'print' || value === 'settings' || value === 'cost' ? value : 'quote'
 }
 
 const view = ref<QuoteView>(routeQuoteView(route.query.view))
@@ -1745,22 +1745,23 @@ async function printPdf() {
       </aside>
     </section>
 
-    <section v-else-if="view === 'settings'" class="settings band">
+    <section v-else-if="view === 'settings' || view === 'cost'" class="settings band">
       <header>
-        <h2>数据维护</h2>
+        <h2>{{ view === 'cost' ? '成本计算' : '数据维护' }}</h2>
         <div class="settings-actions">
-          <button :class="{ active: settingsTab === 'products' }" @click="settingsTab = 'products'">产品</button>
-          <button :class="{ active: settingsTab === 'materials' }" @click="settingsTab = 'materials'">辅料</button>
-          <button :class="{ active: settingsTab === 'cost' }" @click="settingsTab = 'cost'">成本计算器</button>
-          <button v-if="settingsTab === 'products'" @click="downloadProductImportTemplate">下载模板</button>
-          <label v-if="settingsTab === 'products'" class="settings-file-button">批量导入<input type="file" accept=".xlsx,.xls,.csv" @change="importProductFile"></label>
-          <button @click="restoreDefaultPricing">恢复内置数据</button>
-          <button v-if="settingsTab !== 'cost'" @click="quote.savePricing()">保存</button>
-          <button v-if="settingsTab !== 'cost'" @click="quote.exportPricingJson()">导出数据</button>
+          <template v-if="view === 'settings'">
+            <button :class="{ active: settingsTab === 'products' }" @click="settingsTab = 'products'">产品</button>
+            <button :class="{ active: settingsTab === 'materials' }" @click="settingsTab = 'materials'">辅料</button>
+            <button v-if="settingsTab === 'products'" @click="downloadProductImportTemplate">下载模板</button>
+            <label v-if="settingsTab === 'products'" class="settings-file-button">批量导入<input type="file" accept=".xlsx,.xls,.csv" @change="importProductFile"></label>
+            <button @click="restoreDefaultPricing">恢复内置数据</button>
+            <button @click="quote.savePricing()">保存</button>
+            <button @click="quote.exportPricingJson()">导出数据</button>
+          </template>
         </div>
       </header>
-      <input v-model="settingsKeyword" class="search" placeholder="搜索">
-      <template v-if="settingsTab === 'products'">
+      <input v-if="view === 'settings'" v-model="settingsKeyword" class="search" placeholder="搜索">
+      <template v-if="view === 'settings' && settingsTab === 'products'">
         <button class="primary" @click="quote.addProductRecord()">新增产品</button>
         <article v-for="product in filteredProductsForSettings" :key="product.id" class="edit-row product-edit">
           <input v-model="product.category" placeholder="大类">
@@ -1777,7 +1778,7 @@ async function printPdf() {
           <button @click="quote.removeProduct(product.id)">删除</button>
         </article>
       </template>
-      <template v-else-if="settingsTab === 'materials'">
+      <template v-else-if="view === 'settings' && settingsTab === 'materials'">
         <button class="primary" @click="quote.addMaterialRecord()">新增辅料</button>
         <article v-for="material in filteredMaterialsForSettings" :key="material.id" class="edit-row material-edit">
           <input v-model="material.category" placeholder="大类">

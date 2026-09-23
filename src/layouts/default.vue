@@ -28,6 +28,7 @@ const navItems = computed(() => [
   { label: '报价计算', to: '/quote?view=quote', icon: 'calculator' },
   { label: '报价单', to: '/quote?view=print', icon: 'document' },
   { label: '产品资料', to: '/quote?view=settings', icon: 'product', adminOnly: true },
+  { label: '成本计算', to: '/quote?view=cost', icon: 'calculator', adminOnly: true },
   { label: '数据统计', to: '/crm/statistics', icon: 'stats', hideForOwner: true },
 ].filter(item => (!item.adminOnly || canManage.value) && (!item.hideForOwner || admin.currentUser?.role !== 'owner')))
 
