@@ -38,14 +38,28 @@ function routeQuoteView(value: unknown): QuoteView {
 
 const view = ref<QuoteView>(routeQuoteView(route.query.view))
 const settingsTab = ref<'products' | 'materials' | 'cost'>('products')
-const costInputs = ref({ grassHeight: 20, yarnWeight: 367, yarnPrice: 14, backingWeight: 135, backingPrice: 1.78, adhesiveCost: 0.68, packagingCost: 1.75, laborCost: 0.65, otherCost: 0.4, targetPrice: 13.5 })
+type CostInputKey = 'needleCount' | 'grassHeight' | 'clusterDensity' | 'yarnDtex' | 'yarnPrice' | 'backingWeight' | 'backingPrice' | 'adhesiveCost' | 'packagingCost' | 'laborCost' | 'otherCost' | 'markupPercent' | 'wasteRate'
+const costInputs = ref<Record<CostInputKey, number | string>>({ needleCount: '', grassHeight: '', clusterDensity: '', yarnDtex: '', yarnPrice: '', backingWeight: '', backingPrice: '', adhesiveCost: '', packagingCost: '', laborCost: '', otherCost: '', markupPercent: '', wasteRate: '' })
 const costBreakdown = computed(() => {
   const input = costInputs.value
-  const yarnCost = Math.max(0, Number(input.yarnWeight) || 0) / 1000 * Math.max(0, Number(input.yarnPrice) || 0)
+  const needleCount = Math.max(0, Number(input.needleCount) || 0)
+  const grassHeightCm = Math.max(0, Number(input.grassHeight) || 0) / 10
+  const clusterDensity = Math.max(0, Number(input.clusterDensity) || 0)
+  const yarnDtex = Math.max(0, Number(input.yarnDtex) || 0)
+  // Follow the production worksheet: needle pitch (cm) + grass-height allowance (×1.04, doubled) + 2 mm.
+  const singleTuftLengthCm = needleCount ? 100 / needleCount + grassHeightCm * 1.04 * 2 + 0.2 : 0
+  const singleTuftLengthMm = singleTuftLengthCm * 10
+  // Convert mm to meters and dtex (g per 10,000 m) to g/m before multiplying by tuft density.
+  const theoreticalYarnWeight = singleTuftLengthMm / 1000 * clusterDensity * yarnDtex / 10000
+  const wasteFactor = 1 + Math.max(0, Number(input.wasteRate) || 0) / 100
+  const yarnWeight = theoreticalYarnWeight * wasteFactor
+  const yarnCost = yarnWeight / 1000 * Math.max(0, Number(input.yarnPrice) || 0)
   const backingCost = Math.max(0, Number(input.backingWeight) || 0) / 1000 * Math.max(0, Number(input.backingPrice) || 0)
-  const total = yarnCost + backingCost + [input.adhesiveCost, input.packagingCost, input.laborCost, input.otherCost].reduce((sum, value) => sum + Math.max(0, Number(value) || 0), 0)
-  const target = Math.max(0, Number(input.targetPrice) || 0)
-  return { yarnCost, backingCost, total, target, margin: target - total, marginRate: target ? (target - total) / target * 100 : 0 }
+  const total = yarnCost + backingCost + [input.adhesiveCost, input.packagingCost, input.laborCost, input.otherCost].reduce<number>((sum, value) => sum + Math.max(0, Number(value) || 0), 0)
+  const markupPercent = Math.max(0, Number(input.markupPercent) || 0)
+  const margin = total * markupPercent / 100
+  const target = total + margin
+  return { needleCount, grassHeightCm, clusterDensity, yarnDtex, singleTuftLengthCm, singleTuftLengthMm, theoreticalYarnWeight, yarnWeight, yarnCost, backingCost, total, markupPercent, target, margin, marginRate: target ? margin / target * 100 : 0 }
 })
 const category = ref(ALL)
 const keyword = ref('')
@@ -1792,29 +1806,35 @@ async function printPdf() {
       </template>
       <template v-else>
         <section class="cost-calculator">
-          <header class="cost-header"><div><h3>草坪成本计算器</h3><p>根据草高、草丝克重、背胶克重和原材料价格计算每平方米成本价。</p></div><span>单位：元/㎡</span></header>
+          <header class="cost-header"><div><h3>草坪成本计算器</h3><p>按“针数 + 草高 + 簇密度 + 克重”公式自动计算每平方米耗纱量和成本。</p></div><span>单位：元/㎡</span></header>
           <div class="cost-layout">
-            <div class="cost-input-card"><h4>基础参数</h4><div class="cost-fields">
-              <label>草高（mm）<input v-model.number="costInputs.grassHeight" type="number" min="0" step="0.1"></label>
-              <label>草丝克重（g/㎡）<input v-model.number="costInputs.yarnWeight" type="number" min="0" step="1"></label>
-              <label>草丝价格（元/kg）<input v-model.number="costInputs.yarnPrice" type="number" min="0" step="0.01"></label>
+            <div class="cost-input-card"><h4>① 填写草坪参数</h4><div class="cost-fields">
+              <label>针数（针/米）<input v-model.number="costInputs.needleCount" type="number" min="0" step="1" placeholder="例如 160"></label>
+              <label>草高（mm）<input v-model.number="costInputs.grassHeight" type="number" min="0" step="0.1" placeholder="例如 25"></label>
+              <label>簇密度（簇/㎡）<input v-model.number="costInputs.clusterDensity" type="number" min="0" step="1" placeholder="例如 10500"></label>
+              <label>草丝克重（dtex）<input v-model.number="costInputs.yarnDtex" type="number" min="0" step="1" placeholder="例如 12000"></label>
+              <label>草丝价格（元/kg）<input v-model.number="costInputs.yarnPrice" type="number" min="0" step="0.01" placeholder="例如 35"></label>
+              <label>生产损耗（%）<input v-model.number="costInputs.wasteRate" type="number" min="0" step="0.1"></label>
               <label>背胶克重（g/㎡）<input v-model.number="costInputs.backingWeight" type="number" min="0" step="1"></label>
               <label>背胶价格（元/kg）<input v-model.number="costInputs.backingPrice" type="number" min="0" step="0.01"></label>
-            </div><h4>其他成本</h4><div class="cost-fields">
-              <label>涂胶/底布（元/㎡）<input v-model.number="costInputs.adhesiveCost" type="number" min="0" step="0.01"></label>
+            </div><h4>② 填写其它成本（可选）</h4><div class="cost-fields">
+              <label>网格+底布（元/㎡）<input v-model.number="costInputs.adhesiveCost" type="number" min="0" step="0.01"></label>
               <label>包装（元/㎡）<input v-model.number="costInputs.packagingCost" type="number" min="0" step="0.01"></label>
               <label>人工能耗（元/㎡）<input v-model.number="costInputs.laborCost" type="number" min="0" step="0.01"></label>
               <label>其他费用（元/㎡）<input v-model.number="costInputs.otherCost" type="number" min="0" step="0.01"></label>
-              <label>目标报价（元/㎡）<input v-model.number="costInputs.targetPrice" type="number" min="0" step="0.01"></label>
+              <label>加价比例（%）<input v-model.number="costInputs.markupPercent" type="number" min="0" step="0.1" placeholder="例如 15"></label>
             </div></div>
-            <div class="cost-result-card"><h4>计算结果</h4><div class="cost-result-list">
-              <div><span>草高</span><b>{{ Number(costInputs.grassHeight || 0).toFixed(1) }} mm</b></div>
+            <div class="cost-result-card"><h4>③ 自动计算结果</h4><div class="cost-result-list">
+              <div><span>单簇草丝长度</span><b>{{ costBreakdown.singleTuftLengthMm.toFixed(2) }} mm</b></div>
+              <div><span>理论耗纱量</span><b>{{ costBreakdown.theoreticalYarnWeight.toFixed(2) }} g/㎡</b></div>
+              <div><span>实际耗纱量（含损耗）</span><b>{{ costBreakdown.yarnWeight.toFixed(2) }} g/㎡</b></div>
               <div><span>草丝成本</span><b>¥{{ costBreakdown.yarnCost.toFixed(2) }}</b></div>
               <div><span>背胶成本</span><b>¥{{ costBreakdown.backingCost.toFixed(2) }}</b></div>
               <div class="total"><span>综合成本价</span><b>¥{{ costBreakdown.total.toFixed(2) }}</b></div>
-              <div><span>目标报价</span><b>¥{{ costBreakdown.target.toFixed(2) }}</b></div>
+              <div><span>加价金额（{{ costBreakdown.markupPercent }}%）</span><b>¥{{ costBreakdown.margin.toFixed(2) }}</b></div>
+              <div class="total"><span>最终报价</span><b>¥{{ costBreakdown.target.toFixed(2) }}</b></div>
               <div :class="costBreakdown.margin >= 0 ? 'positive' : 'negative'"><span>预计毛利 / 毛利率</span><b>¥{{ costBreakdown.margin.toFixed(2) }} / {{ costBreakdown.marginRate.toFixed(1) }}%</b></div>
-            </div><p class="cost-note">草丝成本 = 草丝克重 ÷ 1000 × 草丝价格；背胶成本 = 背胶克重 ÷ 1000 × 背胶价格。</p></div>
+            </div><p class="cost-note">按单位换算：单簇长度(mm)＝100÷针数×10＋草高(mm)×1.04×2＋2；耗纱量(g/㎡)＝单簇长度(mm)÷1000×簇密度×克重(dtex)÷10000×损耗系数。最终报价＝综合成本×（1＋加价比例÷100）。所有结果会随输入即时更新。</p></div>
           </div>
         </section>
       </template>
