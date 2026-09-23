@@ -37,7 +37,16 @@ function routeQuoteView(value: unknown): QuoteView {
 }
 
 const view = ref<QuoteView>(routeQuoteView(route.query.view))
-const settingsTab = ref<'products' | 'materials'>('products')
+const settingsTab = ref<'products' | 'materials' | 'cost'>('products')
+const costInputs = ref({ grassHeight: 20, yarnWeight: 367, yarnPrice: 14, backingWeight: 135, backingPrice: 1.78, adhesiveCost: 0.68, packagingCost: 1.75, laborCost: 0.65, otherCost: 0.4, targetPrice: 13.5 })
+const costBreakdown = computed(() => {
+  const input = costInputs.value
+  const yarnCost = Math.max(0, Number(input.yarnWeight) || 0) / 1000 * Math.max(0, Number(input.yarnPrice) || 0)
+  const backingCost = Math.max(0, Number(input.backingWeight) || 0) / 1000 * Math.max(0, Number(input.backingPrice) || 0)
+  const total = yarnCost + backingCost + [input.adhesiveCost, input.packagingCost, input.laborCost, input.otherCost].reduce((sum, value) => sum + Math.max(0, Number(value) || 0), 0)
+  const target = Math.max(0, Number(input.targetPrice) || 0)
+  return { yarnCost, backingCost, total, target, margin: target - total, marginRate: target ? (target - total) / target * 100 : 0 }
+})
 const category = ref(ALL)
 const keyword = ref('')
 const syncedCrmQuoteId = ref('')
@@ -1740,13 +1749,14 @@ async function printPdf() {
       <header>
         <h2>数据维护</h2>
         <div class="settings-actions">
-          <button @click="settingsTab = 'products'">产品</button>
-          <button @click="settingsTab = 'materials'">辅料</button>
+          <button :class="{ active: settingsTab === 'products' }" @click="settingsTab = 'products'">产品</button>
+          <button :class="{ active: settingsTab === 'materials' }" @click="settingsTab = 'materials'">辅料</button>
+          <button :class="{ active: settingsTab === 'cost' }" @click="settingsTab = 'cost'">成本计算器</button>
           <button v-if="settingsTab === 'products'" @click="downloadProductImportTemplate">下载模板</button>
           <label v-if="settingsTab === 'products'" class="settings-file-button">批量导入<input type="file" accept=".xlsx,.xls,.csv" @change="importProductFile"></label>
           <button @click="restoreDefaultPricing">恢复内置数据</button>
-          <button @click="quote.savePricing()">保存</button>
-          <button @click="quote.exportPricingJson()">导出数据</button>
+          <button v-if="settingsTab !== 'cost'" @click="quote.savePricing()">保存</button>
+          <button v-if="settingsTab !== 'cost'" @click="quote.exportPricingJson()">导出数据</button>
         </div>
       </header>
       <input v-model="settingsKeyword" class="search" placeholder="搜索">
@@ -1767,7 +1777,7 @@ async function printPdf() {
           <button @click="quote.removeProduct(product.id)">删除</button>
         </article>
       </template>
-      <template v-else>
+      <template v-else-if="settingsTab === 'materials'">
         <button class="primary" @click="quote.addMaterialRecord()">新增辅料</button>
         <article v-for="material in filteredMaterialsForSettings" :key="material.id" class="edit-row material-edit">
           <input v-model="material.category" placeholder="大类">
@@ -1778,6 +1788,34 @@ async function printPdf() {
           <input v-model="material.note" placeholder="备注">
           <button @click="quote.removeMaterial(material.id)">删除</button>
         </article>
+      </template>
+      <template v-else>
+        <section class="cost-calculator">
+          <header class="cost-header"><div><h3>草坪成本计算器</h3><p>根据草高、草丝克重、背胶克重和原材料价格计算每平方米成本价。</p></div><span>单位：元/㎡</span></header>
+          <div class="cost-layout">
+            <div class="cost-input-card"><h4>基础参数</h4><div class="cost-fields">
+              <label>草高（mm）<input v-model.number="costInputs.grassHeight" type="number" min="0" step="0.1"></label>
+              <label>草丝克重（g/㎡）<input v-model.number="costInputs.yarnWeight" type="number" min="0" step="1"></label>
+              <label>草丝价格（元/kg）<input v-model.number="costInputs.yarnPrice" type="number" min="0" step="0.01"></label>
+              <label>背胶克重（g/㎡）<input v-model.number="costInputs.backingWeight" type="number" min="0" step="1"></label>
+              <label>背胶价格（元/kg）<input v-model.number="costInputs.backingPrice" type="number" min="0" step="0.01"></label>
+            </div><h4>其他成本</h4><div class="cost-fields">
+              <label>涂胶/底布（元/㎡）<input v-model.number="costInputs.adhesiveCost" type="number" min="0" step="0.01"></label>
+              <label>包装（元/㎡）<input v-model.number="costInputs.packagingCost" type="number" min="0" step="0.01"></label>
+              <label>人工能耗（元/㎡）<input v-model.number="costInputs.laborCost" type="number" min="0" step="0.01"></label>
+              <label>其他费用（元/㎡）<input v-model.number="costInputs.otherCost" type="number" min="0" step="0.01"></label>
+              <label>目标报价（元/㎡）<input v-model.number="costInputs.targetPrice" type="number" min="0" step="0.01"></label>
+            </div></div>
+            <div class="cost-result-card"><h4>计算结果</h4><div class="cost-result-list">
+              <div><span>草高</span><b>{{ Number(costInputs.grassHeight || 0).toFixed(1) }} mm</b></div>
+              <div><span>草丝成本</span><b>¥{{ costBreakdown.yarnCost.toFixed(2) }}</b></div>
+              <div><span>背胶成本</span><b>¥{{ costBreakdown.backingCost.toFixed(2) }}</b></div>
+              <div class="total"><span>综合成本价</span><b>¥{{ costBreakdown.total.toFixed(2) }}</b></div>
+              <div><span>目标报价</span><b>¥{{ costBreakdown.target.toFixed(2) }}</b></div>
+              <div :class="costBreakdown.margin >= 0 ? 'positive' : 'negative'"><span>预计毛利 / 毛利率</span><b>¥{{ costBreakdown.margin.toFixed(2) }} / {{ costBreakdown.marginRate.toFixed(1) }}%</b></div>
+            </div><p class="cost-note">草丝成本 = 草丝克重 ÷ 1000 × 草丝价格；背胶成本 = 背胶克重 ÷ 1000 × 背胶价格。</p></div>
+          </div>
+        </section>
       </template>
     </section>
 
@@ -1945,6 +1983,13 @@ async function printPdf() {
 .toolbar nav,.settings-actions{display:flex;flex-wrap:wrap;gap:8px}
 .settings-file-button{display:inline-flex;align-items:center;padding:9px 14px;border:1px solid #cbdcf1;border-radius:10px;background:#fff;color:#0b3158;font-weight:700;cursor:pointer}
 .settings-file-button input{display:none}
+.settings-actions button.active{background:#246ed8;color:#fff;border-color:#246ed8}
+.cost-calculator{margin-top:8px;border:1px solid #d7e2ee;border-radius:14px;background:#f8fbff;padding:18px}
+.cost-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
+.cost-header h3{margin:0;color:#10243f;font-size:20px}.cost-header p{margin:6px 0 0;color:#64748b;font-size:12px}.cost-header>span{border-radius:999px;background:#e9f3ff;color:#246ed8;padding:7px 10px;font-size:12px;font-weight:800;white-space:nowrap}
+.cost-layout{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(300px,.75fr);gap:14px}.cost-input-card,.cost-result-card{border:1px solid #d7e2ee;border-radius:12px;background:#fff;padding:16px}.cost-input-card h4,.cost-result-card h4{margin:0 0 12px;color:#183f68;font-size:14px}.cost-input-card h4:not(:first-child){margin-top:18px}.cost-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.cost-fields label{display:grid;gap:5px;color:#50627a;font-size:12px;font-weight:800}.cost-fields input{min-height:38px;border:1px solid #d5dee9;border-radius:9px;background:#f8fafc;padding:7px 10px;color:#142235}.cost-result-list{display:grid;gap:0}.cost-result-list>div{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #edf1f5;padding:11px 0;color:#64748b;font-size:13px}.cost-result-list b{color:#183f68}.cost-result-list .total{margin:5px -8px;padding:14px 8px;border:0;border-radius:9px;background:#eaf3ff;color:#183f68;font-weight:900}.cost-result-list .total b{color:#246ed8;font-size:22px}.cost-result-list .positive b{color:#198754}.cost-result-list .negative b{color:#c62828}.cost-note{margin:14px 0 0;color:#94a3b8;font-size:11px;line-height:1.6}
+@media(max-width:900px){.cost-layout{grid-template-columns:1fr}}
+@media(max-width:620px){.cost-fields{grid-template-columns:1fr}.cost-header{flex-direction:column}.cost-header>span{align-self:flex-start}}
 .eyebrow{margin:0 0 5px;color:#8a8177;font-size:13px;font-weight:700}
 h1,h2,h3,p{margin:0}
 h1{font-size:34px;letter-spacing:0;color:#1c1a17}
