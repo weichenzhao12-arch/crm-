@@ -30,6 +30,7 @@ const activeTab = ref<'products' | 'materials' | 'users' | 'recycle'>('users')
 const keyword = ref('')
 const oldPassword = ref('')
 const newPassword = ref('')
+const userSaveStatus = ref('')
 const selectedProductIds = ref<string[]>([])
 const selectedMaterialIds = ref<string[]>([])
 const resetPasswordDrafts = ref<Record<string, string>>({})
@@ -350,6 +351,16 @@ function addAdminUser() {
   system.log('create', 'user', user?.displayName || user?.account || '新账号', `新增账号：${user?.account || ''}`)
 }
 
+async function saveAdminUsers() {
+  userSaveStatus.value = '正在保存…'
+  await admin.saveUsers()
+  userSaveStatus.value = '已保存到云端'
+  window.setTimeout(() => {
+    if (userSaveStatus.value === '已保存到云端')
+      userSaveStatus.value = ''
+  }, 2500)
+}
+
 function applyUserRole(user: any) {
   admin.applyRole(user)
   system.log('update', 'user', user.displayName || user.account, `切换角色并重置权限：${user.role}`)
@@ -360,7 +371,7 @@ function removeAdminUser(user: any) {
   admin.removeUser(user.id)
 }
 
-function resetAdminUserPassword(user: any) {
+async function resetAdminUserPassword(user: any) {
   const nextPassword = resetPasswordDrafts.value[user.id]?.trim()
   if (!nextPassword) {
     window.alert('请输入要重置的新密码')
@@ -370,9 +381,10 @@ function resetAdminUserPassword(user: any) {
     window.alert('重置失败，请检查账号状态')
     return
   }
+  await admin.saveUsers()
   resetPasswordDrafts.value[user.id] = ''
   system.log('update', 'user', user.displayName || user.account, `重置账号密码：${user.account}`)
-  window.alert('密码已重置')
+  window.alert('密码已保存并重置')
 }
 
 function changeOwnPassword() {
@@ -476,7 +488,7 @@ function changeOwnPassword() {
     <section v-else-if="activeTab === 'users'" class="admin-panel">
       <header>
         <h2>账号权限</h2>
-        <button @click="addAdminUser">新增账号</button>
+        <div class="admin-actions"><button @click="addAdminUser">新增账号</button><button class="primary-action" @click="saveAdminUsers">保存账号设置</button><span v-if="userSaveStatus" class="save-status">{{ userSaveStatus }}</span></div>
       </header>
       <div class="password-box">
         <label>原密码<input v-model="oldPassword" type="password" placeholder="输入当前密码"></label>
@@ -591,6 +603,8 @@ function changeOwnPassword() {
 .admin-hero a,.admin-hero button,.admin-tabs button,.admin-panel button,.admin-actions label{min-height:40px;border:1px solid #cfe0f3;border-radius:10px;background:#fff;color:#183f68;padding:9px 14px;font-weight:800;text-decoration:none;cursor:pointer}
 .admin-panel button.danger,.admin-actions button.danger{border-color:#f1b7b7;color:#a42b2b;background:#fff7f7}
 .admin-panel button:disabled{opacity:.45;cursor:not-allowed}
+.admin-panel button.primary-action{background:#2563eb;color:#fff;border-color:#2563eb}
+.save-status{align-self:center;color:#16803c;font-size:12px;font-weight:700}
 .admin-tabs{max-width:1680px;margin:0 auto 14px}
 .admin-tabs button.active{background:#246ed8;color:#fff;border-color:#246ed8}
 .admin-panel{max-width:1680px;margin:0 auto 18px;padding:20px;border:1px solid #d7e2ee;border-radius:16px;background:#fff;box-shadow:0 12px 34px rgba(38,59,84,.075)}
