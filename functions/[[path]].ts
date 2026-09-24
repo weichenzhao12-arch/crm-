@@ -107,6 +107,9 @@ async function syncAdminUsers(db: D1Database, users: unknown) {
   const ids = rows.map(row => row.id)
   if (ids.length) {
     const placeholders = ids.map(() => '?').join(',')
+    // Remove sessions before deleting users because sessions has a foreign key
+    // to users. Otherwise the app_state write succeeds but user sync rolls back.
+    statements.push(db.prepare(`DELETE FROM sessions WHERE user_id != 'owner' AND user_id NOT IN (${placeholders})`).bind(...ids))
     statements.push(db.prepare(`DELETE FROM users WHERE id != 'owner' AND id NOT IN (${placeholders})`).bind(...ids))
   }
 
