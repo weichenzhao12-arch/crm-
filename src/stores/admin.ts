@@ -35,6 +35,7 @@ export function isSalesUser(user: Pick<AdminUser, 'enabled' | 'role'>) {
 
 const STORAGE_KEY = 'quote-admin-users'
 const CURRENT_USER_KEY = 'quote-admin-current-user'
+let cloudSaveQueue: Promise<void> = Promise.resolve()
 
 function createId() {
   return `user-${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -198,8 +199,15 @@ export const useAdminStore = defineStore('admin', {
   },
   actions: {
     saveUsers() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.users))
-      putCloudState('admin-users', this.users).catch(() => {})
+      const snapshot = clone(this.users)
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot))
+      // Keep writes in order. Rapid edits (delete + add + permission changes)
+      // must not let an older request arrive after the newest state.
+      cloudSaveQueue = cloudSaveQueue
+        .catch(() => {})
+        .then(() => putCloudState('admin-users', snapshot).then(() => undefined))
+        .catch(() => {})
+      return cloudSaveQueue
     },
     async loadCloudUsers() {
       const users = await getCloudState<AdminUser[]>('admin-users').catch(() => null)
