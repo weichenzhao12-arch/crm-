@@ -11,6 +11,7 @@ export interface AdminPermission {
   manageUsers: boolean
   exportQuote: boolean
   temporaryEdit: boolean
+  costCalculation: boolean
   viewAllCustomers: boolean
   importCustomers: boolean
   exportCustomers: boolean
@@ -35,7 +36,8 @@ export function isSalesUser(user: Pick<AdminUser, 'enabled' | 'role'>) {
 
 const STORAGE_KEY = 'quote-admin-users'
 const CURRENT_USER_KEY = 'quote-admin-current-user'
-let cloudSaveQueue: Promise<void> = Promise.resolve()
+let cloudSaveQueue: Promise<boolean> = Promise.resolve(true)
+let adminChangeVersion = 0
 
 function createId() {
   return `user-${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -54,6 +56,7 @@ function permissionsForRole(role: AdminRole): AdminPermission {
       manageUsers: true,
       exportQuote: true,
       temporaryEdit: true,
+      costCalculation: true,
       viewAllCustomers: true,
       importCustomers: true,
       exportCustomers: true,
@@ -69,6 +72,7 @@ function permissionsForRole(role: AdminRole): AdminPermission {
       manageUsers: false,
       exportQuote: true,
       temporaryEdit: true,
+      costCalculation: true,
       viewAllCustomers: true,
       importCustomers: true,
       exportCustomers: true,
@@ -84,6 +88,7 @@ function permissionsForRole(role: AdminRole): AdminPermission {
       manageUsers: false,
       exportQuote: false,
       temporaryEdit: true,
+      costCalculation: false,
       viewAllCustomers: false,
       importCustomers: true,
       exportCustomers: false,
@@ -98,6 +103,7 @@ function permissionsForRole(role: AdminRole): AdminPermission {
     manageUsers: false,
     exportQuote: false,
     temporaryEdit: false,
+    costCalculation: false,
     viewAllCustomers: false,
     importCustomers: false,
     exportCustomers: false,
@@ -112,6 +118,7 @@ function normalizePermissions(raw: Partial<AdminPermission> | undefined, role: A
   return {
     ...defaults,
     ...(raw || {}),
+    costCalculation: role === 'owner' || role === 'manager' || Boolean(raw?.costCalculation),
     viewAllCustomers: raw?.viewAllCustomers ?? manageFallback ?? defaults.viewAllCustomers,
     importCustomers: raw?.importCustomers ?? raw?.importExcel ?? defaults.importCustomers,
     exportCustomers: raw?.exportCustomers ?? raw?.exportQuote ?? defaults.exportCustomers,
@@ -193,6 +200,7 @@ export const useAdminStore = defineStore('admin', {
   state: () => ({
     users: loadUsers(),
     currentUserId: loadCurrentUserId(),
+    saveError: '',
   }),
   getters: {
     currentUser: state => state.users.find(user => user.id === state.currentUserId) ?? state.users[0],
@@ -201,17 +209,29 @@ export const useAdminStore = defineStore('admin', {
     saveUsers() {
       const snapshot = clone(this.users)
       localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot))
+      adminChangeVersion++
+      this.saveError = ''
       // Keep writes in order. Rapid edits (delete + add + permission changes)
       // must not let an older request arrive after the newest state.
       cloudSaveQueue = cloudSaveQueue
-        .catch(() => {})
-        .then(() => putCloudState('admin-users', snapshot).then(() => undefined))
-        .catch(() => {})
+        .then(async () => {
+          try {
+            await putCloudState('admin-users', snapshot)
+            this.saveError = ''
+            return true
+          }
+          catch (error) {
+            this.saveError = error instanceof Error ? error.message : '云端保存失败'
+            return false
+          }
+        })
       return cloudSaveQueue
     },
     async loadCloudUsers() {
+      const version = adminChangeVersion
+      await cloudSaveQueue
       const users = await getCloudState<AdminUser[]>('admin-users').catch(() => null)
-      if (Array.isArray(users) && users.length) {
+      if (version === adminChangeVersion && Array.isArray(users) && users.length) {
         this.users = users.map(normalizeUser)
         localStorage.setItem(STORAGE_KEY, JSON.stringify(this.users))
       }

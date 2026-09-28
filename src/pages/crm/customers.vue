@@ -586,24 +586,26 @@ function saveNewCustomer() {
   newCustomerDialogOpen.value = false
 }
 
-function deleteCustomer(customerId: string) {
+async function deleteCustomer(customerId: string) {
   if (!canDeleteCustomers.value)
     return
   if (!window.confirm('确定删除这条客资吗？删除后无法恢复。'))
     return
-  crm.removeCustomer(customerId)
+  if (!await crm.removeCustomer(customerId))
+    window.alert(`客户删除未保存到云端：${crm.saveError || '请稍后重试'}`)
 }
 
 function toggleAllFilteredCustomers(event: Event) {
   selectedCustomerIds.value = (event.target as HTMLInputElement).checked ? [...filteredCustomerIds.value] : []
 }
 
-function batchDeleteCustomers() {
+async function batchDeleteCustomers() {
   if (!canDeleteCustomers.value || !selectedCustomerIds.value.length)
     return
   if (!window.confirm(`确定删除已选中的 ${selectedCustomerIds.value.length} 条客资吗？删除后无法恢复。`))
     return
-  crm.removeCustomers(selectedCustomerIds.value)
+  if (!await crm.removeCustomers(selectedCustomerIds.value))
+    window.alert(`客户删除未保存到云端：${crm.saveError || '请稍后重试'}`)
   selectedCustomerIds.value = []
 }
 

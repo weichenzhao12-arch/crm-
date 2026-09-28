@@ -18,6 +18,7 @@ const isQuote = computed(() => route.path.startsWith('/quote'))
 const isAdmin = computed(() => route.path.startsWith('/admin'))
 const pageTitle = computed(() => String(route.meta.title || (isQuote.value ? '报价管理' : isAdmin.value ? '系统管理' : '工作台')))
 const canManage = computed(() => ['owner', 'manager'].includes(admin.currentUser?.role || '') || Boolean(admin.currentUser?.permissions.manageUsers))
+const canCalculateCost = computed(() => ['owner', 'manager'].includes(admin.currentUser?.role || '') || Boolean(admin.currentUser?.permissions.costCalculation))
 const pendingFollowCount = computed(() => crm.customers.reduce((count, customer) =>
   count + customer.followUps.filter(follow => follow.reminderDate && !follow.reminderDone).length, 0))
 
@@ -28,9 +29,9 @@ const navItems = computed(() => [
   { label: '报价计算', to: '/quote?view=quote', icon: 'calculator' },
   { label: '报价单', to: '/quote?view=print', icon: 'document' },
   { label: '产品资料', to: '/quote?view=settings', icon: 'product', adminOnly: true },
-  { label: '成本计算', to: '/quote?view=cost', icon: 'calculator', adminOnly: true },
+  { label: '成本计算', to: '/quote?view=cost', icon: 'calculator', costAccess: true },
   { label: '数据统计', to: '/crm/statistics', icon: 'stats', hideForOwner: true },
-].filter(item => (!item.adminOnly || canManage.value) && (!item.hideForOwner || admin.currentUser?.role !== 'owner')))
+].filter(item => (!item.adminOnly || canManage.value) && (!item.costAccess || canCalculateCost.value) && (!item.hideForOwner || admin.currentUser?.role !== 'owner')))
 
 function navActive(item: { to: string, exact?: boolean }) {
   const [path, query] = item.to.split('?')

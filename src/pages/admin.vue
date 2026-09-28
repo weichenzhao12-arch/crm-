@@ -49,6 +49,7 @@ const permissionGuide = [
   { group: '数据恢复', name: '回收站恢复', field: 'restoreRecords', detail: '允许从回收站恢复客户、产品、辅料，也可查看 7 天操作记录。' },
   { group: '报价', name: '报价导出', field: 'exportQuote', detail: '允许导出报价单 PDF/Word。' },
   { group: '报价', name: '临时改价', field: 'temporaryEdit', detail: '允许报价人员在报价页面临时修改单价，用于客户沟通。' },
+  { group: '报价', name: '成本计算', field: 'costCalculation', detail: '允许使用草坪成本计算器；不包含产品资料管理权限。' },
 ]
 
 onMounted(() => {
@@ -353,8 +354,8 @@ function addAdminUser() {
 
 async function saveAdminUsers() {
   userSaveStatus.value = '正在保存…'
-  await admin.saveUsers()
-  userSaveStatus.value = '已保存到云端'
+  const saved = await admin.saveUsers()
+  userSaveStatus.value = saved ? '已保存到云端' : `保存失败：${admin.saveError || '请稍后重试'}`
   window.setTimeout(() => {
     if (userSaveStatus.value === '已保存到云端')
       userSaveStatus.value = ''
@@ -488,7 +489,7 @@ function changeOwnPassword() {
     <section v-else-if="activeTab === 'users'" class="admin-panel">
       <header>
         <h2>账号权限</h2>
-        <div class="admin-actions"><button @click="addAdminUser">新增账号</button><button class="primary-action" @click="saveAdminUsers">保存账号设置</button><span v-if="userSaveStatus" class="save-status">{{ userSaveStatus }}</span></div>
+        <div class="admin-actions"><button @click="addAdminUser">新增账号</button><button class="primary-action" @click="saveAdminUsers">保存账号设置</button><span v-if="userSaveStatus" class="save-status" :class="{ error: userSaveStatus.startsWith('保存失败') }">{{ userSaveStatus }}</span></div>
       </header>
       <div class="password-box">
         <label>原密码<input v-model="oldPassword" type="password" placeholder="输入当前密码"></label>
@@ -525,6 +526,7 @@ function changeOwnPassword() {
               <h3>报价与商品</h3>
               <label><input v-model="user.permissions.exportQuote" type="checkbox" @change="admin.saveUsers()"><span><b>报价导出</b><small>允许导出报价单 PDF / Word</small></span></label>
               <label><input v-model="user.permissions.temporaryEdit" type="checkbox" @change="admin.saveUsers()"><span><b>临时改价</b><small>允许在报价时临时调整单价</small></span></label>
+              <label><input v-model="user.permissions.costCalculation" type="checkbox" :disabled="user.role === 'owner' || user.role === 'manager'" @change="admin.saveUsers()"><span><b>成本计算</b><small>允许查看和使用草坪成本计算器</small></span></label>
               <label><input v-model="user.permissions.manageProducts" type="checkbox" @change="admin.saveUsers()"><span><b>产品管理</b><small>新增、修改和删除产品</small></span></label>
               <label><input v-model="user.permissions.manageMaterials" type="checkbox" @change="admin.saveUsers()"><span><b>辅料管理</b><small>新增、修改和删除辅料</small></span></label>
               <label><input v-model="user.permissions.importExcel" type="checkbox" @change="admin.saveUsers()"><span><b>产品表格导入</b><small>批量导入产品价格表</small></span></label>
@@ -605,6 +607,7 @@ function changeOwnPassword() {
 .admin-panel button:disabled{opacity:.45;cursor:not-allowed}
 .admin-panel button.primary-action{background:#2563eb;color:#fff;border-color:#2563eb}
 .save-status{align-self:center;color:#16803c;font-size:12px;font-weight:700}
+.save-status.error{color:#b91c1c}
 .admin-tabs{max-width:1680px;margin:0 auto 14px}
 .admin-tabs button.active{background:#246ed8;color:#fff;border-color:#246ed8}
 .admin-panel{max-width:1680px;margin:0 auto 18px;padding:20px;border:1px solid #d7e2ee;border-radius:16px;background:#fff;box-shadow:0 12px 34px rgba(38,59,84,.075)}

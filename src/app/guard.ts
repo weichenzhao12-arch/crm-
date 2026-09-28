@@ -20,6 +20,12 @@ export function applyRouterGuards(router: Router) {
     if (to.path.startsWith('/admin') && !canManage)
       return { path: '/' }
 
+    if (to.path === '/quote' && to.query.view === 'cost') {
+      const canCalculateCost = currentUser?.role === 'owner' || currentUser?.role === 'manager' || Boolean(currentUser?.permissions.costCalculation)
+      if (!canCalculateCost)
+        return { path: '/quote', query: { view: 'quote' } }
+    }
+
     return true
   })
 

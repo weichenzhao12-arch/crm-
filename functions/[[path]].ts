@@ -124,22 +124,37 @@ async function replaceJsonRows(db: D1Database, table: string, rows: any[], mappe
   await db.batch(rows.map(mapper))
 }
 
-async function syncCustomers(db: D1Database, customers: unknown) {
-  if (!Array.isArray(customers))
-    return
-  await replaceJsonRows(db, 'crm_customers', customers, customer =>
+async function syncCustomers(db: D1Database) {
+  // Read the saved snapshot inside D1 so large customer attachments are not
+  // sent again as bound parameters in a second batch request.
+  await db.batch([
     db.prepare(`
       INSERT INTO crm_customers (id, name, owner, stage, assigned_to_user_id, value, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    `).bind(
-      String(customer.id || crypto.randomUUID()),
-      String(customer.name || ''),
-      String(customer.owner || ''),
-      String(customer.stage || ''),
-      String(customer.assignedToUserId || ''),
-      JSON.stringify(customer),
-    ),
-  )
+      SELECT json_extract(j.value, '$.id'),
+        COALESCE(json_extract(j.value, '$.name'), ''),
+        COALESCE(json_extract(j.value, '$.owner'), ''),
+        COALESCE(json_extract(j.value, '$.stage'), ''),
+        COALESCE(json_extract(j.value, '$.assignedToUserId'), ''),
+        j.value, CURRENT_TIMESTAMP
+      FROM app_state AS a, json_each(a.value) AS j
+      WHERE a.key = 'customers'
+      ON CONFLICT(id) DO UPDATE SET
+        name = excluded.name,
+        owner = excluded.owner,
+        stage = excluded.stage,
+        assigned_to_user_id = excluded.assigned_to_user_id,
+        value = excluded.value,
+        updated_at = CURRENT_TIMESTAMP
+    `),
+    db.prepare(`
+      DELETE FROM crm_customers
+      WHERE id NOT IN (
+        SELECT json_extract(j.value, '$.id')
+        FROM app_state AS a, json_each(a.value) AS j
+        WHERE a.key = 'customers'
+      )
+    `),
+  ])
 }
 
 async function syncPricing(db: D1Database, pricing: any) {
@@ -215,8 +230,15 @@ async function syncSystemState(db: D1Database, state: any) {
 }
 
 async function syncNormalizedState(db: D1Database, key: string, value: unknown) {
-  if (key === 'customers')
-    await syncCustomers(db, value)
+  if (key === 'customers') {
+    try {
+      await syncCustomers(db)
+    }
+    catch (error) {
+      // The saved snapshot remains authoritative even if this index fails.
+      console.error('Failed to sync customer index', error)
+    }
+  }
   else if (key === 'pricing')
     await syncPricing(db, value)
   else if (key === 'system-state')
@@ -241,8 +263,9 @@ async function readJsonRows(db: D1Database, table: string) {
 
 async function readNormalizedState(db: D1Database, key: string, fallback: any) {
   if (key === 'customers') {
-    const customers = await readJsonRows(db, 'crm_customers')
-    return customers.length ? customers : fallback
+    // app_state is the source of truth for customer writes. The legacy table
+    // can lag behind if its large batch update fails; use it only for migration.
+    return Array.isArray(fallback) ? fallback : readJsonRows(db, 'crm_customers')
   }
 
   if (key === 'pricing') {
@@ -379,6 +402,8 @@ app.put('/state/:key', async (c) => {
   const key = c.req.param('key')
   const user = c.get('user')
   const body = await c.req.json<{ value: unknown }>()
+  if (key === 'customers' && !Array.isArray(body.value))
+    return c.json({ message: '客户数据格式不正确' }, 400)
   const canWrite
     = key === 'admin-users'
       ? hasPermission(user, 'manageUsers')

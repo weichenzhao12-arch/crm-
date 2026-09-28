@@ -285,9 +285,13 @@ function loadCustomers() {
   return customers
 }
 
+let customerSaveQueue: Promise<boolean> = Promise.resolve(true)
+let customerChangeVersion = 0
+
 export const useCrmStore = defineStore('crm', {
   state: () => ({
     customers: loadCustomers(),
+    saveError: '',
   }),
   getters: {
     totals: state => ({
@@ -301,12 +305,28 @@ export const useCrmStore = defineStore('crm', {
   actions: {
     save() {
       touchChangedCustomers(this.customers)
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.customers))
-      putCloudState('customers', this.customers).catch(() => {})
+      const snapshot = JSON.stringify(this.customers)
+      localStorage.setItem(STORAGE_KEY, snapshot)
+      customerChangeVersion++
+      this.saveError = ''
+      customerSaveQueue = customerSaveQueue.then(async () => {
+        try {
+          await putCloudState('customers', JSON.parse(snapshot))
+          this.saveError = ''
+          return true
+        }
+        catch (error) {
+          this.saveError = error instanceof Error ? error.message : '云端保存失败'
+          return false
+        }
+      })
+      return customerSaveQueue
     },
     async loadCloudCustomers() {
+      const version = customerChangeVersion
+      await customerSaveQueue
       const customers = await getCloudState<Partial<CrmCustomer>[]>('customers').catch(() => null)
-      if (Array.isArray(customers)) {
+      if (version === customerChangeVersion && Array.isArray(customers)) {
         this.customers = customers.map(normalizeCustomer)
         syncCustomerFingerprints(this.customers)
         localStorage.setItem(STORAGE_KEY, JSON.stringify(this.customers))
@@ -368,10 +388,16 @@ export const useCrmStore = defineStore('crm', {
 
       useSystemStore().addRecycle('customer', customer.name || customer.phone || '未命名客户', customer)
       this.customers = this.customers.filter(customer => customer.id !== id)
-      this.save()
+      return this.save()
     },
     removeCustomers(ids: string[]) {
-      ids.forEach(id => this.removeCustomer(id))
+      const selected = new Set(ids)
+      const removed = this.customers.filter(customer => selected.has(customer.id))
+      if (!removed.length)
+        return Promise.resolve(true)
+      removed.forEach(customer => useSystemStore().addRecycle('customer', customer.name || customer.phone || '未命名客户', customer))
+      this.customers = this.customers.filter(customer => !selected.has(customer.id))
+      return this.save()
     },
     restoreCustomer(customer: CrmCustomer) {
       const normalized = normalizeCustomer(customer)

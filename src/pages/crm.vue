@@ -522,12 +522,13 @@ function addCustomer() {
   router.push(`/crm/customer/${id}`)
 }
 
-function deleteCustomer(customerId: string) {
+async function deleteCustomer(customerId: string) {
   if (!canDeleteCustomers.value)
     return
   if (!window.confirm('确定删除这条客资吗？删除后无法恢复。'))
     return
-  crm.removeCustomer(customerId)
+  if (!await crm.removeCustomer(customerId))
+    window.alert(`客户删除未保存到云端：${crm.saveError || '请稍后重试'}`)
 }
 
 function assignLead() {
