@@ -4,6 +4,12 @@ function token() {
   return sessionStorage.getItem(AUTH_STORAGE_KEY) || ''
 }
 
+export class CloudApiError extends Error {
+  constructor(public readonly status: number, message: string) {
+    super(message)
+  }
+}
+
 async function apiFetch<T>(url: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(url, {
     ...options,
@@ -15,7 +21,7 @@ async function apiFetch<T>(url: string, options: RequestInit = {}): Promise<T> {
   })
 
   if (!response.ok)
-    throw new Error(await response.text())
+    throw new CloudApiError(response.status, await response.text())
 
   return response.json() as Promise<T>
 }
@@ -25,10 +31,21 @@ export async function getCloudState<T>(key: string) {
   return data.value
 }
 
+export function getCustomerCloudState<T>() {
+  return apiFetch<{ value: T | null, revision: string | null }>('/api/state/customers', { cache: 'no-store' })
+}
+
 export async function putCloudState(key: string, value: unknown) {
   return apiFetch<{ ok: boolean }>(`/api/state/${key}`, {
     method: 'PUT',
     body: JSON.stringify({ value }),
+  })
+}
+
+export function putCustomerCloudState(value: unknown, revision: string | null) {
+  return apiFetch<{ ok: boolean, revision: string }>('/api/state/customers', {
+    method: 'PUT',
+    body: JSON.stringify({ value, revision }),
   })
 }
 

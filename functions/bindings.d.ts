@@ -7,7 +7,8 @@ interface D1Database {
 interface D1PreparedStatement {
   bind(...values: unknown[]): D1PreparedStatement
   first<T = unknown>(): Promise<T | null>
-  run(): Promise<unknown>
+  all<T = unknown>(): Promise<{ results: T[] }>
+  run(): Promise<{ meta: { changes: number } }>
 }
 
 interface R2Bucket {

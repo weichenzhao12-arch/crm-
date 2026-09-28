@@ -647,11 +647,17 @@ function batchTransferCustomers() {
             <button @click="downloadLeadTemplate">下载模板</button>
           </div>
         </details>
-        <button class="primary-action" @click="addCustomer">＋ 新增客户</button>
+        <button class="primary-action" :disabled="crm.cloudLoadState !== 'ready'" @click="addCustomer">＋ 新增客户</button>
       </nav>
     </section>
 
-    <section class="customer-metrics">
+    <section v-if="crm.cloudLoadState === 'loading'" class="cloud-status">正在读取云端客户数据，请稍候……</section>
+    <section v-else-if="crm.cloudLoadState === 'error'" class="cloud-status cloud-error">
+      云端客户数据加载或保存失败，暂不显示本地缓存，避免误操作。{{ crm.saveError }}
+      <button @click="crm.loadCloudCustomers()">重试加载</button>
+    </section>
+
+    <section v-if="crm.cloudLoadState === 'ready'" class="customer-metrics">
       <button :class="{ active: stageFilter === '全部' }" @click="stageFilter = '全部'"><span>全部客户</span><b>{{ scopedCustomers.length }}</b><small>总计</small></button>
       <button :class="{ active: selectedUserId === loginUser?.id }" @click="selectedUserId = loginUser?.id || 'all'"><span>我的客户</span><b>{{ myCustomerCount }}</b><small>当前账号</small></button>
       <button :class="{ active: stageFilter === 'todayFollow' }" @click="stageFilter = 'todayFollow'"><span>待跟进</span><b>{{ todayFollowCount }}</b><small class="warning">需处理</small></button>
@@ -729,7 +735,7 @@ function batchTransferCustomers() {
       </div>
     </section>
 
-    <section class="customers-panel">
+    <section v-if="crm.cloudLoadState === 'ready'" class="customers-panel">
       <div class="filter-bar compact">
         <div class="customers-tools">
           <span>⌕</span>
@@ -799,6 +805,7 @@ function batchTransferCustomers() {
 </template>
 
 <style scoped>
+.cloud-status{margin:18px 0;border:1px solid #d7e2ee;border-radius:12px;background:#fff;padding:24px;color:#49617a;text-align:center}.cloud-error{color:#b91c1c}.cloud-status button{margin-left:12px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;padding:6px 12px;cursor:pointer}
 .customers-page{min-height:100vh;background:#eef3f8;padding:24px;color:#142235}
 .customers-hero{display:flex;align-items:center;justify-content:space-between;gap:18px;max-width:1920px;margin:0 auto 18px;padding:26px;border-radius:18px;background:linear-gradient(135deg,#10243f,#1f5f8b);color:#fff}
 .customers-hero p{margin:0 0 8px;color:#cce5ff;font-weight:800}

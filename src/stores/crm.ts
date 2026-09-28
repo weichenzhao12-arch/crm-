@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { getCloudState, putCloudState } from '~/api/cloud-storage'
+import { CloudApiError, getCustomerCloudState, putCustomerCloudState } from '~/api/cloud-storage'
 import { useSystemStore } from '~/stores/system'
 
 export type CustomerStage = 'new' | 'quoted' | 'follow' | 'won' | 'lost'
@@ -287,11 +287,16 @@ function loadCustomers() {
 
 let customerSaveQueue: Promise<boolean> = Promise.resolve(true)
 let customerChangeVersion = 0
+let customerCloudRevision: string | null = null
+let customerCloudLoaded = false
+let customerSaveBlocked = false
+let customerLoadPromise: Promise<void> | null = null
 
 export const useCrmStore = defineStore('crm', {
   state: () => ({
     customers: loadCustomers(),
     saveError: '',
+    cloudLoadState: 'loading' as 'loading' | 'ready' | 'error',
   }),
   getters: {
     totals: state => ({
@@ -309,14 +314,56 @@ export const useCrmStore = defineStore('crm', {
       localStorage.setItem(STORAGE_KEY, snapshot)
       customerChangeVersion++
       this.saveError = ''
+      const pendingLoad = customerLoadPromise
       customerSaveQueue = customerSaveQueue.then(async () => {
         try {
-          await putCloudState('customers', JSON.parse(snapshot))
+          if (pendingLoad)
+            await pendingLoad
+          if (!customerCloudLoaded) {
+            const remote = await getCustomerCloudState<Partial<CrmCustomer>[]>()
+            if (typeof remote.revision !== 'string' && remote.revision !== null)
+              throw new Error('云端客户数据版本不可用，请刷新页面后重试')
+            customerCloudRevision = remote.revision
+            customerCloudLoaded = true
+            if (Array.isArray(remote.value)) {
+              this.customers = remote.value.map(normalizeCustomer)
+              syncCustomerFingerprints(this.customers)
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(this.customers))
+            }
+            throw new Error('云端客户数据刚刚加载完成，操作未保存；请核对列表后重试')
+          }
+          if (customerSaveBlocked)
+            throw new Error('云端客户数据已变化，请刷新页面后重试')
+          const result = await putCustomerCloudState(JSON.parse(snapshot), customerCloudRevision)
+          customerCloudRevision = result.revision
           this.saveError = ''
+          this.cloudLoadState = 'ready'
           return true
         }
         catch (error) {
-          this.saveError = error instanceof Error ? error.message : '云端保存失败'
+          if (error instanceof CloudApiError && error.status === 409) {
+            customerSaveBlocked = true
+            let reloaded = false
+            try {
+              const remote = await getCustomerCloudState<Partial<CrmCustomer>[]>()
+              customerCloudRevision = remote.revision
+              if (Array.isArray(remote.value)) {
+                this.customers = remote.value.map(normalizeCustomer)
+                syncCustomerFingerprints(this.customers)
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(this.customers))
+                reloaded = true
+              }
+            }
+            catch { /* Keep the conflict visible; do not overwrite cloud data. */ }
+            this.saveError = reloaded
+              ? '云端客户数据已被其他页面修改，已重新读取；请核对后重试'
+              : '云端客户数据已被其他页面修改，重新读取失败；请刷新页面后重试'
+            this.cloudLoadState = reloaded ? 'ready' : 'error'
+          }
+          else {
+            this.saveError = error instanceof Error ? error.message : '云端保存失败'
+            this.cloudLoadState = 'error'
+          }
           return false
         }
       })
@@ -324,13 +371,31 @@ export const useCrmStore = defineStore('crm', {
     },
     async loadCloudCustomers() {
       const version = customerChangeVersion
-      await customerSaveQueue
-      const customers = await getCloudState<Partial<CrmCustomer>[]>('customers').catch(() => null)
-      if (version === customerChangeVersion && Array.isArray(customers)) {
-        this.customers = customers.map(normalizeCustomer)
-        syncCustomerFingerprints(this.customers)
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.customers))
-      }
+      this.cloudLoadState = 'loading'
+      const pendingSaves = customerSaveQueue
+      const loading = (async () => {
+        await pendingSaves
+        const remote = await getCustomerCloudState<Partial<CrmCustomer>[]>().catch(() => null)
+        if (version !== customerChangeVersion)
+          return
+        if (!remote || (typeof remote.revision !== 'string' && remote.revision !== null)) {
+          this.cloudLoadState = 'error'
+          return
+        }
+        customerCloudRevision = remote.revision
+        customerCloudLoaded = true
+        customerSaveBlocked = false
+        if (Array.isArray(remote.value)) {
+          this.customers = remote.value.map(normalizeCustomer)
+          syncCustomerFingerprints(this.customers)
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(this.customers))
+        }
+        this.cloudLoadState = 'ready'
+      })()
+      customerLoadPromise = loading
+      await loading
+      if (customerLoadPromise === loading)
+        customerLoadPromise = null
     },
     addCustomer(payload: Partial<CrmCustomer> = {}) {
       const customer = normalizeCustomer({

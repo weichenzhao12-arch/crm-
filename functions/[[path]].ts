@@ -127,8 +127,17 @@ async function replaceJsonRows(db: D1Database, table: string, rows: any[], mappe
 async function syncCustomers(db: D1Database) {
   // Read the saved snapshot inside D1 so large customer attachments are not
   // sent again as bound parameters in a second batch request.
-  await db.batch([
-    db.prepare(`
+  // Prune first. A large attachment can make the optional search index
+  // upsert fail; deletions must still be removed from that legacy table.
+  await db.prepare(`
+      DELETE FROM crm_customers
+      WHERE id NOT IN (
+        SELECT json_extract(j.value, '$.id')
+        FROM app_state AS a, json_each(a.value) AS j
+        WHERE a.key = 'customers'
+      )
+    `).run()
+  await db.prepare(`
       INSERT INTO crm_customers (id, name, owner, stage, assigned_to_user_id, value, updated_at)
       SELECT json_extract(j.value, '$.id'),
         COALESCE(json_extract(j.value, '$.name'), ''),
@@ -145,16 +154,7 @@ async function syncCustomers(db: D1Database) {
         assigned_to_user_id = excluded.assigned_to_user_id,
         value = excluded.value,
         updated_at = CURRENT_TIMESTAMP
-    `),
-    db.prepare(`
-      DELETE FROM crm_customers
-      WHERE id NOT IN (
-        SELECT json_extract(j.value, '$.id')
-        FROM app_state AS a, json_each(a.value) AS j
-        WHERE a.key = 'customers'
-      )
-    `),
-  ])
+    `).run()
 }
 
 async function syncPricing(db: D1Database, pricing: any) {
@@ -387,21 +387,22 @@ app.use('/pdf', requireLogin)
 
 app.get('/state/:key', async (c) => {
   const key = c.req.param('key')
-  const row = await c.env.DB.prepare('SELECT value FROM app_state WHERE key = ?').bind(key).first<{ value: string }>()
+  const row = await c.env.DB.prepare('SELECT value, revision FROM app_state WHERE key = ?').bind(key).first<{ value: string, revision: string }>()
   const fallback = row ? parseStoredJson(row.value, null) : null
+  c.header('Cache-Control', 'no-store, no-cache, must-revalidate')
   try {
     const value = await readNormalizedState(c.env.DB, key, fallback)
-    return c.json({ value })
+    return c.json({ value, revision: key === 'customers' ? row?.revision ?? null : undefined })
   }
   catch {
-    return c.json({ value: fallback })
+    return c.json({ value: fallback, revision: key === 'customers' ? row?.revision ?? null : undefined })
   }
 })
 
 app.put('/state/:key', async (c) => {
   const key = c.req.param('key')
   const user = c.get('user')
-  const body = await c.req.json<{ value: unknown }>()
+  const body = await c.req.json<{ value: unknown, revision?: string | null }>()
   if (key === 'customers' && !Array.isArray(body.value))
     return c.json({ message: '客户数据格式不正确' }, 400)
   const canWrite
@@ -416,16 +417,34 @@ app.put('/state/:key', async (c) => {
   if (!canWrite)
     return c.json({ message: '当前账号没有权限修改此数据' }, 403)
 
-  await c.env.DB
-    .prepare('INSERT INTO app_state (key, value, updated_by, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = CURRENT_TIMESTAMP')
-    .bind(key, JSON.stringify(body.value ?? null), user.id)
-    .run()
+  let revision: string | undefined
+  if (key === 'customers') {
+    if (!Object.prototype.hasOwnProperty.call(body, 'revision'))
+      return c.json({ message: '客户页面版本已过期，请刷新后重试' }, 409)
+    if (body.revision !== null && (typeof body.revision !== 'string' || !body.revision))
+      return c.json({ message: '客户数据版本无效，请刷新后重试' }, 409)
+    revision = crypto.randomUUID()
+    const statement = body.revision === null
+      ? c.env.DB.prepare('INSERT INTO app_state (key, value, updated_by, revision, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO NOTHING')
+        .bind(key, JSON.stringify(body.value), user.id, revision)
+      : c.env.DB.prepare('UPDATE app_state SET value = ?, updated_by = ?, revision = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ? AND revision = ?')
+        .bind(JSON.stringify(body.value), user.id, revision, key, body.revision)
+    const result = await statement.run()
+    if (!result.meta.changes)
+      return c.json({ message: '云端客户数据已被其他页面修改，请刷新后重试' }, 409)
+  }
+  else {
+    await c.env.DB
+      .prepare('INSERT INTO app_state (key, value, updated_by, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = CURRENT_TIMESTAMP')
+      .bind(key, JSON.stringify(body.value ?? null), user.id)
+      .run()
+  }
 
   if (key === 'admin-users')
     await syncAdminUsers(c.env.DB, body.value)
   await syncNormalizedState(c.env.DB, key, body.value)
 
-  return c.json({ ok: true })
+  return c.json({ ok: true, revision })
 })
 
 app.post('/pdf', async (c) => {
