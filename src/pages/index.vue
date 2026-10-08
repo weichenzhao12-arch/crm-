@@ -46,8 +46,8 @@ const costBreakdown = computed(() => {
   const grassHeightCm = Math.max(0, Number(input.grassHeight) || 0) / 10
   const clusterDensity = Math.max(0, Number(input.clusterDensity) || 0)
   const yarnDtex = Math.max(0, Number(input.yarnDtex) || 0)
-  // Follow the production worksheet: needle pitch (cm) + grass-height allowance (×1.04, doubled) + 2 mm.
-  const singleTuftLengthCm = needleCount ? 100 / needleCount + grassHeightCm * 1.04 * 2 + 0.2 : 0
+  // Needle pitch (cm) + doubled grass height + 2 mm.
+  const singleTuftLengthCm = needleCount ? 100 / needleCount + grassHeightCm * 2 + 0.2 : 0
   const singleTuftLengthMm = singleTuftLengthCm * 10
   // Convert mm to meters and dtex (g per 10,000 m) to g/m before multiplying by tuft density.
   const theoreticalYarnWeight = singleTuftLengthMm / 1000 * clusterDensity * yarnDtex / 10000
@@ -1834,7 +1834,7 @@ async function printPdf() {
               <div><span>加价金额（{{ costBreakdown.markupPercent }}%）</span><b>¥{{ costBreakdown.margin.toFixed(2) }}</b></div>
               <div class="total"><span>最终报价</span><b>¥{{ costBreakdown.target.toFixed(2) }}</b></div>
               <div :class="costBreakdown.margin >= 0 ? 'positive' : 'negative'"><span>预计毛利 / 毛利率</span><b>¥{{ costBreakdown.margin.toFixed(2) }} / {{ costBreakdown.marginRate.toFixed(1) }}%</b></div>
-            </div><p class="cost-note">按单位换算：单簇长度(mm)＝100÷针数×10＋草高(mm)×1.04×2＋2；耗纱量(g/㎡)＝单簇长度(mm)÷1000×簇密度×克重(dtex)÷10000×损耗系数。最终报价＝综合成本×（1＋加价比例÷100）。所有结果会随输入即时更新。</p></div>
+            </div><p class="cost-note">按单位换算：单簇长度(mm)＝100÷针数×10＋草高(mm)×2＋2；耗纱量(g/㎡)＝单簇长度(mm)÷1000×簇密度×克重(dtex)÷10000×损耗系数。最终报价＝综合成本×（1＋加价比例÷100）。所有结果会随输入即时更新。</p></div>
           </div>
         </section>
       </template>
