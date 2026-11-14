@@ -5,6 +5,7 @@ export interface ProductRecord {
   itemNo: string
   height: string
   model: string
+  needleCount?: string
   needleRow: string
   density: string
   poundWeight: string

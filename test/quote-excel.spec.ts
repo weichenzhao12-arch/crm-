@@ -6,6 +6,8 @@ describe('quote Excel export', () => {
   it('builds a workbook with quote summary and line sheets', () => {
     const workbook = buildQuoteWorkbook({
       meta: {
+        title: 'Test quote',
+        projectName: '',
         customerName: '测试客户',
         quoteDate: '2026-05-21',
         remark: '含材料',

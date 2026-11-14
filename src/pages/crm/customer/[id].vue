@@ -13,13 +13,19 @@ import { storeToRefs } from 'pinia'
 import { isSalesUser, useAdminStore } from '~/stores/admin'
 import { useCrmStore } from '~/stores/crm'
 import type { CrmFollowUp, CrmQuoteRecord } from '~/stores/crm'
+import { readSampleData } from '~/local-test/sample-storage'
+import { shipmentStatus } from '~/local-test/inventory'
+import { samplePermissions } from '~/local-test/permissions'
 
 const route = useRoute()
 const router = useRouter()
 const crm = useCrmStore()
 const admin = useAdminStore()
 const { users } = storeToRefs(admin)
-const customer = computed(() => crm.findCustomer(String(route.params.id)))
+const customer = computed(() => crm.findCustomer(String('id' in route.params ? route.params.id : '')))
+const reminderSaving = ref(false)
+const reminderError = ref('')
+const reminderId = ref('')
 const reminderModal = ref({
   open: false,
   reminderDate: '',
@@ -27,7 +33,15 @@ const reminderModal = ref({
   content: '',
   nextAction: '联系客户',
 })
-const activityTab = ref<'follow' | 'quote'>(route.query.tab === 'quote' ? 'quote' : 'follow')
+const localRecords = import.meta.env.DEV
+const activityTab = ref<'follow' | 'quote' | 'samples'>(route.query.tab === 'quote' ? 'quote' : 'follow')
+const sampleAccess = computed(() => samplePermissions(admin.currentUser))
+const sampleRecords = computed(() => {
+  if (!localRecords || !customer.value || !(sampleAccess.value.issue || sampleAccess.value.maintain)) return []
+  const { entries } = readSampleData()
+  return entries.filter(entry => entry.kind === 'issue' && entry.customerId === customer.value?.id).reverse()
+    .map(entry => ({ ...entry, status: shipmentStatus(entries, entry.id), tracking: entries.find(item => item.kind === 'dispatch' && item.original === entry.id)?.tracking }))
+})
 const reminderItems = computed(() => customer.value?.followUps.filter(follow => follow.reminderDate) || [])
 const followItems = computed(() => customer.value?.followUps.filter(follow => !follow.reminderDate) || [])
 const lastSavedSnapshot = ref('')
@@ -135,6 +149,8 @@ function followMonthDay(dateText: string) {
 }
 
 function openReminderModal() {
+  reminderError.value = ''
+  reminderId.value = ''
   reminderModal.value = {
     open: true,
     reminderDate: today(),
@@ -145,26 +161,52 @@ function openReminderModal() {
 }
 
 function closeReminderModal() {
+  if (reminderSaving.value)
+    return
   reminderModal.value.open = false
 }
 
-function saveReminder() {
+async function saveReminder() {
   const current = customer.value
-  if (!current)
+  if (!current || reminderSaving.value)
     return
   const form = reminderModal.value
-  current.followUps.unshift({
-    id: `reminder-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  if (!form.reminderDate) {
+    reminderError.value = '请选择提醒日期'
+    return
+  }
+  reminderId.value ||= `reminder-${crypto.randomUUID()}`
+  const reminder = {
+    id: reminderId.value,
     date: today(),
     content: form.content.trim() || '客户提醒',
     nextAction: form.nextAction.trim() || '联系客户',
-    reminderDate: form.reminderDate || today(),
+    reminderDate: form.reminderDate,
     reminderTime: form.reminderTime || '',
     reminderDone: false,
-  })
-  crm.save()
-  markSaved()
-  closeReminderModal()
+  }
+  const existing = current.followUps.find(item => item.id === reminder.id)
+  if (existing)
+    Object.assign(existing, reminder)
+  else
+    current.followUps.unshift(reminder)
+  reminderError.value = ''
+  reminderSaving.value = true
+  try {
+    if (!await crm.save()) {
+      reminderError.value = crm.saveError || '提醒未保存，请重试'
+      return
+    }
+    if (customer.value?.id === current.id)
+      markSaved()
+    reminderModal.value.open = false
+  }
+  catch {
+    reminderError.value = '提醒未保存，请重试'
+  }
+  finally {
+    reminderSaving.value = false
+  }
 }
 
 function deleteFollowUp(follow: CrmFollowUp) {
@@ -277,13 +319,18 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
             <div class="activity-tabs">
               <button :class="{ active: activityTab === 'follow' }" @click="activityTab = 'follow'">跟进记录</button>
               <button :class="{ active: activityTab === 'quote' }" @click="activityTab = 'quote'">报价记录</button>
+              <button v-if="localRecords && (sampleAccess.issue || sampleAccess.maintain)" :class="{ active: activityTab === 'samples' }" @click="activityTab = 'samples'">寄样记录</button>
             </div>
             <div class="header-actions">
               <template v-if="activityTab === 'follow'">
                 <button class="action-button" @click="openReminderModal"><span>+</span>添加提醒</button>
                 <button class="action-button primary" @click="crm.addFollowUp(customer.id)"><span>+</span>新增跟进</button>
               </template>
-              <button v-else @click="newQuote">新建报价</button>
+              <template v-else-if="activityTab === 'quote'">
+                <button @click="newQuote">{{ localRecords ? '场地报价' : '新建报价' }}</button>
+                <RouterLink v-if="localRecords" :to="{ path: '/quote/b2b', query: { customerId: customer.id } }">普通报价</RouterLink>
+              </template>
+              <RouterLink v-else-if="sampleAccess.issue" :to="{ path: '/samples', query: { customer: customer.id } }">寄样开单</RouterLink>
             </div>
           </header>
 
@@ -315,7 +362,7 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
             </section>
           </section>
 
-          <section v-else class="activity-content">
+          <section v-else-if="activityTab === 'quote'" class="activity-content">
             <div v-if="!customer.quotes.length" class="empty">暂无报价记录</div>
             <div v-for="quote in customer.quotes" :key="quote.id" class="record-row">
               <div class="deal-box">
@@ -335,9 +382,27 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
               <div>
                 <b>{{ quote.version ? `第${quote.version}版 · ${quote.title}` : quote.title }}</b>
                 <p>{{ quote.date }} · {{ quote.status }}</p>
+                <details v-if="quote.snapshot">
+                  <summary>查看报价明细</summary>
+                  <div v-for="(line, index) in quote.snapshot.rows" :key="index">
+                    <b>{{ line.name }}</b><p>{{ line.specs }}</p>
+                    <p>{{ line.unitPrice.toFixed(2) }} 元 / {{ line.unit || '项' }}<span v-if="line.quantity !== undefined"> · 数量 {{ line.quantity }}</span></p>
+                  </div>
+                </details>
                 <a v-if="quote.quoteFileDataUrl" class="quote-file-link" :href="quote.quoteFileDataUrl" :download="quote.quoteFileName || `${quote.title}.pdf`" target="_blank" rel="noopener">查看报价单</a>
               </div>
-              <strong>¥{{ quote.amount.toFixed(2) }}</strong>
+              <strong v-if="quote.snapshot?.kind !== 'standard'">{{ quote.amount.toFixed(2) }} 元</strong>
+            </div>
+          </section>
+          <section v-else class="activity-content">
+            <div v-if="!sampleRecords.length" class="empty">暂无寄样记录</div>
+            <div v-for="entry in sampleRecords" :key="entry.id" class="record-row">
+              <div>
+                <b>{{ { pending: '待寄出', sent: '已寄出', cancelled: '已撤销' }[entry.status] }}</b>
+                <p>{{ entry.time }}<span v-if="entry.tracking"> · {{ entry.tracking }}</span></p>
+                <p v-for="line in entry.lines" :key="line.sample.id">{{ line.sample.product }} · {{ line.sample.spec }} × {{ line.quantity }}</p>
+                <RouterLink :to="{ path: '/samples', query: { customer: customer.id, view: 'ledger', document: entry.id } }">查看单据</RouterLink>
+              </div>
             </div>
           </section>
         </article>
@@ -355,7 +420,8 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
           <label class="wide">下一步动作<input v-model="reminderModal.nextAction" placeholder="联系客户"></label>
           <div class="modal-actions">
             <button @click="closeReminderModal">取消</button>
-            <button class="primary" @click="saveReminder">保存提醒</button>
+            <p v-if="reminderError" role="alert">{{ reminderError }}</p>
+            <button class="primary" :disabled="reminderSaving" @click="saveReminder">{{ reminderSaving ? '保存中…' : '保存提醒' }}</button>
           </div>
         </div>
       </section>

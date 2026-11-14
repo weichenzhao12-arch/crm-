@@ -2,11 +2,14 @@ import { Hono } from 'hono'
 import { handle } from 'hono/cloudflare-pages'
 import type { Context, Next } from 'hono'
 import { isPasswordHash, normalizePasswordForStorage, verifyPassword } from '../src/features/auth/password'
+import { canAccessCustomer } from '../src/features/crm/customer-access'
+import { canExecuteHandoff, insertHandoffLog, updateHandoffOwner } from './customer-handoff'
 
 interface Env {
   DB: D1Database
   IMAGES: R2Bucket
   BROWSER?: BrowserRenderingBinding
+  CUSTOMER_ROW_API?: string
 }
 
 interface AdminUserRow {
@@ -382,11 +385,199 @@ app.get('/health', async (c) => {
 })
 
 app.use('/state/*', requireLogin)
+app.use('/customers/*', requireLogin)
 app.use('/images', requireLogin)
 app.use('/pdf', requireLogin)
 
+function customerReadScope(user: AdminUserRow) {
+  return user.role === 'owner' || (user.role === 'manager' && userPermissions(user).viewAllCustomers === true)
+    ? 'all' as const
+    : 'own' as const
+}
+
+function canAssignUnclaimed(user: AdminUserRow) {
+  return user.role === 'owner' || (user.role !== 'viewer' && userPermissions(user)?.assignUnclaimedCustomers === true)
+}
+
+app.get('/customers/handoff-targets', async (c) => {
+  if (c.env.CUSTOMER_ROW_API !== 'enabled')
+    return c.json({ message: '单条客资接口尚未启用' }, 404)
+  const actor = c.get('user')
+  if (!canExecuteHandoff(actor.role, userPermissions(actor)))
+    return c.json({ message: '没有执行客资交接的权限' }, 403)
+  const targets = await c.env.DB.prepare("SELECT id, display_name FROM users WHERE enabled = 1 AND role IN ('quoter', 'manager') ORDER BY display_name").all()
+  c.header('Cache-Control', 'no-store')
+  return c.json(targets.results)
+})
+
+app.get('/customers/unclaimed', async (c) => {
+  if (c.env.CUSTOMER_ROW_API !== 'enabled')
+    return c.json({ message: '单条客资接口尚未启用' }, 404)
+  if (!canAssignUnclaimed(c.get('user')))
+    return c.json({ message: '没有待分配客资权限' }, 403)
+  const db = c.env.DB
+  const { results } = await db.prepare(`SELECT value, row_revision FROM crm_customers
+    WHERE COALESCE(assigned_to_user_id, '') = '' ORDER BY updated_at DESC, id LIMIT 200`).all<{ value: string, row_revision: string }>()
+  const targets = await db.prepare("SELECT id, display_name FROM users WHERE enabled = 1 AND role IN ('quoter', 'manager') ORDER BY display_name").all()
+  c.header('Cache-Control', 'no-store')
+  return c.json({ customers: results.map(row => ({ value: JSON.parse(row.value), revision: row.row_revision })), targets: targets.results })
+})
+
+app.post('/customers/unclaimed/assign', async (c) => {
+  if (c.env.CUSTOMER_ROW_API !== 'enabled')
+    return c.json({ message: '单条客资接口尚未启用' }, 404)
+  const actor = c.get('user')
+  if (!canAssignUnclaimed(actor))
+    return c.json({ message: '没有待分配客资权限' }, 403)
+  const body = await c.req.json().catch(() => null)
+  if (typeof body?.toUserId !== 'string' || !Array.isArray(body.customers) || !body.customers.length || body.customers.length > 50
+    || body.customers.some((item: unknown) => !item || typeof item !== 'object' || !('id' in item) || typeof item.id !== 'string' || !item.id
+      || !('revision' in item) || typeof item.revision !== 'string')
+    || new Set(body.customers.map((item: { id: string }) => item.id)).size !== body.customers.length)
+    return c.json({ message: '请选择接手人及 1 至 50 条不同客资' }, 400)
+
+  const db = c.env.DB
+  const target = await db.prepare("SELECT id, display_name FROM users WHERE id = ? AND enabled = 1 AND role IN ('quoter', 'manager')")
+    .bind(body.toUserId).first<{ id: string, display_name: string }>()
+  if (!target)
+    return c.json({ message: '请选择启用的销售账号' }, 400)
+
+  const statements = (body.customers as { id: string, revision: string }[]).flatMap((item) => {
+    const revision = crypto.randomUUID()
+    return [
+      db.prepare(`UPDATE crm_customers SET assigned_to_user_id = ?, owner = ?, row_revision = ?, updated_at = CURRENT_TIMESTAMP,
+        value = json_set(value, '$.assignedToUserId', ?, '$.owner', ?, '$.updatedAt', ?)
+        WHERE id = ? AND row_revision = ? AND COALESCE(assigned_to_user_id, '') = ''
+        AND EXISTS (SELECT 1 FROM users WHERE id = ? AND enabled = 1 AND role IN ('quoter', 'manager'))`)
+        .bind(target.id, target.display_name, revision, target.id, target.display_name, new Date().toISOString(),
+          item.id, item.revision, target.id),
+      db.prepare(`INSERT INTO crm_customer_assignments (id, customer_id, actor_user_id, to_user_id)
+        SELECT ?, id, ?, ? FROM crm_customers WHERE id = ? AND row_revision = ?`)
+        .bind(revision, actor.id, target.id, item.id, revision),
+    ]
+  })
+  const results = await db.batch<{ meta: { changes: number } }>(statements)
+  const items = (body.customers as { id: string }[]).map(({ id }, index) => ({ id, assigned: Boolean(results[index * 2]?.meta.changes) }))
+  return c.json({ items })
+})
+
+app.get('/customers', async (c) => {
+  if (c.env.CUSTOMER_ROW_API !== 'enabled')
+    return c.json({ message: '单条客资接口尚未启用' }, 404)
+  const user = c.get('user')
+  const all = customerReadScope(user) === 'all'
+  const query = c.env.DB.prepare(all
+    ? 'SELECT value, row_revision FROM crm_customers ORDER BY updated_at DESC, id'
+    : 'SELECT value, row_revision FROM crm_customers WHERE assigned_to_user_id = ? ORDER BY updated_at DESC, id')
+  const { results } = await (all ? query : query.bind(user.id)).all<{ value: string, row_revision: string }>()
+  c.header('Cache-Control', 'no-store')
+  return c.json({ customers: results.map(row => ({ value: JSON.parse(row.value), revision: row.row_revision })) })
+})
+
+app.on(['GET', 'PATCH'], '/customers/:id', async (c) => {
+  if (c.env.CUSTOMER_ROW_API !== 'enabled')
+    return c.json({ message: '单条客资接口尚未启用' }, 404)
+
+  c.header('Cache-Control', 'no-store')
+  const db = c.env.DB
+  const id = c.req.param('id')
+  const user = c.get('user')
+  const row = await db.prepare('SELECT assigned_to_user_id, value, row_revision FROM crm_customers WHERE id = ?')
+    .bind(id).first<{ assigned_to_user_id: string, value: string, row_revision: string }>()
+  const editing = c.req.method === 'PATCH'
+  if (!row || !canAccessCustomer({
+    id: user.id,
+    scope: editing ? (user.role === 'owner' ? 'all' : 'own') : customerReadScope(user),
+    actions: user.role === 'viewer' ? ['read'] : ['read', 'edit'],
+  }, editing ? 'edit' : 'read', row.assigned_to_user_id))
+    return c.json({ message: '客资不存在或无权访问' }, 404)
+
+  const customer = JSON.parse(row.value)
+  if (!editing)
+    return c.json({ value: customer, revision: row.row_revision })
+
+  const body = await c.req.json().catch(() => null)
+  const editable = ['name', 'contact', 'phone', 'wechat', 'remark'] as const
+  const fields = body?.fields
+  if (typeof body?.revision !== 'string' || !fields || typeof fields !== 'object' || Array.isArray(fields)
+    || !Object.keys(fields).length || Object.keys(fields).some(key => !editable.some(field => field === key))
+    || Object.values(fields).some(value => typeof value !== 'string' || value.length > 4000))
+    return c.json({ message: '修改字段或版本无效' }, 400)
+
+  if (body.revision !== row.row_revision)
+    return c.json({ message: '该客资已更新，请重新加载' }, 409)
+
+  const revision = crypto.randomUUID()
+  const value = { ...customer, ...fields, updatedAt: new Date().toISOString() }
+  const result = await db.prepare(`
+    UPDATE crm_customers SET name = ?, value = ?, row_revision = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ? AND row_revision = ? AND assigned_to_user_id = ?
+  `).bind(value.name, JSON.stringify(value), revision, id, row.row_revision, row.assigned_to_user_id).run()
+  if (!result.meta.changes)
+    return c.json({ message: '该客资已更新，请重新加载' }, 409)
+  return c.json({ value, revision })
+})
+
+app.post('/customers/:id/handoff', async (c) => {
+  if (c.env.CUSTOMER_ROW_API !== 'enabled')
+    return c.json({ message: '单条客资接口尚未启用' }, 404)
+  const actor = c.get('user')
+  if (!canExecuteHandoff(actor.role, userPermissions(actor)))
+    return c.json({ message: '没有执行客资交接的权限' }, 403)
+
+  const body = await c.req.json().catch(() => null)
+  const fields = ['toUserId', 'reason', 'progress', 'nextAction', 'dueAt'] as const
+  if (typeof body?.revision !== 'string' || fields.some(key =>
+    typeof body[key] !== 'string' || !body[key].trim() || body[key].length > 2000))
+    return c.json({ message: '请完整填写接手人、交接信息和截止时间' }, 400)
+  const dueAt = body.dueAt.trim()
+  if (!/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d$/.test(dueAt)
+    || !Number.isFinite(Date.parse(dueAt + ':00+08:00')))
+    return c.json({ message: '截止时间格式无效' }, 400)
+
+  const db = c.env.DB
+  const id = c.req.param('id')
+  const row = await db.prepare('SELECT assigned_to_user_id, value, row_revision FROM crm_customers WHERE id = ?')
+    .bind(id).first<{ assigned_to_user_id: string, value: string, row_revision: string }>()
+  if (!row)
+    return c.json({ message: '客资不存在' }, 404)
+  if (row.row_revision !== body.revision)
+    return c.json({ message: '客资已更新，请重新加载' }, 409)
+  const target = await db.prepare("SELECT id, display_name FROM users WHERE id = ? AND enabled = 1 AND role IN ('quoter', 'manager')")
+    .bind(body.toUserId).first<{ id: string, display_name: string }>()
+  if (!target || !row.assigned_to_user_id || target.id === row.assigned_to_user_id)
+    return c.json({ message: '请选择不同的启用销售；未分配客资不走交接' }, 400)
+
+  const revision = crypto.randomUUID()
+  const customer = JSON.parse(row.value)
+  const [reminderDate, reminderTime] = dueAt.split('T')
+  const value = {
+    ...customer,
+    owner: target.display_name,
+    assignedToUserId: target.id,
+    updatedAt: new Date().toISOString(),
+    followUps: [{
+      id: revision, date: new Date().toISOString().slice(0, 10),
+      content: body.progress.trim(), nextAction: body.nextAction.trim(),
+      reminderDate, reminderTime, reminderDone: false,
+    }, ...(Array.isArray(customer.followUps) ? customer.followUps : [])],
+  }
+  const [updated] = await db.batch<{ meta: { changes: number } }>([
+    db.prepare(updateHandoffOwner).bind(target.display_name, target.id, JSON.stringify(value), revision, id,
+      row.row_revision, row.assigned_to_user_id, target.id),
+    db.prepare(insertHandoffLog).bind(revision, row.assigned_to_user_id, actor.id, body.reason.trim(),
+      body.progress.trim(), body.nextAction.trim(), dueAt, id, revision),
+  ])
+  if (!updated?.meta.changes)
+    return c.json({ message: '客资或接手账号已变化，请重新加载' }, 409)
+  c.header('Cache-Control', 'no-store')
+  return c.json({ value, revision })
+})
+
 app.get('/state/:key', async (c) => {
   const key = c.req.param('key')
+  if (key === 'customers' && c.env.CUSTOMER_ROW_API === 'enabled')
+    return c.json({ message: '请使用新版客资接口' }, 410)
   const row = await c.env.DB.prepare('SELECT value, revision FROM app_state WHERE key = ?').bind(key).first<{ value: string, revision: string }>()
   const fallback = row ? parseStoredJson(row.value, null) : null
   c.header('Cache-Control', 'no-store, no-cache, must-revalidate')
@@ -401,6 +592,8 @@ app.get('/state/:key', async (c) => {
 
 app.put('/state/:key', async (c) => {
   const key = c.req.param('key')
+  if (key === 'customers' && c.env.CUSTOMER_ROW_API === 'enabled')
+    return c.json({ message: '旧版整表写入已停用' }, 410)
   const user = c.get('user')
   const body = await c.req.json<{ value: unknown, revision?: string | null }>()
   if (key === 'customers' && !Array.isArray(body.value))

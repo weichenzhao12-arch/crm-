@@ -1,0 +1,87 @@
+header{display:flex;gap:16px;padding:16px 24px;background:#173b35;color:white}
+main{width:100%;box-sizing:border-box;min-width:0;padding:24px;color:#22324a;font:15px system-ui}
+nav,form,.tier{display:flex;align-items:end;gap:12px;flex-wrap:wrap}
+nav{border-bottom:1px solid #dae2eb;padding-bottom:12px}
+h1{font-size:24px}
+label{display:grid;gap:5px;max-width:100%}
+button,input,select{font:inherit;border:1px solid #aebfba;border-radius:5px;padding:8px;background:white;color:inherit;max-width:100%;box-sizing:border-box}
+button{cursor:pointer}
+button[aria-pressed=true],button[type=submit]{background:#245bb3;color:white;border-color:#245bb3}
+form{padding:16px;border:1px solid #dae2eb;border-radius:6px;background:#fff}
+.rows{width:100%;display:grid;gap:10px}
+.rows>label{grid-template-columns:minmax(0,1fr) 90px;align-items:center}
+.rows>label small{grid-column:1;color:#66501f}
+.rows>label input{grid-column:2;grid-row:1 / span 2}
+.sample-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.sample-filters{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin-top:16px}
+.sample-filters span{align-self:end;padding:8px 0;color:#526278}
+.sample-filters button:disabled{opacity:.55;cursor:default}
+.sample-table-wrap{display:block;width:100%;overflow:auto;margin-top:12px}
+.rows-filters{width:100%;margin-top:0}
+.issue-quantity{width:88px}
+.draft-lines{width:100%;min-width:0}
+.primary{background:#245bb3;color:white;border-color:#245bb3}
+button:disabled{opacity:.55;cursor:default}
+dialog{width:min(680px,calc(100% - 32px));box-sizing:border-box;max-height:calc(100% - 32px);overflow:auto;border:1px solid #aebfba;border-radius:8px;padding:20px;color:#22324a;background:white}
+dialog::backdrop{background:#17203366}
+.row-actions button+button{margin-left:6px}
+table{display:table;width:100%;border-collapse:collapse;text-align:left}
+.low{color:#975015;font-weight:600}
+th,td{padding:9px;border-bottom:1px solid #dce6e3;white-space:nowrap}
+thead{background:#eaf0f8}
+tbody tr:nth-child(even){background:#f5f7fa}
+article{padding:12px 0;border-bottom:1px solid #dce6e3}
+[role=status]{color:#814219}
+.print{display:none}
+.print-table th,.print-table td{border:1px solid #333;white-space:normal;padding:4px;overflow-wrap:anywhere}
+.check-cell{width:22mm;height:10mm}
+.sample-workspace{--ink:#182b38;--muted:#526575;--line:#dbe4ec;--action:#245bb3;--paper:#fff;--soft:#edf3f8;color:var(--ink);font-size:14px}
+.sample-workspace h1{margin:18px 0 14px;font-size:23px;font-weight:700}
+.sample-workspace h2{margin:0 0 10px;font-size:18px;font-weight:700}
+.sample-workspace nav{gap:4px;align-items:center;padding-bottom:0;border-color:var(--line)}
+.sample-workspace nav button{padding:10px 14px;border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;color:var(--muted);font-weight:600}
+.sample-workspace nav button[aria-pressed=true]{border-color:var(--action);color:var(--action)}
+.sample-workspace :is(button,input:not([type=checkbox]),select){min-height:36px;border-color:#cad7e2;border-radius:6px}
+.sample-workspace nav button{border-radius:0}
+.sample-workspace button{padding-inline:12px;font-weight:600}
+.sample-workspace button:not(:disabled):hover{box-shadow:inset 0 0 0 1px currentColor}
+.sample-workspace :is(button,input,select):focus-visible{outline:2px solid var(--action);outline-offset:2px}
+.sample-workspace input[type=checkbox]{width:17px;height:17px;margin:0;accent-color:var(--action);vertical-align:middle}
+.sample-workspace label{font-size:13px;font-weight:600;color:var(--muted)}
+.sample-workspace :is(input,select){color:var(--ink);font-weight:400}
+.sample-workspace form{gap:14px;border-color:var(--line)}
+.sample-workspace .sample-filters{gap:8px 12px;padding:12px;background:var(--soft);border-radius:6px}
+.sample-workspace .sample-filters select{min-width:82px;max-width:180px}
+.sample-workspace .sample-table-wrap,.sample-workspace.sample-table-wrap{border:1px solid var(--line);border-radius:6px;background:var(--paper)}
+.sample-workspace th{background:#eaf0f6;color:#354e64;font-size:12px}
+.sample-workspace td{font-variant-numeric:tabular-nums}
+.sample-workspace :is(th,td){padding:9px 11px;border-color:#e4ebf1}
+.sample-workspace tbody tr:last-child td{border-bottom:0}
+.sample-workspace tbody tr:hover{background:#edf5fe}
+.sample-workspace tbody tr:has(input[type=checkbox]:checked){background:#e6f1fd}
+.sample-workspace tbody td small{color:#8b480f}
+.sample-workspace [role=status]{padding:8px 12px;border-left:3px solid #bd762c;background:#fff5e7}
+.sample-workspace dialog{border-color:var(--line);box-shadow:0 16px 48px #182b3833}
+.sample-workspace dialog form{padding:12px 0 0;border:0;border-top:1px solid var(--line);border-radius:0}
+.sample-workspace dialog label{min-width:0}
+.issue-preview{padding:16px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.issue-preview p{margin:6px 0;color:var(--muted);overflow-wrap:anywhere}
+.preview-actions,.ledger-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.empty-ledger{padding:18px 12px;color:var(--muted);border-top:1px solid var(--line)}
+.ledger-entry{padding:14px 0;border-color:var(--line)}
+.ledger-entry p{margin:7px 0;color:var(--muted);overflow-wrap:anywhere}
+.ledger-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+.ledger-meta strong{background:#e9f4ee;color:#23613e;padding:3px 8px;border-radius:4px}
+.ledger-meta strong[data-kind=issue]{background:#e8f1fd;color:#235699}
+.ledger-meta strong[data-kind=adjustDown]{background:#fff0df;color:#8b480f}
+.ledger-meta time{color:var(--muted);font-variant-numeric:tabular-nums}
+.ledger-lines{display:grid;gap:4px;margin:8px 0 0;padding:0;list-style:none}
+.ledger-lines li{display:flex;flex-wrap:wrap;gap:5px 12px;overflow-wrap:anywhere}
+@media(max-width:600px){
+  main.sample-workspace{padding:14px}
+  .sample-workspace nav button{padding-inline:8px}
+  .sample-workspace form{padding:12px}
+  .sample-workspace .sample-filters{gap:8px}
+  .sample-workspace .sample-filters select{max-width:145px}
+}
+@media print{header,main{display:none}.print{display:block}}

@@ -23,6 +23,7 @@
     "functions/**/*.ts",
     "functions/**/*.d.ts",
     "scripts/**/*.mjs",
+    "scripts/**/*.ts",
     "vite.config.ts",
     "vitest.config.ts",
     "uno.config.ts",

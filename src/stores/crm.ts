@@ -29,6 +29,7 @@ export interface CrmQuoteRecord {
   quoteFileDataUrl?: string
   contractFileName?: string
   contractFileDataUrl?: string
+  snapshot?: { kind: 'standard' | 'field', rows: { name: string, specs: string, unitPrice: number, quantity?: number, unit?: string }[] }
 }
 
 export interface CrmCustomer {
@@ -138,7 +139,7 @@ function touchChangedCustomers(customers: CrmCustomer[]) {
   }
 }
 
-function normalizeCustomer(raw: Partial<CrmCustomer>): CrmCustomer {
+export function normalizeCustomer(raw: Partial<CrmCustomer>): CrmCustomer {
   const date = raw.date || today()
   const createdAt = raw.createdAt || raw.updatedAt || dateToIso(date)
   return {
@@ -195,6 +196,7 @@ function normalizeCustomer(raw: Partial<CrmCustomer>): CrmCustomer {
         quoteFileDataUrl: quote.quoteFileDataUrl || '',
         contractFileName: quote.contractFileName || '',
         contractFileDataUrl: quote.contractFileDataUrl || '',
+        snapshot: quote.snapshot,
       }))
       : [],
   }
@@ -296,6 +298,7 @@ export const useCrmStore = defineStore('crm', {
   state: () => ({
     customers: loadCustomers(),
     saveError: '',
+    customerSessionExpired: false,
     cloudLoadState: 'loading' as 'loading' | 'ready' | 'error',
   }),
   getters: {
@@ -337,10 +340,12 @@ export const useCrmStore = defineStore('crm', {
           const result = await putCustomerCloudState(JSON.parse(snapshot), customerCloudRevision)
           customerCloudRevision = result.revision
           this.saveError = ''
+          this.customerSessionExpired = false
           this.cloudLoadState = 'ready'
           return true
         }
         catch (error) {
+          this.customerSessionExpired = error instanceof CloudApiError && error.status === 401
           if (error instanceof CloudApiError && error.status === 409) {
             customerSaveBlocked = true
             let reloaded = false
@@ -370,12 +375,21 @@ export const useCrmStore = defineStore('crm', {
       return customerSaveQueue
     },
     async loadCloudCustomers() {
+      if (customerLoadPromise)
+        return customerLoadPromise
       const version = customerChangeVersion
       this.cloudLoadState = 'loading'
+      this.customerSessionExpired = false
       const pendingSaves = customerSaveQueue
       const loading = (async () => {
         await pendingSaves
-        const remote = await getCustomerCloudState<Partial<CrmCustomer>[]>().catch(() => null)
+        const remote = await getCustomerCloudState<Partial<CrmCustomer>[]>().catch((error: unknown) => {
+          if (version === customerChangeVersion) {
+            this.saveError = error instanceof Error ? error.message : '客资加载失败'
+            this.customerSessionExpired = error instanceof CloudApiError && error.status === 401
+          }
+          return null
+        })
         if (version !== customerChangeVersion)
           return
         if (!remote || (typeof remote.revision !== 'string' && remote.revision !== null)) {
@@ -390,6 +404,7 @@ export const useCrmStore = defineStore('crm', {
           syncCustomerFingerprints(this.customers)
           localStorage.setItem(STORAGE_KEY, JSON.stringify(this.customers))
         }
+        this.saveError = ''
         this.cloudLoadState = 'ready'
       })()
       customerLoadPromise = loading
@@ -465,10 +480,14 @@ export const useCrmStore = defineStore('crm', {
       return this.save()
     },
     restoreCustomer(customer: CrmCustomer) {
+      if (this.findCustomer(customer.id)) {
+        this.saveError = '客资已在列表中，不能覆盖现有记录'
+        return Promise.resolve(false)
+      }
       const normalized = normalizeCustomer(customer)
       this.customers = this.customers.filter(item => item.id !== normalized.id)
       this.customers.unshift(normalized)
-      this.save()
+      return this.save()
     },
     findCustomer(id: string) {
       return this.customers.find(customer => customer.id === id)
@@ -489,7 +508,7 @@ export const useCrmStore = defineStore('crm', {
       useSystemStore().log('create', 'lead', customer.name || customer.phone || '客户', '新增跟进记录')
       this.save()
     },
-    saveQuoteRecord(customerId: string, payload: Partial<CrmQuoteRecord> & { id?: string }) {
+    saveQuoteRecord(customerId: string, payload: Partial<CrmQuoteRecord> & { id?: string }, persist = true) {
       const customer = this.findCustomer(customerId)
       if (!customer)
         return ''
@@ -510,6 +529,7 @@ export const useCrmStore = defineStore('crm', {
         quoteFileDataUrl: payload.quoteFileDataUrl || existing?.quoteFileDataUrl || '',
         contractFileName: payload.contractFileName || '',
         contractFileDataUrl: payload.contractFileDataUrl || '',
+        snapshot: payload.snapshot ?? existing?.snapshot,
       }
       if (existing)
         Object.assign(existing, record)
@@ -518,7 +538,7 @@ export const useCrmStore = defineStore('crm', {
       if (customer.stage === 'new')
         customer.stage = 'quoted'
       useSystemStore().log(existing ? 'update' : 'create', 'lead', customer.name || customer.phone || '客户', `保存报价记录：第${version}版，金额 ${record.amount.toFixed(2)}，状态 ${record.status}`)
-      this.save()
+      if (persist) this.save()
       return id
     },
   },

@@ -2,14 +2,15 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAdminStore } from '~/stores/admin'
-import { useCrmStore } from '~/stores/crm'
 import { useAuth } from '~/composables/useAuth'
 import { useTheme } from '~/composables/useTheme'
+import { samplePermissions } from '~/local-test/permissions'
+import CrmDueReminders from '~/local-test/CrmDueReminders.vue'
 
 const route = useRoute()
+const localDueReminders = import.meta.env.DEV
 const router = useRouter()
 const admin = useAdminStore()
-const crm = useCrmStore()
 const { isAuthenticated, logout, user } = useAuth()
 const { themeLabel, toggleTheme } = useTheme()
 const mobileNavOpen = ref(false)
@@ -19,21 +20,24 @@ const isAdmin = computed(() => route.path.startsWith('/admin'))
 const pageTitle = computed(() => String(route.meta.title || (isQuote.value ? '报价管理' : isAdmin.value ? '系统管理' : '工作台')))
 const canManage = computed(() => ['owner', 'manager'].includes(admin.currentUser?.role || '') || Boolean(admin.currentUser?.permissions.manageUsers))
 const canCalculateCost = computed(() => ['owner', 'manager'].includes(admin.currentUser?.role || '') || Boolean(admin.currentUser?.permissions.costCalculation))
-const pendingFollowCount = computed(() => crm.customers.reduce((count, customer) =>
-  count + customer.followUps.filter(follow => follow.reminderDate && !follow.reminderDone).length, 0))
 
 const navItems = computed(() => [
   { label: admin.currentUser?.role === 'owner' ? '数据主页' : '工作台', to: '/crm', icon: 'dashboard', exact: true },
   { label: '客户管理', to: '/crm/customers', icon: 'customers' },
-  { label: '今日跟进', to: '/crm/follow-ups', icon: 'clock', badge: pendingFollowCount.value ? String(pendingFollowCount.value) : '' },
-  { label: '报价计算', to: '/quote?view=quote', icon: 'calculator' },
-  { label: '报价单', to: '/quote?view=print', icon: 'document' },
+  ...(import.meta.env.DEV && Object.values(samplePermissions(admin.currentUser)).some(Boolean)
+    ? [{ label: '样品库', to: '/samples', icon: 'product' }]
+    : []),
+  ...(import.meta.env.DEV
+    ? [{ label: '报价', to: '/quote/orders', icon: 'calculator' }]
+    : [{ label: '报价计算', to: '/quote?view=quote', icon: 'calculator' }, { label: '报价单', to: '/quote?view=print', icon: 'document' }]),
   { label: '产品资料', to: '/quote?view=settings', icon: 'product', adminOnly: true },
   { label: '成本计算', to: '/quote?view=cost', icon: 'calculator', costAccess: true },
   { label: '数据统计', to: '/crm/statistics', icon: 'stats', hideForOwner: true },
 ].filter(item => (!item.adminOnly || canManage.value) && (!item.costAccess || canCalculateCost.value) && (!item.hideForOwner || admin.currentUser?.role !== 'owner')))
 
 function navActive(item: { to: string, exact?: boolean }) {
+  if (item.to === '/quote/orders' && (route.path === '/quote/b2b' || (route.path === '/quote' && (!route.query.view || ['quote', 'print'].includes(String(route.query.view))))))
+    return true
   const [path, query] = item.to.split('?')
   if (query) {
     const expected = new URLSearchParams(query)
@@ -51,7 +55,7 @@ async function handleLogout() {
 </script>
 
 <template>
-  <div class="app-shell" :class="{ 'nav-open': mobileNavOpen }">
+  <div class="app-shell" :class="{ 'nav-open': mobileNavOpen, 'sample-print-layout': route.path === '/samples' || route.path === '/quote/b2b' }">
     <button v-if="mobileNavOpen" class="nav-backdrop" aria-label="关闭导航" @click="mobileNavOpen = false" />
     <aside class="app-sidebar">
       <RouterLink class="brand" to="/crm" @click="mobileNavOpen = false">
@@ -69,7 +73,6 @@ async function handleLogout() {
         >
           <span class="nav-icon" :data-icon="item.icon" />
           <span>{{ item.label }}</span>
-          <small v-if="item.badge">{{ item.badge }}</small>
         </RouterLink>
       </nav>
       <nav class="sidebar-foot">
@@ -90,12 +93,22 @@ async function handleLogout() {
           <button v-if="isAuthenticated" class="logout" @click="handleLogout">退出</button>
         </div>
       </header>
+      <CrmDueReminders v-if="localDueReminders && isAuthenticated" />
       <RouterView />
     </section>
   </div>
 </template>
 
 <style scoped>
+@media print {
+  .sample-print-layout .app-sidebar,
+  .sample-print-layout .app-topbar,
+  .sample-print-layout .nav-backdrop { display: none !important; }
+  .sample-print-layout .app-content { margin: 0; }
+  .sample-print-layout { background: white; }
+  .sample-print-layout:has(.standard-quote-print),
+  .sample-print-layout:has(.standard-quote-print) .app-content { min-height: 0 !important; }
+}
 .app-shell{min-height:100vh;background:#f5f7fa;color:#172033}.app-sidebar{position:fixed;inset:0 auto 0 0;z-index:40;display:flex;width:220px;flex-direction:column;background:#102a43;color:#c9d6e2;box-shadow:4px 0 18px rgba(15,42,67,.08)}.brand{display:flex;height:64px;align-items:center;gap:11px;border-bottom:1px solid rgba(255,255,255,.09);padding:0 24px;color:#fff;text-decoration:none;font-size:18px}.brand-mark{display:grid;width:34px;height:34px;place-items:center;border-radius:10px;background:#2563eb;box-shadow:0 7px 18px rgba(37,99,235,.35)}.nav-label{margin:0;padding:22px 26px 8px;color:#718aa1;font-size:11px;font-weight:700;letter-spacing:.13em}.main-nav,.sidebar-foot{display:grid;gap:5px;padding:0 14px}.main-nav a,.sidebar-foot a{display:flex;height:42px;align-items:center;gap:12px;border-radius:9px;padding:0 12px;color:#b9cad8;text-decoration:none;font-size:14px}.main-nav a:hover,.sidebar-foot a:hover{background:rgba(255,255,255,.06)}.main-nav a.active{background:#2563eb;color:#fff;box-shadow:0 8px 18px rgba(37,99,235,.25)}.main-nav small{margin-left:auto;display:grid;min-width:22px;height:20px;place-items:center;border-radius:10px;background:#f59e0b;color:#fff;font-size:11px}.sidebar-foot{margin-top:auto;border-top:1px solid rgba(255,255,255,.09);padding-top:12px;padding-bottom:18px}.nav-icon{width:18px;text-align:center}.nav-icon:before{content:"•";font-size:20px}.nav-icon[data-icon="dashboard"]:before{content:"▦"}.nav-icon[data-icon="customers"]:before{content:"♙"}.nav-icon[data-icon="clock"]:before{content:"◷"}.nav-icon[data-icon="quote"]:before{content:"▤"}.nav-icon[data-icon="product"]:before{content:"◇"}.nav-icon[data-icon="stats"]:before{content:"▥"}.nav-icon[data-icon="trash"]:before{content:"♲"}.nav-icon[data-icon="settings"]:before{content:"⚙"}.app-content{min-width:0;margin-left:220px}.app-topbar{position:sticky;top:0;z-index:30;display:grid;height:64px;grid-template-columns:1fr minmax(280px,540px) 1fr;align-items:center;border-bottom:1px solid #e2e8f0;background:rgba(255,255,255,.97);padding:0 28px;backdrop-filter:blur(12px)}.breadcrumb{display:flex;align-items:center;gap:9px;color:#94a3b8;font-size:13px}.breadcrumb i{font-style:normal}.breadcrumb b{color:#354359}.global-search{display:flex;height:38px;align-items:center;gap:8px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;padding:0 12px;color:#94a3b8}.global-search input{width:100%;border:0;outline:0;background:transparent;color:#334155;font-size:13px}.top-actions{justify-self:end;display:flex;align-items:center;gap:9px}.top-actions button{cursor:pointer}.icon-button,.notification{position:relative;display:grid;width:35px;height:35px;place-items:center;border:1px solid #e2e8f0;border-radius:9px;background:#fff;color:#59697c}.notification i{position:absolute;right:7px;top:6px;width:7px;height:7px;border:2px solid #fff;border-radius:50%;background:#ef4444}.avatar{display:grid;width:34px;height:34px;place-items:center;border-radius:10px;background:#dbeafe;color:#2563eb;font-weight:800}.user-name{font-size:12px}.user-name small{display:block;margin-top:2px;color:#94a3b8}.logout{border:0;background:transparent;color:#64748b;font-size:12px}.mobile-menu,.nav-backdrop{display:none}
 @media(max-width:980px){.app-sidebar{width:72px}.brand{justify-content:center;padding:0}.brand b,.nav-label,.main-nav a span:not(.nav-icon),.sidebar-foot a span:not(.nav-icon),.main-nav small{display:none}.main-nav a,.sidebar-foot a{justify-content:center;padding:0}.app-content{margin-left:72px}.app-topbar{grid-template-columns:1fr minmax(250px,1.2fr) 1fr}.user-name,.logout{display:none}}
 @media(max-width:720px){.app-sidebar{transform:translateX(-100%);width:220px;transition:transform .2s}.nav-open .app-sidebar{transform:none}.app-content{margin-left:0}.nav-backdrop{position:fixed;inset:0;z-index:35;display:block;border:0;background:rgba(15,23,42,.42)}.brand b,.nav-label,.main-nav a span:not(.nav-icon),.sidebar-foot a span:not(.nav-icon),.main-nav small{display:initial}.main-nav a,.sidebar-foot a{justify-content:flex-start;padding:0 12px}.app-topbar{grid-template-columns:auto 1fr auto;height:56px;padding:0 12px}.mobile-menu{display:grid;width:34px;height:34px;place-items:center;border:1px solid #e2e8f0;border-radius:8px;background:#fff}.global-search{display:none}.breadcrumb{padding-left:10px}.icon-button,.user-name,.logout{display:none}}

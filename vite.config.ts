@@ -9,13 +9,14 @@ import { defineConfig } from 'vite'
 import VueDevTools from 'vite-plugin-vue-devtools'
 import Layouts from 'vite-plugin-vue-layouts'
 
-export default defineConfig({
+export default defineConfig(async ({ mode }) => ({
   resolve: {
     alias: {
       '~/': `${path.resolve(__dirname, 'src')}/`,
     },
   },
   plugins: [
+    ...(mode === 'local-crm' ? [(await import('./scripts/local-crm')).localCrm()] : []),
     Vue(),
     VueRouter({
       dts: 'src/types/typed-router.d.ts',
@@ -41,4 +42,4 @@ export default defineConfig({
     UnoCSS(),
     VueDevTools(),
   ],
-})
+}))

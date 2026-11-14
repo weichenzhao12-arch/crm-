@@ -36,8 +36,10 @@ describe('customer cloud deletion', () => {
     })
 
     const crm = useCrmStore()
-    await crm.loadCloudCustomers()
+    await Promise.all([crm.loadCloudCustomers(), crm.loadCloudCustomers()])
+    expect(getCustomerCloudState).toHaveBeenCalledTimes(1)
     expect(crm.customers).toHaveLength(2)
+    const removed = crm.findCustomer('customer-a')!
 
     expect(await crm.removeCustomers(['customer-a', 'customer-b'])).toBe(true)
     expect(remote.value).toHaveLength(0)
@@ -49,5 +51,11 @@ describe('customer cloud deletion', () => {
     expect(await crm.save()).toBe(false)
     expect(crm.customers.map(customer => customer.id)).toEqual(['customer-c'])
     expect(crm.saveError).toContain('其他页面修改')
+
+    await crm.loadCloudCustomers()
+    expect(await crm.restoreCustomer(removed)).toBe(true)
+    expect(await crm.restoreCustomer(removed)).toBe(false)
+    await crm.loadCloudCustomers()
+    expect(crm.customers.map(customer => customer.id).sort()).toEqual(['customer-a', 'customer-c'])
   })
 })

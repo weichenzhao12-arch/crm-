@@ -87,7 +87,7 @@ export function applyProductImport(existing: ProductRecord[], preview: ProductIm
       continue
     }
 
-    const current = result[existingIndex]
+    const current = result[existingIndex]!
     result[existingIndex] = {
       ...current,
       ...row.product,

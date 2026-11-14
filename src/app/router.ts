@@ -11,6 +11,7 @@ import CrmPage from '~/pages/crm.vue'
 import DemoApiPage from '~/pages/demo-api.vue'
 import HomePage from '~/pages/index.vue'
 import LoginPage from '~/pages/login.vue'
+import SamplesPage from '~/local-test/SamplesPage.vue'
 
 export function createAppRouter() {
   return createRouter({
@@ -20,6 +21,19 @@ export function createAppRouter() {
         path: '/',
         component: DefaultLayout,
         children: [
+          ...(import.meta.env.DEV ? [{
+            path: 'samples',
+            component: SamplesPage,
+            meta: { title: '样品库', layout: 'default' },
+          }, {
+            path: 'quote/orders',
+            component: () => import('~/local-test/QuoteOrderMenu.vue'),
+            meta: { title: '报价', layout: 'default' },
+          }, {
+            path: 'quote/b2b',
+            component: () => import('~/local-test/B2BProductsPage.vue'),
+            meta: { title: '普通报价', layout: 'default' },
+          }] : []),
           {
             path: '',
             component: CrmPage,

@@ -17,15 +17,18 @@ import { applyNeedleAdditionToDensity, baggedTonQuantity, bucketQuantity, linePe
 import type { ConstructionInput, MaterialRecord, QuoteLine } from '~/features/quote/types'
 import { renderCloudPdf, uploadCloudImage } from '~/api/cloud-storage'
 import { useCrmStore } from '~/stores/crm'
+import { useAdminStore } from '~/stores/admin'
+import { quoteCustomers } from '~/features/crm/quote-customers'
 import { useQuoteStore } from '~/stores/quote'
 
 const ALL = '全部'
-const CURRENCY = '¥'
 
 const quote = useQuoteStore()
 const crm = useCrmStore()
+const admin = useAdminStore()
 const route = useRoute()
 const router = useRouter()
+const showLocalQuotePreview = import.meta.env.DEV
 const { pricing, meta, charges, lines, categories } = storeToRefs(quote)
 
 watch(pricing, () => quote.savePricing(), { deep: true })
@@ -72,7 +75,7 @@ const settingsKeyword = ref('')
 const productImportPreview = ref<ProductImportPreviewRow[]>([])
 const productImportFileName = ref('')
 const productImportOpen = ref(false)
-const areaInput = ref({ mode: 'direct' as const, area: 1000, length: 50, width: 20 })
+const areaInput = ref({ mode: 'direct' as 'direct' | 'size', area: 1000, length: 50, width: 20 })
 const quoteParamVisible = ref({
   height: true,
   dtex: true,
@@ -95,6 +98,33 @@ const quoteParamOptions = [
 
 const linkedCustomerId = computed(() => String(route.query.customerId || ''))
 const linkedCustomer = computed(() => linkedCustomerId.value ? crm.findCustomer(linkedCustomerId.value) : undefined)
+const fieldCustomers = computed(() => crm.cloudLoadState === 'ready' ? quoteCustomers(crm.customers, admin.currentUser) : [])
+const fieldCustomer = computed(() => fieldCustomers.value.find(row => row.id === linkedCustomerId.value))
+const fieldSaving = ref(false)
+const fieldSaveMessage = ref('')
+function bindFieldCustomer(event: Event) {
+  const id = (event.target as HTMLSelectElement).value
+  const selected = fieldCustomers.value.find(row => row.id === id)
+  if (selected) meta.value.customerName = selected.name
+  void router.replace({ path: '/quote', query: { ...route.query, customerId: id || undefined } })
+}
+
+async function saveFieldQuote() {
+  if (!fieldCustomer.value || !productLines.value.length || fieldSaving.value) return
+  fieldSaving.value = true
+  fieldSaveMessage.value = ''
+  try {
+    crm.saveQuoteRecord(fieldCustomer.value.id, {
+      date: meta.value.quoteDate, title: meta.value.title || '场地报价',
+      amount: totals.value.grandTotal, status: '已保存报价',
+      snapshot: { kind: 'field', rows: allQuoteLines.value.map(line => ({
+        name: line.title, specs: quoteSheetParam(line), unitPrice: line.unitPrice, quantity: line.quantity, unit: line.unit,
+      })) },
+    }, false)
+    fieldSaveMessage.value = await crm.save() ? '已保存到客户记录' : '保存失败，请重新加载客户后重试'
+  }
+  finally { fieldSaving.value = false }
+}
 
 watch(linkedCustomer, (customer) => {
   if (!customer)
@@ -171,10 +201,32 @@ const filteredProducts = computed(() => pricing.value.products.filter((product) 
     && (!keyword.value || text.includes(searchText))
 }).slice(0, 120))
 const visibleProducts = computed(() => productSearchReady.value ? filteredProducts.value : [])
+const settingsFields = [['category', '分类'], ['itemNo', '货号'], ['model', '名称 / 型号'], ['height', '草高'], ['needleCount', '针数'], ['needleRow', '针排'], ['density', '密度'], ['poundWeight', '磅重'], ['backing', '基布与背胶'], ['warranty', '抗老化']] as const
+const settingsFilterFields = settingsFields.filter(([field]) => field !== 'itemNo' && field !== 'model' && field !== 'warranty')
+type SettingsFilterField = typeof settingsFilterFields[number][0]
+const settingsFilters = ref<Partial<Record<SettingsFilterField, string>>>({})
+const editingSettingsProduct = ref('')
+function finishSettingsProductEdit(event: FocusEvent) {
+  const row = event.currentTarget
+  if (row instanceof HTMLElement && event.relatedTarget instanceof Node && row.contains(event.relatedTarget))
+    return
+  editingSettingsProduct.value = ''
+}
+const settingsFilterOptions = computed(() => settingsFilterFields.map(([field, label]) => ({
+  field, label, values: [...new Set(pricing.value.products.map(product => product[field]?.trim()).filter((value): value is string => Boolean(value)))]
+    .sort((a, b) => a.localeCompare(b, 'zh-CN', { numeric: true })),
+})))
+function clearSettingsFilters() {
+  settingsKeyword.value = ''
+  settingsFilters.value = {}
+}
 const filteredProductsForSettings = computed(() => pricing.value.products.filter((product) => {
-  const text = normalizeSearchText([product.itemNo, product.category, product.height, product.model, product.priceText].join(' '))
-  return !settingsKeyword.value || text.includes(normalizeSearchText(settingsKeyword.value))
-}).slice(0, 180))
+  if (editingSettingsProduct.value === product.id)
+    return true
+  const text = normalizeSearchText([...settingsFields.map(([field]) => product[field]), product.priceText].join(' '))
+  return text.includes(normalizeSearchText(settingsKeyword.value))
+    && settingsFilterFields.every(([field]) => !settingsFilters.value[field] || product[field]?.trim() === settingsFilters.value[field])
+}))
 const filteredMaterialsForSettings = computed(() => pricing.value.materials.filter((material) => {
   const text = [material.name, material.spec, material.category, material.unit, material.note].join(' ').toLowerCase()
   return !settingsKeyword.value || text.includes(settingsKeyword.value.toLowerCase())
@@ -500,7 +552,7 @@ function addFlatLine(target: QuoteLine[], selection: ConstructionInput['shockPad
 }
 
 function money(value: number) {
-  return CURRENCY + value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' 元'
 }
 
 function perSquare(line: QuoteLine) {
@@ -555,28 +607,28 @@ function lineImageUrls(line: QuoteLine) {
   if (line.imageDataUrl)
     return [line.imageDataUrl]
   if (line.kind === 'product')
-    return [pricing.value.products.find(product => product.id === line.sourceId)?.imageDataUrl].filter(Boolean)
+    return [pricing.value.products.find(product => product.id === line.sourceId)?.imageDataUrl].filter((url): url is string => Boolean(url))
   if (line.kind === 'material') {
     const materialImage = pricing.value.materials.find(material => material.id === line.sourceId)?.imageDataUrl
     if (materialImage)
       return [materialImage]
   }
   if (line.sourceId === construction.value.rubber.materialId)
-    return [construction.value.rubber.imageDataUrl].filter(Boolean)
+    return [construction.value.rubber.imageDataUrl].filter((url): url is string => Boolean(url))
   if (line.sourceId === construction.value.sand.materialId)
-    return [construction.value.sand.imageDataUrl].filter(Boolean)
+    return [construction.value.sand.imageDataUrl].filter((url): url is string => Boolean(url))
   if (line.sourceId === construction.value.glue.materialId)
-    return [construction.value.glue.imageDataUrl].filter(Boolean)
+    return [construction.value.glue.imageDataUrl].filter((url): url is string => Boolean(url))
   if (line.sourceId === construction.value.shockPad.materialId)
-    return [construction.value.shockPad.imageDataUrl].filter(Boolean)
+    return [construction.value.shockPad.imageDataUrl].filter((url): url is string => Boolean(url))
   if (line.sourceId === construction.value.seamTape.materialId)
-    return [construction.value.seamTape.imageDataUrl].filter(Boolean)
+    return [construction.value.seamTape.imageDataUrl].filter((url): url is string => Boolean(url))
   if (line.sourceId === construction.value.whiteTurf.materialId)
-    return [construction.value.whiteTurf.imageDataUrl].filter(Boolean)
+    return [construction.value.whiteTurf.imageDataUrl].filter((url): url is string => Boolean(url))
   if (line.sourceId === construction.value.other.materialId)
-    return [construction.value.other.imageDataUrl].filter(Boolean)
+    return [construction.value.other.imageDataUrl].filter((url): url is string => Boolean(url))
   if (line.sourceId.startsWith('package-'))
-    return construction.value.package.imageDataUrls.filter(Boolean)
+    return construction.value.package.imageDataUrls.filter((url): url is string => Boolean(url))
   return []
 }
 
@@ -643,8 +695,8 @@ function grassShape(value: string) {
   const text = String(value || '')
   const match = text.match(/\(([^)]*[A-Za-z][^)]*)\)/)
   if (match) {
-    const letter = match[1].match(/[A-Za-z]/)?.[0]
-    return letter ? `${letter.toUpperCase()}型` : match[1]
+    const letter = match[1]?.match(/[A-Za-z]/)?.[0]
+    return letter ? `${letter.toUpperCase()}型` : match[1] || ''
   }
   if (/S/i.test(text))
     return 'S型'
@@ -714,9 +766,9 @@ function quoteSheetRows() {
     key: line.id,
     type: line.title,
     packageItems: line.sourceId === 'package-A'
-      ? packageLineItems('A').map((item, index) => ({ ...item, images: construction.value.package.imageDataUrls[index] ? [construction.value.package.imageDataUrls[index]] : [] }))
+      ? packageLineItems('A').map((item, index) => ({ ...item, images: construction.value.package.imageDataUrls[index] ? [construction.value.package.imageDataUrls[index]!] : [] }))
       : line.sourceId === 'package-B'
-        ? packageLineItems('B').map((item, index) => ({ ...item, images: construction.value.package.imageDataUrls[index] ? [construction.value.package.imageDataUrls[index]] : [] }))
+        ? packageLineItems('B').map((item, index) => ({ ...item, images: construction.value.package.imageDataUrls[index] ? [construction.value.package.imageDataUrls[index]!] : [] }))
         : [],
     images: lineImageUrls(line),
     params: quoteSheetParam(line),
@@ -851,7 +903,7 @@ function importProductFile(event: Event) {
   reader.onload = () => {
     try {
       const workbook = XLSX.read(reader.result, { type: 'array' })
-      const sheet = workbook.Sheets[workbook.SheetNames[0]]
+      const sheet = workbook.Sheets[workbook.SheetNames[0] ?? '']!
       const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' })
       productImportPreview.value = buildProductImportPreview(rows, pricing.value.products)
       productImportFileName.value = file.name
@@ -1008,7 +1060,7 @@ function rtfEscape(value: unknown) {
 
 function dataUrlToRtfImage(url: string) {
   const match = url.match(/^data:image\/(png|jpe?g);base64,(.+)$/i)
-  if (!match)
+  if (!match?.[1] || !match[2])
     return ''
 
   const type = match[1].toLowerCase().startsWith('jp') ? 'jpegblip' : 'pngblip'
@@ -1341,7 +1393,7 @@ async function quotePdfBlob(fileName: string, visibleSheet?: HTMLElement | null)
 }
 
 function syncQuoteToCustomer(status = '已导出', attachment?: { name: string, dataUrl: string }) {
-  if (!linkedCustomerId.value)
+  if (showLocalQuotePreview || !linkedCustomerId.value)
     return
   syncedCrmQuoteId.value = crm.saveQuoteRecord(linkedCustomerId.value, {
     id: syncedCrmQuoteId.value || undefined,
@@ -1358,7 +1410,7 @@ function returnToCustomer() {
   if (!linkedCustomerId.value)
     return
   syncQuoteToCustomer('已保存报价')
-  router.push(`/crm/customer/${linkedCustomerId.value}?tab=quote&quoteSaved=${Date.now()}`)
+  router.push(`/crm/customer/${linkedCustomerId.value}?tab=quote${showLocalQuotePreview ? '' : '&quoteSaved=' + Date.now()}`)
 }
 
 function previewPdf() {
@@ -1472,6 +1524,7 @@ async function printPdf() {
         <section class="band meta-band">
           <label>标题<input v-model="meta.title"></label>
           <label>客户名称<input v-model="meta.customerName"></label>
+          <label v-if="showLocalQuotePreview">绑定客户<select :value="linkedCustomerId" @change="bindFieldCustomer"><option value="">不绑定客户</option><option v-for="row in fieldCustomers" :key="row.id" :value="row.id">{{ row.name }}{{ row.phone ? ' · ' + row.phone : '' }}</option></select></label>
           <label>项目名称<input v-model="meta.projectName"></label>
           <label>日期<input v-model="meta.quoteDate" type="date"></label>
           <label class="wide">备注<input v-model="meta.remark"></label>
@@ -1677,6 +1730,7 @@ async function printPdf() {
             <small>{{ money(totalPerSquare()) }}/㎡</small>
           </div>
           <div class="mobile-export-actions">
+            <button v-if="showLocalQuotePreview" class="primary" :disabled="!productLines.length" @click="router.push({ path: '/quote', query: { ...route.query, view: 'print' } })">预览场地报价</button>
             <button class="primary" @click="previewPdf">预览PDF</button>
             <button class="primary" @click="exportWord">导出Word</button>
           </div>
@@ -1753,6 +1807,7 @@ async function printPdf() {
           </div>
         </section>
         <section class="export-actions">
+          <button v-if="showLocalQuotePreview" class="primary" :disabled="!productLines.length" @click="router.push({ path: '/quote', query: { ...route.query, view: 'print' } })">预览场地报价</button>
           <button class="primary" @click="previewPdf">预览PDF</button>
           <button class="primary" @click="exportWord">导出Word</button>
         </section>
@@ -1761,7 +1816,7 @@ async function printPdf() {
 
     <section v-else-if="view === 'settings' || view === 'cost'" class="settings band">
       <header>
-        <h2>{{ view === 'cost' ? '成本计算' : '数据维护' }}</h2>
+        <h2>{{ view === 'cost' ? '成本计算' : settingsTab === 'products' ? '产品资料 · 数据维护' : '辅料资料 · 数据维护' }}</h2>
         <div class="settings-actions">
           <template v-if="view === 'settings'">
             <button :class="{ active: settingsTab === 'products' }" @click="settingsTab = 'products'">产品</button>
@@ -1774,21 +1829,28 @@ async function printPdf() {
           </template>
         </div>
       </header>
-      <input v-if="view === 'settings'" v-model="settingsKeyword" class="search" placeholder="搜索">
+      <input v-if="view === 'settings' && settingsTab === 'materials'" v-model="settingsKeyword" class="search" placeholder="搜索辅料">
       <template v-if="view === 'settings' && settingsTab === 'products'">
-        <button class="primary" @click="quote.addProductRecord()">新增产品</button>
-        <article v-for="product in filteredProductsForSettings" :key="product.id" class="edit-row product-edit">
-          <input v-model="product.category" placeholder="大类">
-          <input v-model="product.itemNo" placeholder="货号">
-          <input v-model="product.model" placeholder="名称/型号">
-          <input v-model="product.height" placeholder="草高">
-          <input v-model="product.needleRow" placeholder="针排">
-          <input v-model="product.density" placeholder="密度">
-          <input v-model="product.poundWeight" placeholder="磅重">
-          <input v-model="product.backing" placeholder="基布与背胶">
-          <input v-model="product.warranty" placeholder="抗老化">
+        <div class="settings-filters" role="search" aria-label="产品规格筛选">
+          <label>搜索产品<input v-model="settingsKeyword" type="search" placeholder="名称、型号或货号"></label>
+          <label v-for="{ field, label, values } in settingsFilterOptions" :key="field">{{ label }}
+            <select v-model="settingsFilters[field]"><option :value="undefined">全部</option><option v-for="value in values" :key="value">{{ value }}</option></select>
+          </label>
+          <button type="button" @click="clearSettingsFilters">清除筛选</button>
+          <span aria-live="polite">{{ filteredProductsForSettings.length }} / {{ pricing.products.length }} 项</span>
+        </div>
+        <button class="primary" @click="clearSettingsFilters(); quote.addProductRecord()">新增产品</button>
+        <datalist id="pricing-product-categories">
+          <option v-for="item in quote.categories.filter(Boolean)" :key="item" :value="item" />
+        </datalist>
+        <p v-if="!filteredProductsForSettings.length">没有符合条件的产品</p>
+        <article v-for="product in filteredProductsForSettings" :key="product.id" class="edit-row product-edit" @focusin="editingSettingsProduct = product.id" @focusout="finishSettingsProductEdit">
+          <label v-for="[field, label] in settingsFields" :key="field" class="product-field">{{ label }}
+            <input v-if="field === 'category'" v-model.trim="product.category" list="pricing-product-categories" placeholder="选择或输入新分类" autocomplete="off">
+            <input v-else v-model="product[field]">
+          </label>
           <label class="file-chip product-image-chip" :class="{ filled: product.imageDataUrl }">产品图<input type="file" accept="image/*" @change="uploadOne($event, url => product.imageDataUrl = url)"></label>
-          <textarea v-model="product.priceText" placeholder="出厂价格/阶梯价格"></textarea>
+          <label class="product-field">出厂价 / 阶梯价<textarea v-model="product.priceText"></textarea></label>
           <button @click="quote.removeProduct(product.id)">删除</button>
         </article>
       </template>
@@ -1828,12 +1890,12 @@ async function printPdf() {
               <div><span>单簇草丝长度</span><b>{{ costBreakdown.singleTuftLengthMm.toFixed(2) }} mm</b></div>
               <div><span>理论耗纱量</span><b>{{ costBreakdown.theoreticalYarnWeight.toFixed(2) }} g/㎡</b></div>
               <div><span>实际耗纱量（含损耗）</span><b>{{ costBreakdown.yarnWeight.toFixed(2) }} g/㎡</b></div>
-              <div><span>草丝成本</span><b>¥{{ costBreakdown.yarnCost.toFixed(2) }}</b></div>
-              <div><span>背胶成本</span><b>¥{{ costBreakdown.backingCost.toFixed(2) }}</b></div>
-              <div class="total"><span>综合成本价</span><b>¥{{ costBreakdown.total.toFixed(2) }}</b></div>
-              <div><span>加价金额（{{ costBreakdown.markupPercent }}%）</span><b>¥{{ costBreakdown.margin.toFixed(2) }}</b></div>
-              <div class="total"><span>最终报价</span><b>¥{{ costBreakdown.target.toFixed(2) }}</b></div>
-              <div :class="costBreakdown.margin >= 0 ? 'positive' : 'negative'"><span>预计毛利 / 毛利率</span><b>¥{{ costBreakdown.margin.toFixed(2) }} / {{ costBreakdown.marginRate.toFixed(1) }}%</b></div>
+              <div><span>草丝成本</span><b>{{ costBreakdown.yarnCost.toFixed(2) }} 元</b></div>
+              <div><span>背胶成本</span><b>{{ costBreakdown.backingCost.toFixed(2) }} 元</b></div>
+              <div class="total"><span>综合成本价</span><b>{{ costBreakdown.total.toFixed(2) }} 元</b></div>
+              <div><span>加价金额（{{ costBreakdown.markupPercent }}%）</span><b>{{ costBreakdown.margin.toFixed(2) }} 元</b></div>
+              <div class="total"><span>最终报价</span><b>{{ costBreakdown.target.toFixed(2) }} 元</b></div>
+              <div :class="costBreakdown.margin >= 0 ? 'positive' : 'negative'"><span>预计毛利 / 毛利率</span><b>{{ costBreakdown.margin.toFixed(2) }} 元 / {{ costBreakdown.marginRate.toFixed(1) }}%</b></div>
             </div><p class="cost-note">按单位换算：单簇长度(mm)＝100÷针数×10＋草高(mm)×2＋2；耗纱量(g/㎡)＝单簇长度(mm)÷1000×簇密度×克重(dtex)÷10000×损耗系数。最终报价＝综合成本×（1＋加价比例÷100）。所有结果会随输入即时更新。</p></div>
           </div>
         </section>
@@ -1912,7 +1974,10 @@ async function printPdf() {
       <b>{{ money(totals.grandTotal) }}</b>
       <small>{{ money(totalPerSquare()) }}/㎡</small>
       <button class="primary" @click="printPdf">下载PDF</button>
-      <button @click="view = 'quote'">返回价格</button>
+      <button v-if="showLocalQuotePreview && fieldCustomer" :disabled="fieldSaving || !productLines.length" @click="saveFieldQuote">保存报价</button>
+      <span v-if="fieldSaveMessage" role="status">{{ fieldSaveMessage }}</span>
+      <button v-if="showLocalQuotePreview" @click="router.push({ path: '/quote', query: { ...route.query, view: 'quote' } })">返回场地报价</button>
+      <button v-else @click="view = 'quote'">返回价格</button>
       <button v-if="linkedCustomerId" class="primary" @click="returnToCustomer">返回当前客户</button>
     </aside>
 
@@ -2200,7 +2265,13 @@ dd{margin:3px 0 0;font-weight:800;color:#2f2a24}
 .grand b{color:#a72d2d}
 .settings{max-width:1400px;margin:16px auto}
 .edit-row{display:grid;gap:8px;align-items:center;border:1px solid #ebe6dd;border-radius:6px;background:#fffefa;padding:10px;margin-bottom:8px}
-.product-edit{grid-template-columns:100px 145px 1fr 90px 120px 100px 100px 140px 100px 104px minmax(180px,1fr) 64px}
+.product-edit{grid-template-columns:repeat(auto-fit,minmax(110px,1fr));align-items:end}
+.product-field,.settings-filters label{display:grid;gap:5px;min-width:0;font-size:13px;color:#425c73}
+.product-field :is(input,textarea),.settings-filters :is(input,select){width:100%;min-width:0}
+.settings-filters{display:flex;flex-wrap:wrap;align-items:end;gap:8px 12px;margin:12px 0;padding:12px;background:#edf3f8;border-radius:6px}
+.settings-filters label{min-width:82px;max-width:190px}
+.settings-filters select{min-height:38px;border:1px solid #cad7e2;border-radius:6px;background:#fff;color:inherit;padding:6px}
+.settings-filters span{align-self:center;color:#526575}
 .material-edit{grid-template-columns:120px 140px 1fr 100px 110px minmax(160px,1fr) 64px}
 .sheet{box-sizing:border-box;width:210mm;min-height:297mm;margin:18px auto;background:#fffefa;color:#000;padding:37mm 26mm 35mm 28mm;border:1px solid #111}
 .sheet h1{text-align:center;font-size:26px;font-family:SimSun,serif}

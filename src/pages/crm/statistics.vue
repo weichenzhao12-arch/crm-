@@ -12,7 +12,9 @@ import { computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { isSalesUser, useAdminStore } from '~/stores/admin'
 import { useCrmStore } from '~/stores/crm'
+import CrmDueReminders from '~/local-test/CrmDueReminders.vue'
 
+const localDueReminders = import.meta.env.DEV
 const crm = useCrmStore()
 const admin = useAdminStore()
 const { customers } = storeToRefs(crm)
@@ -88,7 +90,8 @@ function money(value: number) {
           <div><span>实际成交金额</span><b>{{ money(totalDealAmount) }}</b><i><em :style="{ width: `${totalQuoteAmount ? Math.min(totalDealAmount / totalQuoteAmount * 100, 100) : 0}%` }" /></i></div>
         </div>
       </article>
-      <article class="card insight">
+      <div v-if="localDueReminders" class="stats-due"><CrmDueReminders inline /></div>
+      <article v-else class="card insight">
         <header><div><h2>经营提示</h2><p>根据当前数据自动给出的行动建议</p></div></header>
         <ul>
           <li><b>{{ stages.find(item => item.key === 'quoted')?.count || 0 }}</b><span>位客户处于已报价阶段，建议优先安排价格反馈跟进。</span></li>

@@ -9,6 +9,7 @@
 </route>
 
 <script setup lang="ts">
+const showLocalWorkshop = import.meta.env.DEV
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '~/composables/useAuth'
@@ -67,6 +68,7 @@ async function handleLogin() {
         <strong v-if="errorMessage">{{ errorMessage }}</strong>
         <button :disabled="isSubmitting" type="submit">{{ isSubmitting ? '登录中...' : '登录系统' }}</button>
       </form>
+      <a v-if="showLocalWorkshop" href="/local-test.html">打开样品库本地测试</a>
     </section>
   </main>
 </template>

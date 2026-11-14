@@ -7,7 +7,7 @@ export interface LeadCreationCustomer {
 }
 
 function addDays(dateText: string, days: number) {
-  const [year, month, day] = dateText.split('-').map(Number)
+  const [year = 1970, month, day] = dateText.split('-').map(Number)
   const date = new Date(year, (month || 1) - 1, day || 1)
   date.setDate(date.getDate() + days)
   const nextYear = date.getFullYear()

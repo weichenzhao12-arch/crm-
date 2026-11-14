@@ -15,7 +15,9 @@ import { sortCustomersByRecentActivity } from '~/features/crm/recent-customers'
 import { dailyLeadCreationSeries, type LeadCreationMode } from '~/features/crm/stats'
 import { useAuth } from '~/composables/useAuth'
 import { isSalesUser, useAdminStore } from '~/stores/admin'
-import { useCrmStore } from '~/stores/crm'
+import { normalizeCustomer, useCrmStore } from '~/stores/crm'
+import { followDay } from '~/features/crm/today-follow'
+import { customerControls } from '~/features/crm/customer-controls'
 import type { CrmCustomer, IntentLevel } from '~/stores/crm'
 import CrmStatisticsPage from '~/pages/crm/statistics.vue'
 
@@ -111,10 +113,11 @@ const leadTableColumns = [
 const loginUser = computed(() => admin.currentUser)
 const isOwner = computed(() => loginUser.value?.role === 'owner')
 const isPrivileged = computed(() => loginUser.value?.role === 'owner' || loginUser.value?.role === 'manager')
-const canViewAll = computed(() => isPrivileged.value || Boolean(loginUser.value?.permissions.viewAllCustomers))
-const canManageLeads = computed(() => canViewAll.value || Boolean(loginUser.value?.permissions.manageUsers))
+const controls = computed(() => customerControls(loginUser.value))
+const canViewAll = computed(() => controls.value.viewAll)
+const canManageLeads = computed(() => controls.value.transfer)
 const activeUser = computed(() => canManageLeads.value ? users.value.find(user => user.id === selectedUserId.value) || loginUser.value : loginUser.value)
-const canDeleteCustomers = computed(() => isPrivileged.value || Boolean(loginUser.value?.permissions.deleteCustomers))
+const canDeleteCustomers = computed(() => controls.value.remove)
 const salesUsers = computed(() => users.value.filter(isSalesUser))
 
 function customerBelongsToUser(customer: CrmCustomer, userId?: string) {
@@ -172,7 +175,7 @@ function hasImportableLeadRow(row: Record<string, any>) {
   ))
 }
 
-function normalizeStage(value: string) {
+function normalizeStage(value: string): CrmCustomer['stage'] {
   if (value.includes('成交'))
     return 'won'
   if (value.includes('无效'))
@@ -312,11 +315,11 @@ function importLeadTable(event: Event) {
   const reader = new FileReader()
   reader.onload = () => {
     const workbook = XLSX.read(reader.result, { type: 'array' })
-    const sheet = workbook.Sheets[workbook.SheetNames[0]]
+    const sheet = workbook.Sheets[workbook.SheetNames[0] ?? '']!
     const rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { raw: false, defval: '' })
     const imported = rows
       .filter(hasImportableLeadRow)
-      .map(rowToCustomer)
+      .map((row, index) => normalizeCustomer(rowToCustomer(row, index)))
     const skippedBlank = rows.length - imported.length
     if (imported.length) {
       customers.value = [...imported, ...customers.value]
@@ -470,7 +473,7 @@ const intentCounts = computed(() => (['A', 'B', 'C', 'D', 'E', 'F'] as IntentLev
 })))
 
 const dueReminders = computed(() => {
-  const todayKey = dateOnly(new Date())
+  const todayKey = followDay()
   return scopedCustomers.value.flatMap(customer =>
     customer.followUps
       .filter(follow => follow.reminderDate && follow.reminderDate <= todayKey && !follow.reminderDone)
@@ -614,7 +617,7 @@ async function handleLogout() {
         <small>今天有 {{ dashboardCounts.pending }} 项跟进待处理，建议优先联系高意向客户</small>
       </div>
       <nav>
-        <label v-if="canManageLeads" class="user-view">当前视角
+        <label v-if="canViewAll" class="user-view">当前视角
           <select v-model="selectedUserId">
             <option v-for="user in users" :key="user.id" :value="user.id">{{ user.displayName || user.account }}</option>
           </select>
@@ -735,7 +738,7 @@ async function handleLogout() {
       <header><div><b>快捷入口</b><span>常用业务一步直达</span></div></header>
       <nav>
         <button @click="addCustomer"><i>＋</i><span>新增客户</span><small>建立客资档案</small></button>
-        <RouterLink to="/crm/follow-ups"><i>◷</i><span>今日跟进</span><small>{{ dashboardCounts.pending }} 项待处理</small></RouterLink>
+        <RouterLink to="/crm/customers?stage=todayFollow"><i>◷</i><span>今日跟进</span><small>查看今日跟进客户</small></RouterLink>
         <RouterLink to="/quote?view=quote"><i>¥</i><span>快速报价</span><small>进入报价计算</small></RouterLink>
         <RouterLink to="/crm/customers"><i>☷</i><span>客户管理</span><small>查看全部客户</small></RouterLink>
         <RouterLink to="/crm/statistics"><i>◔</i><span>数据统计</span><small>分析销售趋势</small></RouterLink>

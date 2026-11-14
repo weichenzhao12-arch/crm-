@@ -12,19 +12,33 @@ import * as XLSX from 'xlsx'
 import { storeToRefs } from 'pinia'
 import { leadImportMessage, summarizeLeadImport } from '~/features/crm/lead-import'
 import { isSalesUser, useAdminStore } from '~/stores/admin'
-import { useCrmStore } from '~/stores/crm'
+import { normalizeCustomer, useCrmStore } from '~/stores/crm'
+import { customerControls } from '~/features/crm/customer-controls'
+import { followDay, isTodayFollow } from '~/features/crm/today-follow'
 import { useSystemStore } from '~/stores/system'
+import { useAuthStore } from '~/stores/auth'
 import type { CrmCustomer, IntentLevel } from '~/stores/crm'
 
 const router = useRouter()
+const route = useRoute()
 const crm = useCrmStore()
+const auth = useAuthStore()
+function signInAgain() {
+  const redirect = router.currentRoute.value.fullPath
+  auth.clearAuth()
+  return router.replace({ path: '/login', query: { redirect } })
+}
 const admin = useAdminStore()
+const showSampleWorkshop = import.meta.env.DEV
 const system = useSystemStore()
 const { customers } = storeToRefs(crm)
 const { users } = storeToRefs(admin)
 
 const keyword = ref('')
 const stageFilter = ref('全部')
+watch(() => route.query.stage, (stage) => {
+  stageFilter.value = stage === 'todayFollow' ? 'todayFollow' : '全部'
+}, { immediate: true })
 const selectedUserId = ref('all')
 const yearFilter = ref('all')
 const monthFilter = ref('all')
@@ -103,9 +117,12 @@ const followUpColumns = leadTableColumns.filter(column => column.includes('跟�
 
 const loginUser = computed(() => admin.currentUser)
 const isPrivileged = computed(() => loginUser.value?.role === 'owner' || loginUser.value?.role === 'manager')
-const canViewAll = computed(() => isPrivileged.value || Boolean(loginUser.value?.permissions.viewAllCustomers))
-const canManageLeads = computed(() => canViewAll.value || Boolean(loginUser.value?.permissions.manageUsers))
-const canDeleteCustomers = computed(() => isPrivileged.value || Boolean(loginUser.value?.permissions.deleteCustomers))
+const controls = computed(() => customerControls(loginUser.value))
+const canViewAll = computed(() => controls.value.viewAll)
+const canDeleteCustomers = computed(() => controls.value.remove)
+const canTransferCustomers = computed(() => controls.value.transfer)
+const canManageLeads = computed(() => controls.value.transfer)
+const canSelectCustomers = computed(() => controls.value.select)
 const canExportCustomers = computed(() => isPrivileged.value || Boolean(loginUser.value?.permissions.exportCustomers))
 const canImportCustomers = computed(() => isPrivileged.value || Boolean(loginUser.value?.permissions.importCustomers))
 const activeUser = computed(() => canManageLeads.value && selectedUserId.value !== 'all' ? users.value.find(user => user.id === selectedUserId.value) || loginUser.value : loginUser.value)
@@ -188,7 +205,7 @@ function followClass(customer: CrmCustomer) {
   const follow = nextFollow(customer)
   if (!follow?.reminderDate)
     return ''
-  const today = dateOnly(new Date())
+  const today = followDay()
   return follow.reminderDate < today ? 'overdue' : follow.reminderDate === today ? 'today' : ''
 }
 
@@ -196,7 +213,7 @@ function followLabel(customer: CrmCustomer) {
   const follow = nextFollow(customer)
   if (!follow?.reminderDate)
     return '暂无安排'
-  const today = dateOnly(new Date())
+  const today = followDay()
   if (follow.reminderDate < today)
     return '已逾期'
   if (follow.reminderDate === today)
@@ -226,8 +243,8 @@ function customerDateKey(value: unknown) {
 }
 
 function hasTodayFollowOrReminder(customer: CrmCustomer) {
-  const todayKey = dateOnly(new Date())
-  return customer.followUps.some(follow => customerDateKey(follow.date) === todayKey)
+  const todayKey = followDay()
+  return customer.followUps.some(follow => isTodayFollow(follow, todayKey, customerDateKey))
 }
 
 function isTodayNewCustomer(customer: CrmCustomer) {
@@ -272,12 +289,12 @@ function normalizeDateText(value: unknown, fallback = dateOnly(new Date())) {
   const text = firstText(value)
   const yearMatch = text.match(/(20\d{2}|19\d{2})[年./-]\s*(\d{1,2})[月./-]\s*(\d{1,2})/)
   if (yearMatch)
-    return `${yearMatch[1]}-${yearMatch[2].padStart(2, '0')}-${yearMatch[3].padStart(2, '0')}`
+    return `${yearMatch[1]}-${yearMatch[2]!.padStart(2, '0')}-${yearMatch[3]!.padStart(2, '0')}`
 
   const shortMatch = text.match(/(^|\D)(\d{1,2})[月./-]\s*(\d{1,2})(日)?/)
   if (shortMatch) {
     const year = fallback.slice(0, 4) || String(new Date().getFullYear())
-    return `${year}-${shortMatch[2].padStart(2, '0')}-${shortMatch[3].padStart(2, '0')}`
+    return `${year}-${shortMatch[2]!.padStart(2, '0')}-${shortMatch[3]!.padStart(2, '0')}`
   }
 
   return fallback
@@ -323,7 +340,7 @@ function hasImportableLeadRow(row: Record<string, any>) {
   )
 }
 
-function normalizeStage(value: string) {
+function normalizeStage(value: string): CrmCustomer['stage'] {
   if (value.includes('成交'))
     return 'won'
   if (value.includes('无效'))
@@ -497,11 +514,11 @@ function importLeadTable(event: Event) {
   const reader = new FileReader()
   reader.onload = () => {
     const workbook = XLSX.read(reader.result, { type: 'array' })
-    const sheet = workbook.Sheets[workbook.SheetNames[0]]
+    const sheet = workbook.Sheets[workbook.SheetNames[0] ?? '']!
     const rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { raw: false, defval: '' })
     const imported = rows
       .filter(hasImportableLeadRow)
-      .map(rowToCustomer)
+      .map((row, index) => normalizeCustomer(rowToCustomer(row, index)))
     const skippedBlank = rows.length - imported.length
     if (imported.length) {
       const duplicateCount = duplicateImportCount(imported)
@@ -589,7 +606,7 @@ function saveNewCustomer() {
 async function deleteCustomer(customerId: string) {
   if (!canDeleteCustomers.value)
     return
-  if (!window.confirm('确定删除这条客资吗？删除后无法恢复。'))
+  if (!window.confirm('确定将这条客资移入回收站吗？'))
     return
   if (!await crm.removeCustomer(customerId))
     window.alert(`客户删除未保存到云端：${crm.saveError || '请稍后重试'}`)
@@ -602,7 +619,7 @@ function toggleAllFilteredCustomers(event: Event) {
 async function batchDeleteCustomers() {
   if (!canDeleteCustomers.value || !selectedCustomerIds.value.length)
     return
-  if (!window.confirm(`确定删除已选中的 ${selectedCustomerIds.value.length} 条客资吗？删除后无法恢复。`))
+  if (!window.confirm(`确定将已选中的 ${selectedCustomerIds.value.length} 条客资移入回收站吗？`))
     return
   if (!await crm.removeCustomers(selectedCustomerIds.value))
     window.alert(`客户删除未保存到云端：${crm.saveError || '请稍后重试'}`)
@@ -610,9 +627,9 @@ async function batchDeleteCustomers() {
 }
 
 function batchTransferCustomers() {
-  if (!canManageLeads.value || !selectedCustomerIds.value.length || !transferTargetUserId.value)
+  if (!canTransferCustomers.value || !selectedCustomerIds.value.length || !transferTargetUserId.value)
     return
-  const targetUser = users.value.find(user => user.id === transferTargetUserId.value)
+  const targetUser = salesUsers.value.find(user => user.id === transferTargetUserId.value)
   if (!targetUser)
     return
   if (!window.confirm(`确定把已选中的 ${selectedCustomerIds.value.length} 条客资转移给 ${targetUser.displayName || targetUser.account} 吗？`))
@@ -653,8 +670,14 @@ function batchTransferCustomers() {
 
     <section v-if="crm.cloudLoadState === 'loading'" class="cloud-status">正在读取云端客户数据，请稍候……</section>
     <section v-else-if="crm.cloudLoadState === 'error'" class="cloud-status cloud-error">
-      云端客户数据加载或保存失败，暂不显示本地缓存，避免误操作。{{ crm.saveError }}
-      <button @click="crm.loadCloudCustomers()">重试加载</button>
+      <template v-if="crm.customerSessionExpired">
+        登录已过期，请重新登录后查看客户列表。
+        <button @click="signInAgain">重新登录</button>
+      </template>
+      <template v-else>
+        云端客户数据加载或保存失败，暂不显示本地缓存，避免误操作。{{ crm.saveError }}
+        <button @click="crm.loadCloudCustomers()">重试加载</button>
+      </template>
     </section>
 
     <section v-if="crm.cloudLoadState === 'ready'" class="customer-metrics">
@@ -671,6 +694,8 @@ function batchTransferCustomers() {
           <h2>寄样信息</h2>
           <button @click="closeSampleDialog">关闭</button>
         </header>
+        <RouterLink v-if="showSampleWorkshop" :to="{ path: '/samples', query: { customer: sampleCustomer.id } }">寄样开单</RouterLink>
+        <RouterLink v-if="showSampleWorkshop" :to="{ path: '/samples', query: { customer: sampleCustomer.id, view: 'ledger' } }">查看寄样单据</RouterLink>
         <label class="sample-check">
           <input v-model="sampleForm.sampleSent" type="checkbox">
           已寄样
@@ -741,7 +766,7 @@ function batchTransferCustomers() {
           <span>⌕</span>
           <input v-model="keyword" placeholder="搜索客户、电话、微信">
         </div>
-        <label v-if="canManageLeads">当前视角
+        <label v-if="canViewAll">当前视角
           <select v-model="selectedUserId">
             <option value="all">全部客户</option>
             <option v-for="user in users" :key="user.id" :value="user.id">{{ user.displayName || user.account }}</option>
@@ -765,23 +790,23 @@ function batchTransferCustomers() {
         </div>
       </div>
 
-      <div v-if="canDeleteCustomers && selectedCount" class="batch-bar">
+      <div v-if="canSelectCustomers && selectedCount" class="batch-bar">
         <b>已选择 {{ selectedCount }} 位客户</b>
-        <select v-model="transferTargetUserId">
+        <select v-if="canTransferCustomers" v-model="transferTargetUserId" aria-label="转移给">
           <option value="">转移给</option>
           <option v-for="user in salesUsers" :key="user.id" :value="user.id">{{ user.displayName || user.account }}</option>
         </select>
-        <button :disabled="!transferTargetUserId" @click="batchTransferCustomers">批量转移</button>
-        <button class="danger" @click="batchDeleteCustomers">批量删除</button>
+        <button v-if="canTransferCustomers" :disabled="!transferTargetUserId" @click="batchTransferCustomers">批量转移</button>
+        <button v-if="canDeleteCustomers" class="danger" @click="batchDeleteCustomers">批量删除</button>
       </div>
 
       <div class="customer-core-table">
         <div class="core-head">
-          <span v-if="canDeleteCustomers"><input :checked="allFilteredSelected" type="checkbox" aria-label="全选" @change="toggleAllFilteredCustomers"></span>
+          <span v-if="canSelectCustomers"><input :checked="allFilteredSelected" type="checkbox" aria-label="全选" @change="toggleAllFilteredCustomers"></span>
           <span>客户信息</span><span>来源</span><span>阶段</span><span>负责人</span><span>下次跟进</span><span>最新动态</span><span>操作</span>
         </div>
         <article v-for="customer in filteredCustomers" :key="customer.id" @click="router.push(`/crm/customer/${customer.id}`)">
-          <span v-if="canDeleteCustomers" class="select-cell">
+          <span v-if="canSelectCustomers" class="select-cell">
             <input v-model="selectedCustomerIds" :value="customer.id" type="checkbox" @click.stop>
           </span>
           <strong class="customer-identity"><i>{{ customer.name.slice(0, 1) }}</i><span>{{ customer.name }}<small>{{ customerContact(customer) || '未填联系方式' }}</small></span></strong>

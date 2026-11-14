@@ -20,8 +20,15 @@ async function apiFetch<T>(url: string, options: RequestInit = {}): Promise<T> {
     },
   })
 
-  if (!response.ok)
-    throw new CloudApiError(response.status, await response.text())
+  if (!response.ok) {
+    if (response.headers.get('cf-mitigated') === 'challenge')
+      throw new CloudApiError(response.status, '客资接口遇到安全验证，请完成验证后重试')
+    const contentType = response.headers.get('content-type') || ''
+    const body = contentType.includes('application/json')
+      ? await response.json().catch(() => null)
+      : null
+    throw new CloudApiError(response.status, typeof body?.message === 'string' ? body.message : `服务请求失败（${response.status}）`)
+  }
 
   return response.json() as Promise<T>
 }

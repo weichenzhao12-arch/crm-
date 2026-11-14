@@ -8,12 +8,14 @@
 </route>
 
 <script setup lang="ts">
+const showLocalSamplePermissions = import.meta.env.DEV
 import * as XLSX from 'xlsx'
 import { storeToRefs } from 'pinia'
 import type { MaterialRecord, ProductRecord } from '~/features/quote/types'
 import { uploadCloudImage } from '~/api/cloud-storage'
 import { useAdminStore } from '~/stores/admin'
 import { useCrmStore } from '~/stores/crm'
+import type { CrmCustomer } from '~/stores/crm'
 import { useQuoteStore } from '~/stores/quote'
 import { useSystemStore } from '~/stores/system'
 import type { RecycleRecord } from '~/stores/system'
@@ -173,7 +175,7 @@ function rowToProduct(row: Record<string, any>): ProductRecord {
 
   return {
     id: createId('product'),
-    category: String(row.产品类型 || row.category || ''),
+    category: String(row.产品分类 || row.产品类型 || row.category || '').trim(),
     shippingFrom: '',
     itemNo: String(row.货号 || row.itemNo || ''),
     height: String(row.草高 || row.height || ''),
@@ -250,7 +252,7 @@ function importProductExcel(event: Event) {
   const reader = new FileReader()
   reader.onload = () => {
     const workbook = XLSX.read(reader.result, { type: 'array' })
-    const sheet = workbook.Sheets[workbook.SheetNames[0]]
+    const sheet = workbook.Sheets[workbook.SheetNames[0] ?? '']!
     const rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet)
     const products = rows.map(rowToProduct).filter(product => product.itemNo || product.model)
     if (products.length) {
@@ -310,17 +312,23 @@ function deleteMaterials(ids: string[]) {
   quote.savePricing()
 }
 
-function restoreRecycleItem(record: RecycleRecord) {
+async function restoreRecycleItem(record: RecycleRecord) {
+  if (record.type === 'customer') {
+    if (!await crm.restoreCustomer(record.item as CrmCustomer)) {
+      window.alert(crm.saveError || '客资未恢复，回收站记录已保留')
+      return
+    }
+    system.restore(record.id)
+    return
+  }
   const item = system.restore(record.id)
   if (!item)
     return
 
   if (record.type === 'product')
-    quote.restoreProduct(item)
+    quote.restoreProduct(item as ProductRecord)
   else if (record.type === 'material')
-    quote.restoreMaterial(item)
-  else if (record.type === 'customer')
-    crm.restoreCustomer(item)
+    quote.restoreMaterial(item as MaterialRecord)
 }
 
 function recycleTypeLabel(type: string) {
@@ -425,6 +433,9 @@ function changeOwnPassword() {
         </div>
       </header>
       <input v-model="keyword" class="admin-search" placeholder="搜索货号、类型、名称、草高、密度、针排、价格">
+      <datalist id="admin-product-categories">
+        <option v-for="item in quote.categories.filter(Boolean)" :key="item" :value="item" />
+      </datalist>
       <div class="admin-table product-admin-table">
         <div class="admin-head">
           <input type="checkbox" :checked="allFilteredProductsSelected" @change="toggleAllProducts">
@@ -433,7 +444,7 @@ function changeOwnPassword() {
         <article v-for="product in filteredProducts" :key="product.id">
           <input v-model="selectedProductIds" type="checkbox" :value="product.id">
           <input v-model="product.itemNo">
-          <input v-model="product.category">
+          <input v-model.trim="product.category" list="admin-product-categories" aria-label="产品分类" placeholder="选择或输入新分类" autocomplete="off">
           <input v-model="product.model">
           <input v-model="product.height">
           <input v-model="product.poundWeight">
@@ -518,6 +529,11 @@ function changeOwnPassword() {
             <section>
               <h3>客户与数据</h3>
               <label><input v-model="user.permissions.viewAllCustomers" type="checkbox" @change="admin.saveUsers()"><span><b>查看全部客户与团队统计</b><small>关闭时，客户、今日跟进和数据统计都只显示本人数据</small></span></label>
+              <template v-if="showLocalSamplePermissions">
+                <label><input v-model="user.permissions.transferCustomers" type="checkbox" @change="admin.saveUsers()"><span><b>批量转移客资</b><small>需另有查看全部客资权限；不授予删除权限</small></span></label>
+                <label><input v-model="user.permissions.issueSamples" type="checkbox" @change="admin.saveUsers()"><span><b>样品出库（本地测试）</b><small>选样、备样、领样和打印</small></span></label>
+                <label><input v-model="user.permissions.manageSampleStock" type="checkbox" @change="admin.saveUsers()"><span><b>样品库存维护（本地测试）</b><small>新增规格、入库、退回和冲销</small></span></label>
+              </template>
               <label><input v-model="user.permissions.importCustomers" type="checkbox" @change="admin.saveUsers()"><span><b>导入客户</b><small>允许通过 Excel 批量导入客资</small></span></label>
               <label><input v-model="user.permissions.exportCustomers" type="checkbox" @change="admin.saveUsers()"><span><b>导出客户</b><small>允许下载可见范围内的客户数据</small></span></label>
               <label><input v-model="user.permissions.deleteCustomers" type="checkbox" @change="admin.saveUsers()"><span><b>删除客户</b><small>允许单个或批量移入回收站</small></span></label>

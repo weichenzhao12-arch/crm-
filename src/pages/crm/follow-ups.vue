@@ -13,6 +13,8 @@ import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useAdminStore } from '~/stores/admin'
 import { useCrmStore } from '~/stores/crm'
+import { followDay } from '~/features/crm/today-follow'
+import { reminderCustomers } from '~/features/crm/due-reminders'
 
 const router = useRouter()
 const crm = useCrmStore()
@@ -26,15 +28,9 @@ onMounted(() => {
   admin.loadCloudUsers()
 })
 
-const today = computed(() => new Date().toISOString().slice(0, 10))
+const today = computed(() => followDay())
 const loginUser = computed(() => admin.currentUser)
-const canViewAll = computed(() => ['owner', 'manager'].includes(loginUser.value?.role || '') || Boolean(loginUser.value?.permissions.viewAllCustomers))
-const visibleCustomers = computed(() => canViewAll.value
-  ? customers.value
-  : customers.value.filter(customer =>
-      customer.assignedToUserId === loginUser.value?.id
-      || customer.owner === loginUser.value?.displayName
-      || customer.owner === loginUser.value?.account))
+const visibleCustomers = computed(() => crm.cloudLoadState === 'ready' ? reminderCustomers(customers.value, loginUser.value) : [])
 const followItems = computed(() => visibleCustomers.value.flatMap(customer =>
   customer.followUps
     .filter(follow => follow.reminderDate && !follow.reminderDone)
@@ -59,7 +55,7 @@ const visibleItems = computed(() => followItems.value.filter((item) => {
 }))
 
 function markDone(customerId: string, followId: string) {
-  const customer = customers.value.find(item => item.id === customerId)
+  const customer = visibleCustomers.value.find(item => item.id === customerId)
   const follow = customer?.followUps.find(item => item.id === followId)
   if (!follow)
     return

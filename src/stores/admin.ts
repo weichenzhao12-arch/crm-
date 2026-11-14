@@ -5,6 +5,10 @@ import { normalizePasswordForStorage, verifyPassword } from '~/features/auth/pas
 export type AdminRole = 'owner' | 'manager' | 'quoter' | 'viewer'
 
 export interface AdminPermission {
+  issueSamples?: boolean
+  transferCustomers?: boolean
+  assignUnclaimedCustomers?: boolean
+  manageSampleStock?: boolean
   manageProducts: boolean
   manageMaterials: boolean
   importExcel: boolean
@@ -237,7 +241,7 @@ export const useAdminStore = defineStore('admin', {
       }
     },
     addUser() {
-      const user = {
+      const user: AdminUser = {
         id: createId(),
         account: `user${this.users.length + 1}`,
         displayName: '新账号',

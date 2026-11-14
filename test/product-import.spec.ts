@@ -11,8 +11,8 @@ const existing: ProductRecord = {
 describe('product bulk import', () => {
   it('previews new, update and invalid rows without changing products', () => {
     const rows = [
-      { 产品分类: '仿真草坪', 货号: 'A001', '产品名称/型号': '新名称', '出厂价格/阶梯价格': 22 },
-      { 产品分类: '仿真草坪', 货号: 'A002', '产品名称/型号': '新品', '出厂价格/阶梯价格': 18 },
+      { 产品分类: '新分类一', 货号: 'A001', '产品名称/型号': '新名称', '出厂价格/阶梯价格': 22 },
+      { 产品分类: '新分类二', 货号: 'A002', '产品名称/型号': '新品', '出厂价格/阶梯价格': 18 },
       { 产品分类: '仿真草坪', 货号: '', '产品名称/型号': '错误行', '出厂价格/阶梯价格': 18 },
     ]
     const preview = buildProductImportPreview(rows, [existing])

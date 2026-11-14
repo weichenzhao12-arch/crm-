@@ -14,7 +14,7 @@ function sha256Hex(message: string) {
   const view = new DataView(data.buffer)
   view.setUint32(paddedLength - 4, bitLength, false)
 
-  const h = [
+  const h: [number, number, number, number, number, number, number, number] = [
     0x6A09E667, 0xBB67AE85, 0x3C6EF372, 0xA54FF53A,
     0x510E527F, 0x9B05688C, 0x1F83D9AB, 0x5BE0CD19,
   ]
@@ -34,16 +34,16 @@ function sha256Hex(message: string) {
     for (let i = 0; i < 16; i++)
       w[i] = view.getUint32(offset + i * 4, false)
     for (let i = 16; i < 64; i++) {
-      const s0 = rightRotate(w[i - 15], 7) ^ rightRotate(w[i - 15], 18) ^ (w[i - 15] >>> 3)
-      const s1 = rightRotate(w[i - 2], 17) ^ rightRotate(w[i - 2], 19) ^ (w[i - 2] >>> 10)
-      w[i] = (w[i - 16] + s0 + w[i - 7] + s1) >>> 0
+      const s0 = rightRotate(w[i - 15]!, 7) ^ rightRotate(w[i - 15]!, 18) ^ (w[i - 15]! >>> 3)
+      const s1 = rightRotate(w[i - 2]!, 17) ^ rightRotate(w[i - 2]!, 19) ^ (w[i - 2]! >>> 10)
+      w[i] = (w[i - 16]! + s0 + w[i - 7]! + s1) >>> 0
     }
 
     let [a, b, c, d, e, f, g, hh] = h
     for (let i = 0; i < 64; i++) {
       const s1 = rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25)
       const ch = (e & f) ^ (~e & g)
-      const temp1 = (hh + s1 + ch + k[i] + w[i]) >>> 0
+      const temp1 = (hh + s1 + ch + k[i]! + w[i]!) >>> 0
       const s0 = rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22)
       const maj = (a & b) ^ (a & c) ^ (b & c)
       const temp2 = (s0 + maj) >>> 0
