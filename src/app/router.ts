@@ -13,6 +13,7 @@ import HomePage from '~/pages/index.vue'
 import LoginPage from '~/pages/login.vue'
 import SamplesPage from '~/local-test/SamplesPage.vue'
 import { crmFeaturesEnabled } from '~/features/crm/release'
+import { localWarehouseEnabled } from '~/features/warehouse/release'
 
 export function createAppRouter() {
   return createRouter({
@@ -22,6 +23,16 @@ export function createAppRouter() {
         path: '/',
         component: DefaultLayout,
         children: [
+          ...(localWarehouseEnabled ? [{
+            path: 'warehouse',
+            component: () => import('~/features/warehouse/WarehousePage.vue'),
+            meta: { title: '仓库', layout: 'default' },
+          }, {
+            path: 'warehouse/manage',
+            component: () => import('~/features/warehouse/WarehousePage.vue'),
+            props: { management: true },
+            meta: { title: '库存管理', layout: 'default' },
+          }] : []),
           ...(crmFeaturesEnabled ? [{
             path: 'samples',
             component: SamplesPage,
@@ -82,6 +93,11 @@ export function createAppRouter() {
           },
         ],
       },
+      ...(localWarehouseEnabled ? [{
+        path: '/dealer-stock',
+        component: () => import('~/features/warehouse/DealerStock.vue'),
+        meta: { title: '代理商现货查询', public: true },
+      }] : []),
       {
         path: '/login',
         component: BlankLayout,

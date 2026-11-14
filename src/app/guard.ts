@@ -1,13 +1,14 @@
 import type { Router } from 'vue-router'
 import { useAdminStore } from '~/stores/admin'
 import { useAuthStore } from '~/stores/auth'
+import { warehouseAccess } from '~/features/warehouse/model'
 
 export function applyRouterGuards(router: Router) {
   router.beforeEach((to) => {
     const auth = useAuthStore()
     const admin = useAdminStore()
     const guestOnly = Boolean(to.meta.guestOnly)
-    const requiresAuth = !guestOnly
+    const requiresAuth = !guestOnly && !to.meta.public
 
     if (requiresAuth && !auth.isAuthenticated)
       return { path: '/login', query: { redirect: to.fullPath } }
@@ -16,6 +17,8 @@ export function applyRouterGuards(router: Router) {
       return { path: '/' }
 
     const currentUser = admin.currentUser
+    if (to.path === '/warehouse/manage' && !warehouseAccess(currentUser).stock)
+      return { path: '/warehouse' }
     const canManage = currentUser?.role === 'owner' || currentUser?.role === 'manager' || Boolean(currentUser?.permissions.manageUsers)
     if (to.path.startsWith('/admin') && !canManage)
       return { path: '/' }

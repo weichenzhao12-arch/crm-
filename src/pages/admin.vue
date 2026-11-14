@@ -19,9 +19,17 @@ import type { CrmCustomer } from '~/stores/crm'
 import { useQuoteStore } from '~/stores/quote'
 import { useSystemStore } from '~/stores/system'
 import type { RecycleRecord } from '~/stores/system'
+import { warehouseAccess, warehousePermissionFields } from '~/features/warehouse/model'
+import { localWarehouseEnabled } from '~/features/warehouse/release'
 
 const quote = useQuoteStore()
 const admin = useAdminStore()
+function warehousePermissionChecked(user: typeof admin.users[number], key: typeof warehousePermissionFields[number][0]) {
+  const access = warehouseAccess(user)
+  if (key === 'warehouseCreate') return access.sales
+  if (key === 'warehouseEnterPrice') return user.permissions[key] ?? access.sales
+  return user.role === 'owner' || Boolean(user.permissions[key])
+}
 const crm = useCrmStore()
 const system = useSystemStore()
 const { pricing } = storeToRefs(quote)
@@ -541,6 +549,9 @@ function changeOwnPassword() {
             <section>
               <h3>报价与商品</h3>
               <label><input v-model="user.permissions.exportQuote" type="checkbox" @change="admin.saveUsers()"><span><b>报价导出</b><small>允许导出报价单 PDF / Word</small></span></label>
+              <template v-if="localWarehouseEnabled">
+                <label v-for="[key, label] in warehousePermissionFields" :key="key"><input :checked="warehousePermissionChecked(user, key)" :disabled="user.role === 'owner'" type="checkbox" @change="user.permissions[key] = ($event.target as HTMLInputElement).checked; admin.saveUsers()"><span><b>{{ label }}（仓库）</b><small v-if="key === 'warehousePrintPrice'">同时需要查看全部发货价格和打印发货单权限</small><small v-else-if="key === 'warehouseEnterPrice'">需有开单权限；不授予查看他人价格权限</small></span></label>
+              </template>
               <label><input v-model="user.permissions.temporaryEdit" type="checkbox" @change="admin.saveUsers()"><span><b>临时改价</b><small>允许在报价时临时调整单价</small></span></label>
               <label><input v-model="user.permissions.costCalculation" type="checkbox" :disabled="user.role === 'owner' || user.role === 'manager'" @change="admin.saveUsers()"><span><b>成本计算</b><small>允许查看和使用草坪成本计算器</small></span></label>
               <label><input v-model="user.permissions.manageProducts" type="checkbox" @change="admin.saveUsers()"><span><b>产品管理</b><small>新增、修改和删除产品</small></span></label>

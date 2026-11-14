@@ -5,6 +5,13 @@ import { normalizePasswordForStorage, verifyPassword } from '~/features/auth/pas
 export type AdminRole = 'owner' | 'manager' | 'quoter' | 'viewer'
 
 export interface AdminPermission {
+  warehouseCreate?: boolean
+  warehouseStock?: boolean
+  warehouseShip?: boolean
+  warehousePrint?: boolean
+  warehouseEnterPrice?: boolean
+  warehouseViewPrice?: boolean
+  warehousePrintPrice?: boolean
   issueSamples?: boolean
   transferCustomers?: boolean
   assignUnclaimedCustomers?: boolean

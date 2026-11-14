@@ -7,6 +7,8 @@ import { useTheme } from '~/composables/useTheme'
 import { samplePermissions } from '~/local-test/permissions'
 import CrmDueReminders from '~/local-test/CrmDueReminders.vue'
 import { crmFeaturesEnabled } from '~/features/crm/release'
+import { warehouseAccess } from '~/features/warehouse/model'
+import { localWarehouseEnabled } from '~/features/warehouse/release'
 
 const route = useRoute()
 const localDueReminders = crmFeaturesEnabled
@@ -21,12 +23,16 @@ const isAdmin = computed(() => route.path.startsWith('/admin'))
 const pageTitle = computed(() => String(route.meta.title || (isQuote.value ? '报价管理' : isAdmin.value ? '系统管理' : '工作台')))
 const canManage = computed(() => ['owner', 'manager'].includes(admin.currentUser?.role || '') || Boolean(admin.currentUser?.permissions.manageUsers))
 const canCalculateCost = computed(() => ['owner', 'manager'].includes(admin.currentUser?.role || '') || Boolean(admin.currentUser?.permissions.costCalculation))
+const warehouseOperator = computed(() => localWarehouseEnabled && warehouseAccess(admin.currentUser).ship && !warehouseAccess(admin.currentUser).sales)
 
 const navItems = computed(() => [
   { label: admin.currentUser?.role === 'owner' ? '数据主页' : '工作台', to: '/crm', icon: 'dashboard', exact: true },
   { label: '客户管理', to: '/crm/customers', icon: 'customers' },
   ...(crmFeaturesEnabled && Object.values(samplePermissions(admin.currentUser)).some(Boolean)
     ? [{ label: '样品库', to: '/samples', icon: 'product' }]
+    : []),
+  ...(localWarehouseEnabled && warehouseAccess(admin.currentUser).enter
+    ? [{ label: '仓库', to: '/warehouse', icon: 'product' }]
     : []),
   ...(crmFeaturesEnabled
     ? [{ label: '报价', to: '/quote/orders', icon: 'calculator' }]
@@ -90,7 +96,7 @@ async function handleLogout() {
           <button class="icon-button" :title="themeLabel" @click="toggleTheme">◐</button>
           <button class="notification" title="待办提醒">♧<i /></button>
           <span class="avatar">{{ user?.name?.slice(0, 1) || '用' }}</span>
-          <span class="user-name"><b>{{ user?.name || '当前用户' }}</b><small>{{ user?.role === 'owner' ? '系统所有者' : user?.role === 'manager' ? '销售主管' : '销售人员' }}</small></span>
+          <span class="user-name"><b>{{ user?.name || '当前用户' }}</b><small>{{ user?.role === 'owner' ? '系统所有者' : warehouseOperator ? '仓库人员' : user?.role === 'manager' ? '销售主管' : '销售人员' }}</small></span>
           <button v-if="isAuthenticated" class="logout" @click="handleLogout">退出</button>
         </div>
       </header>

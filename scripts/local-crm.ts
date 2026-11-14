@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite'
 import type { SQLInputValue } from 'node:sqlite'
 import type { Plugin } from 'vite'
 import { onRequest } from '../functions/[[path]]'
+import { localWarehouse } from './local-warehouse'
 
 export function localCrm(): Plugin {
   return {
@@ -16,6 +17,8 @@ export function localCrm(): Plugin {
         db.exec(readFileSync(resolve(migrations, file), 'utf8'))
       db.prepare('INSERT INTO users (id,account,display_name,role,password,permissions) VALUES (?,?,?,?,?,?)')
         .run('clerk', 'clerk', '销售文员', 'clerk', '123456', '{"assignUnclaimedCustomers":true}')
+      db.prepare('INSERT INTO users (id,account,display_name,role,password,permissions) VALUES (?,?,?,?,?,?)')
+        .run('warehouse', 'warehouse', '仓库演示员', 'viewer', '123456', '{"warehouseStock":true,"warehouseShip":true,"warehousePrint":true}')
       const insert = db.prepare('INSERT INTO crm_customers (id,name,assigned_to_user_id,value) VALUES (?,?,?,?)')
       for (const [id, name, owner] of [['lead-a', '演示客户甲', 'sales-1'], ['lead-b', '演示客户乙', 'sales-2'], ['lead-c', '待分配线索', null]] as const)
         insert.run(id, name, owner, JSON.stringify({ id, name, assignedToUserId: owner, followUps: [] }))
@@ -46,6 +49,7 @@ export function localCrm(): Plugin {
         },
       }
       server.httpServer?.once('close', () => db.close())
+      server.middlewares.use('/api/local-warehouse', localWarehouse(db))
       for (const prefix of ['/api', '/local-crm-api']) server.middlewares.use(prefix, async (req, res) => {
         try {
           const chunks: Buffer[] = []

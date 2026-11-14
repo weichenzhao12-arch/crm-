@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>成品仓库方案</title>
+<style>
+  *{box-sizing:border-box}body{margin:0;background:#f3f7fc;color:#183653;font:15px/1.6 system-ui}
+  main{max-width:1100px;margin:auto;padding:24px}
+  h1{margin:0;font-size:26px}h2{font-size:20px}h3{font-size:16px}
+  nav{display:flex;flex-wrap:wrap;gap:8px;border-bottom:1px solid #cad9e7;margin:16px 0}
+  a{color:#1267c5}nav a{padding:7px 12px;text-decoration:none}nav a:hover{background:#e5f0fb}
+  section{padding:12px 0 20px;border-bottom:1px solid #d4e1ee}
+  .table{overflow:auto}table{width:100%;border-collapse:collapse;background:white}th,td{text-align:left;padding:8px;border:1px solid #d4e1ee}th{background:#e6eef7}
+  .paper{max-width:820px;margin:12px auto 0;padding:20px;background:white;border:1px solid #bccbd9;color:#1f2b34}
+  .paper h3{text-align:center;margin:0 0 12px;font-size:21px}
+  .paper p{margin:8px 0}.paper table{min-width:590px}
+  .subtle{color:#48647e}.rules{padding-left:22px}
+  @media(max-width:600px){main{padding:14px}.paper{padding:12px}}
+</style>
+<main>
+  <header><h1>成品仓库方案</h1><p class="subtle">本地方案预览 · 虚构数据 · 不连接正式库存</p></header>
+  <nav aria-label="方案目录"><a href="#stock">成品库存</a><a href="#dispatch">开单与发货</a><a href="#agent">代理商查询</a><a href="#roles">岗位权限</a><a href="#check">验收顺序</a></nav>
+
+  <section id="stock">
+    <h2>成品库存</h2>
+    <div class="table"><table>
+      <thead><tr><th>货号 / 产品</th><th>固定宽度</th><th>整卷长度</th><th>整卷数</th><th>零货</th><th>可供总面积</th></tr></thead>
+      <tbody><tr><td>DEMO-01 / C 型深色休闲草</td><td>2 m</td><td>25 m</td><td>5 卷</td><td>7 m、3 m × 2</td><td>276 ㎡</td></tr></tbody>
+    </table></div>
+    <details open><summary>完整技术规格（示例）</summary>
+      <p>分类：景观草 · 型号：C 型 · 草高：25 mm · 针数：15 针 · 针排：3/8 · 密度：15,750 簇/㎡ · 磅重：8,000 DTEX · 基布：PP · 背胶：乳胶 · 抗老化：未录入 · 草丝材质：PE · 颜色：深绿</p>
+    </details>
+    <p>成品与样品分别记账。库存行按产品、固定宽度、整卷长度和仓库区分；零货沿用行宽，仅登记每段长度和件数，不合并成一段。</p>
+  </section>
+
+  <section id="dispatch">
+    <h2>开单与发货</h2>
+    <ol class="rules">
+      <li>销售选客户和货品、填单价、提交仓库；仓库也可自行开单，手填收货信息，不必有价格权限。</li>
+      <li>仓库核对整卷和零货、补司机与包装信息。规格或数量有误，填原因退回销售修改。</li>
+      <li>预览、打印和补打不扣库。确认出库时重新校验，库存不足整单不扣。首版不自动占库。</li>
+      <li>整卷裁切时，同时扣整卷并增加余料。例如从 25 m 裁 7 m，新增 18 m 零货。已裁开的卷不能撤销成整卷；未发出的裁下部分应作为零货入回。已发货退回须关联原单。</li>
+    </ol>
+    <article class="paper" aria-label="发货单打印示意">
+      <h3>发货单</h3>
+      <p>送货单位：金特夫　　收货单位：演示客户　　发货日期：示例</p>
+      <p>收货地址：演示地址　　联系人：________　　电话：________</p>
+      <div class="table"><table>
+        <thead><tr><th>型号 / 名称</th><th>产品规格</th><th>数量</th><th>包装</th><th>宽 × 长</th><th>面积</th><th>单价</th><th>金额</th></tr></thead>
+        <tbody>
+          <tr><td>C 型深色休闲草</td><td rowspan="2">景观草 / DEMO-01 / 25 mm / 15 针 / 3/8 / 15,750 簇/㎡ / 8,000 DTEX / PP 基布 / 乳胶背胶 / 抗老化未录入 / PE / 深绿</td><td>2 卷</td><td>银色</td><td>2 × 25 m</td><td>100 ㎡</td><td>13 元/㎡</td><td>1,300 元</td></tr>
+          <tr><td>C 型深色休闲草</td><td>1 件</td><td>银色</td><td>2 × 7 m</td><td>14 ㎡</td><td>13 元/㎡</td><td>182 元</td></tr>
+        </tbody>
+      </table></div>
+      <p><strong>整卷 2 卷 · 零货 1 件 · 总面积 114 ㎡ · 金额 1,482 元</strong></p>
+      <p>开单人：________　出库确认人：________　签收人：________</p>
+      <p>司机：________　电话：________　车牌号：________</p>
+    </article>
+    <p>正式单据采用 A4 竖版，支持含价版、无价版和两联打印。手填单价只用于本单；原单保留当时规格、数量与价格，补打不受产品库改动影响。</p>
+  </section>
+
+  <section id="agent">
+    <h2>代理商现货查询</h2>
+    <p>独立链接，只输密码，不开 CRM 账号。通过服务端仅返回已公开的完整技术规格、可供整卷数、允许公开的零货及更新时间。支持按分类、型号、草高、针数、针排、密度、背胶和宽度筛选。</p>
+    <p>整卷和零货分别控制公开，默认不公开；已留货不计入可供量。公开前检查关键规格，确实不适用则明确标注。代理商不能看价格、成本、库位、客资或单据，也不能下单、打印或改库存。密码可按代理商或组更换、停用。</p>
+  </section>
+
+  <section id="roles">
+    <h2>岗位权限</h2>
+    <div class="table"><table>
+      <thead><tr><th>岗位</th><th>默认操作</th><th>权限边界</th></tr></thead>
+      <tbody>
+        <tr><td>销售</td><td>查可供量、给自己客户开单、手填本单价格、提交仓库</td><td>不能扣库存；撤销可申请</td></tr>
+        <tr><td>仓库</td><td>接单核货、自行开单、打印无价版、确认出库和裁切</td><td>只看发货所需收货信息，不开放整套客资；看价、填价和含价打印分别授权</td></tr>
+        <tr><td>负责人</td><td>按授权管理仓库与代理商公开范围、处理异常单据</td><td>入库、退回、盘点、报损和已出库撤销可独立授予并留痕</td></tr>
+        <tr><td>代理商</td><td>只读查询公开可供库存和完整技术规格</td><td>无内部 CRM 权限</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section id="check">
+    <h2>实施与验收</h2>
+    <ol class="rules">
+      <li>先做共享库存和发货单：对账整卷、零货、裁切、撤销、退回，验证多人同时出库不超扣。</li>
+      <li>再验收销售与仓库交接：销售不能扣库，仓库无价也能开单出库，补打不改库存。</li>
+      <li>最后验证代理商的规格、库存范围及密码停用，并用实体纸张核对含价、无价和两联版式，再安排上线。</li>
+    </ol>
+  </section>
+</main>
+</html>

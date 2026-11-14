@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import Vue from '@vitejs/plugin-vue'
 import UnoCSS from 'unocss/vite'
 import AutoImport from 'unplugin-auto-import/vite'
@@ -12,7 +13,7 @@ import Layouts from 'vite-plugin-vue-layouts'
 export default defineConfig(async ({ mode }) => ({
   resolve: {
     alias: {
-      '~/': `${path.resolve(__dirname, 'src')}/`,
+      '~/': `${path.resolve(fileURLToPath(new URL('.', import.meta.url)), 'src')}/`,
     },
   },
   plugins: [
