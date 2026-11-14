@@ -20,40 +20,10 @@ function cloneData(data: PricingData): PricingData {
   return JSON.parse(JSON.stringify(data)) as PricingData
 }
 
-function hasMeaningfulProduct(product: Partial<ProductRecord>) {
-  return Boolean([
-    product.itemNo,
-    product.model,
-    product.height,
-    product.needleRow,
-    product.density,
-    product.poundWeight,
-    product.backing,
-  ].some(value => String(value || '').trim()) || Number.parseFloat(String(product.priceText || '0')) > 0)
-}
-
-function hasMeaningfulMaterial(material: Partial<MaterialRecord>) {
-  return Boolean([
-    material.name,
-    material.spec,
-    material.unit,
-    material.note,
-  ].some(value => String(value || '').trim()) || Number(material.unitPrice) > 0)
-}
-
-function repairPricing(data: Partial<PricingData> | null | undefined, fallback: PricingData): PricingData {
-  const cloudProducts = Array.isArray(data?.products) ? data.products : []
-  const cloudMaterials = Array.isArray(data?.materials) ? data.materials : []
-  const fallbackProducts = fallback.products.some(hasMeaningfulProduct)
-    ? fallback.products
-    : cloneData(pricingData as PricingData).products
-  const fallbackMaterials = fallback.materials.some(hasMeaningfulMaterial)
-    ? fallback.materials
-    : cloneData(pricingData as PricingData).materials
-
+export function repairPricing(data: Partial<PricingData> | null | undefined, fallback: PricingData): PricingData {
   return {
-    products: cloudProducts.some(hasMeaningfulProduct) ? cloudProducts : fallbackProducts,
-    materials: cloudMaterials.some(hasMeaningfulMaterial) ? cloudMaterials : fallbackMaterials,
+    products: Array.isArray(data?.products) ? data.products : fallback.products,
+    materials: Array.isArray(data?.materials) ? data.materials : fallback.materials,
   }
 }
 
@@ -304,11 +274,8 @@ export const useQuoteStore = defineStore('quote', {
       if (pricing?.products && pricing?.materials) {
         const defaults = cloneData(pricingData as PricingData)
         const repaired = repairPricing(pricing, defaults)
-        const repairedBlankCloudData = repaired.products !== pricing.products || repaired.materials !== pricing.materials
         this.pricing = repaired
         localStorage.setItem(STORAGE_KEY, JSON.stringify(this.pricing))
-        if (repairedBlankCloudData)
-          await putCloudState('pricing', this.pricing).catch(() => {})
       }
     },
     async restoreDefaultPricing() {
