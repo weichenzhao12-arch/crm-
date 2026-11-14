@@ -49,12 +49,12 @@ it('enforces authenticated row isolation and handoff through HTTP', async () => 
         }
       },
     }
-    const request = (path: string, user = '', method = 'GET', body?: unknown) => onRequest({
+    const request = (path: string, user = '', method = 'GET', body?: unknown, rowMode = true) => onRequest({
       request: new Request(`http://localhost/api/${path}`, {
         method, headers: { Authorization: `Bearer ${user}`, 'Content-Type': 'application/json' },
         body: body ? JSON.stringify(body) : undefined,
       }),
-      env: { DB, CUSTOMER_ROW_API: 'enabled' },
+      env: { DB, CUSTOMER_ROW_API: rowMode ? 'enabled' : undefined },
       data: {}, functionPath: '/api', waitUntil() {}, passThroughOnException() {},
     }) as Promise<Response>
 
@@ -65,6 +65,39 @@ it('enforces authenticated row isolation and handoff through HTTP', async () => 
     expect((await request('customers/b', 'sales-1', 'PATCH', { revision: '', fields: { name: 'Forbidden' } })).status).toBe(404)
     expect((await request('state/customers', 'sales-1')).status).toBe(410)
     expect((await request('state/customers', 'owner', 'PUT', { value: [] })).status).toBe(410)
+
+    const snapshot = [{ id: 'a', assignedToUserId: 'sales-1', name: 'A', followUps: [{ id: 'original' }] }, { id: 'b', assignedToUserId: 'sales-2', name: 'B' }]
+    db.prepare("INSERT INTO app_state (key,value,revision) VALUES ('customers',?,'v1')").run(JSON.stringify([...snapshot, { id: 'u' }]))
+    const legacy = (await (await request('state/customers', 'sales-1', 'GET', undefined, false)).json())
+    expect(legacy.value).toEqual([snapshot[0]])
+    expect((await (await request('state/admin-users', 'sales-1')).json()).value.every((row: object) => !('password' in row))).toBe(true)
+    expect((await request('state/system-state', 'sales-1')).status).toBe(403)
+    expect((await request('state/customers', 'sales-1', 'PUT', { revision: 'v1', value: snapshot }, false)).status).toBe(403)
+    expect((await request('state/customers', 'sales-1', 'PUT', { revision: 'v1', value: [] }, false)).status).toBe(403)
+    expect((await request('state/customers', 'sales-1', 'PUT', { revision: 'v1', value: [{ ...snapshot[0], name: 'A updated' }] }, false)).status).toBe(200)
+    expect((await (await request('state/customers', 'sales-2', 'GET', undefined, false)).json()).value).toEqual([snapshot[1]])
+    db.prepare("UPDATE users SET permissions = '{\"issueSamples\":true}' WHERE id IN ('sales-1','sales-2')").run()
+    const sample = { id: 'sample', product: 'Turf', spec: '20x30', location: 'A' }
+    const receipt = { id: 'receipt', kind: 'receipt', customer: '', reason: 'Test', lines: [{ sampleId: 'sample', quantity: 3 }] }
+    expect((await request('sample-ledger', 'sales-1', 'POST', { revision: 0, sample, entry: receipt })).status).toBe(403)
+    expect((await request('sample-ledger', 'owner', 'POST', { revision: 0, sample, entry: receipt })).status).toBe(200)
+    const issue = { ...receipt, id: 'issue-a', kind: 'issue', customer: 'A', customerId: 'a', lines: [{ sampleId: 'sample', quantity: 2 }] }
+    expect((await request('sample-ledger', 'sales-2', 'POST', { revision: 1, entry: issue })).status).toBe(403)
+    const results = await Promise.all([
+      request('sample-ledger', 'sales-1', 'POST', { revision: 1, entry: issue }),
+      request('sample-ledger', 'sales-2', 'POST', { revision: 1, entry: { ...issue, id: 'issue-b', customer: 'B', customerId: 'b' } }),
+    ])
+    expect(results.map(result => result.status).sort()).toEqual([200, 409])
+    const inventory = await (await request('sample-ledger', 'owner')).json()
+    expect(inventory.samples[0].stock).toBe(1)
+    const winner = results[0]?.status === 200 ? 'sales-1' : 'sales-2'
+    const loser = winner === 'sales-1' ? 'sales-2' : 'sales-1'
+    expect((await (await request('sample-ledger', loser)).json()).entries).toEqual([])
+    expect((await (await request('sample-ledger', winner)).json()).entries).toHaveLength(1)
+    const original = inventory.entries.find((row: { kind: string }) => row.kind === 'issue').id
+    expect((await request('sample-ledger', loser, 'POST', { revision: 2, entry: { ...issue, customerId: undefined, id: 'bad-cancel', kind: 'cancel', original, lines: [] } })).status).toBe(403)
+    expect((await request('sample-ledger', winner, 'POST', { revision: 2, entry: { ...issue, customerId: undefined, id: 'cancel', kind: 'cancel', original, lines: [] } })).status).toBe(200)
+    expect((await (await request('sample-ledger', 'owner')).json()).samples[0].stock).toBe(3)
 
     const handoff = { revision: '', toUserId: 'sales-2', reason: 'Test', progress: 'Progress', nextAction: 'Call', dueAt: '2026-11-04T10:00' }
     expect((await request('customers/a/handoff', 'sales-1', 'POST', handoff)).status).toBe(403)

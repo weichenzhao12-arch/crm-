@@ -15,6 +15,7 @@ import { isSalesUser, useAdminStore } from '~/stores/admin'
 import { normalizeCustomer, useCrmStore } from '~/stores/crm'
 import { customerControls } from '~/features/crm/customer-controls'
 import { followDay, isTodayFollow } from '~/features/crm/today-follow'
+import { crmFeaturesEnabled } from '~/features/crm/release'
 import { useSystemStore } from '~/stores/system'
 import { useAuthStore } from '~/stores/auth'
 import type { CrmCustomer, IntentLevel } from '~/stores/crm'
@@ -29,7 +30,7 @@ function signInAgain() {
   return router.replace({ path: '/login', query: { redirect } })
 }
 const admin = useAdminStore()
-const showSampleWorkshop = import.meta.env.DEV
+const showSampleWorkshop = crmFeaturesEnabled
 const system = useSystemStore()
 const { customers } = storeToRefs(crm)
 const { users } = storeToRefs(admin)

@@ -43,8 +43,12 @@ export function useAuth() {
       // D1 not configured yet: keep local login usable during development.
     }
 
+    if (!import.meta.env.DEV)
+      return { ok: false, message: '登录服务暂不可用，请重试' }
+
     const user = admin.users.find(item =>
       item.enabled
+      && Boolean(item.password)
       && item.account.trim().toLowerCase() === account.trim().toLowerCase()
       && verifyPassword(password, item.password),
     )

@@ -12,6 +12,7 @@ import DemoApiPage from '~/pages/demo-api.vue'
 import HomePage from '~/pages/index.vue'
 import LoginPage from '~/pages/login.vue'
 import SamplesPage from '~/local-test/SamplesPage.vue'
+import { crmFeaturesEnabled } from '~/features/crm/release'
 
 export function createAppRouter() {
   return createRouter({
@@ -21,7 +22,7 @@ export function createAppRouter() {
         path: '/',
         component: DefaultLayout,
         children: [
-          ...(import.meta.env.DEV ? [{
+          ...(crmFeaturesEnabled ? [{
             path: 'samples',
             component: SamplesPage,
             meta: { title: '样品库', layout: 'default' },

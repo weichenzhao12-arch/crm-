@@ -2,7 +2,7 @@ import type { AdminUser } from '../../stores/admin'
 
 export function customerControls(user?: Pick<AdminUser, 'role' | 'enabled' | 'permissions'>) {
   const enabled = user?.enabled === true
-  const privileged = enabled && (user.role === 'owner' || user.role === 'manager')
+  const privileged = enabled && user.role === 'owner'
   const viewAll = enabled && (privileged || user.permissions.viewAllCustomers === true)
   const canWrite = enabled && user.role !== 'viewer'
   const transfer = canWrite && viewAll && (privileged || user.permissions.transferCustomers === true)

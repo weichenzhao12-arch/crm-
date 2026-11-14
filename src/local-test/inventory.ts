@@ -20,6 +20,7 @@ export interface Sample {
 export type MovementKind = 'receipt' | 'reserve' | 'issue' | 'release' | 'pickup' | 'return' | 'reverse' | 'adjustDown' | 'cancel' | 'dispatch'
 export interface Movement {
   openedBy?: string
+  openedById?: string
   customerId?: string
   id: string
   kind: MovementKind

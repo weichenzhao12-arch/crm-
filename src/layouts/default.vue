@@ -6,9 +6,10 @@ import { useAuth } from '~/composables/useAuth'
 import { useTheme } from '~/composables/useTheme'
 import { samplePermissions } from '~/local-test/permissions'
 import CrmDueReminders from '~/local-test/CrmDueReminders.vue'
+import { crmFeaturesEnabled } from '~/features/crm/release'
 
 const route = useRoute()
-const localDueReminders = import.meta.env.DEV
+const localDueReminders = crmFeaturesEnabled
 const router = useRouter()
 const admin = useAdminStore()
 const { isAuthenticated, logout, user } = useAuth()
@@ -24,10 +25,10 @@ const canCalculateCost = computed(() => ['owner', 'manager'].includes(admin.curr
 const navItems = computed(() => [
   { label: admin.currentUser?.role === 'owner' ? '数据主页' : '工作台', to: '/crm', icon: 'dashboard', exact: true },
   { label: '客户管理', to: '/crm/customers', icon: 'customers' },
-  ...(import.meta.env.DEV && Object.values(samplePermissions(admin.currentUser)).some(Boolean)
+  ...(crmFeaturesEnabled && Object.values(samplePermissions(admin.currentUser)).some(Boolean)
     ? [{ label: '样品库', to: '/samples', icon: 'product' }]
     : []),
-  ...(import.meta.env.DEV
+  ...(crmFeaturesEnabled
     ? [{ label: '报价', to: '/quote/orders', icon: 'calculator' }]
     : [{ label: '报价计算', to: '/quote?view=quote', icon: 'calculator' }, { label: '报价单', to: '/quote?view=print', icon: 'document' }]),
   { label: '产品资料', to: '/quote?view=settings', icon: 'product', adminOnly: true },

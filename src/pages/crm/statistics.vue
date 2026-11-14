@@ -13,8 +13,9 @@ import { storeToRefs } from 'pinia'
 import { isSalesUser, useAdminStore } from '~/stores/admin'
 import { useCrmStore } from '~/stores/crm'
 import CrmDueReminders from '~/local-test/CrmDueReminders.vue'
+import { crmFeaturesEnabled } from '~/features/crm/release'
 
-const localDueReminders = import.meta.env.DEV
+const localDueReminders = crmFeaturesEnabled
 const crm = useCrmStore()
 const admin = useAdminStore()
 const { customers } = storeToRefs(crm)

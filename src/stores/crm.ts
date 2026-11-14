@@ -167,7 +167,7 @@ export function normalizeCustomer(raw: Partial<CrmCustomer>): CrmCustomer {
     important: Boolean(raw.important),
     stage: raw.stage || 'new',
     owner: raw.owner || '',
-    assignedToUserId: raw.assignedToUserId || 'owner',
+    assignedToUserId: raw.assignedToUserId || '',
     createdByUserId: raw.createdByUserId || 'owner',
     remark: raw.remark || '',
     followUps: Array.isArray(raw.followUps)

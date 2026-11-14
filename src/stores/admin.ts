@@ -139,7 +139,7 @@ function normalizeUser(raw: Partial<AdminUser>): AdminUser {
     displayName: raw.displayName || raw.account || '新账号',
     role,
     enabled: raw.enabled !== false,
-    password: normalizePasswordForStorage(raw.password),
+    password: raw.password === '' ? '' : normalizePasswordForStorage(raw.password),
     permissions: normalizePermissions(raw.permissions, role),
   }
 }
@@ -236,7 +236,8 @@ export const useAdminStore = defineStore('admin', {
       await cloudSaveQueue
       const users = await getCloudState<AdminUser[]>('admin-users').catch(() => null)
       if (version === adminChangeVersion && Array.isArray(users) && users.length) {
-        this.users = users.map(normalizeUser)
+        const current = this.currentUser
+        this.users = users.map(user => normalizeUser({ ...user, password: user.id === current?.id ? current.password : '' }))
         localStorage.setItem(STORAGE_KEY, JSON.stringify(this.users))
       }
     },

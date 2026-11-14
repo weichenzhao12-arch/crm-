@@ -19,6 +19,7 @@ import { renderCloudPdf, uploadCloudImage } from '~/api/cloud-storage'
 import { useCrmStore } from '~/stores/crm'
 import { useAdminStore } from '~/stores/admin'
 import { quoteCustomers } from '~/features/crm/quote-customers'
+import { crmFeaturesEnabled } from '~/features/crm/release'
 import { useQuoteStore } from '~/stores/quote'
 
 const ALL = '全部'
@@ -28,7 +29,7 @@ const crm = useCrmStore()
 const admin = useAdminStore()
 const route = useRoute()
 const router = useRouter()
-const showLocalQuotePreview = import.meta.env.DEV
+const showLocalQuotePreview = crmFeaturesEnabled
 const { pricing, meta, charges, lines, categories } = storeToRefs(quote)
 
 watch(pricing, () => quote.savePricing(), { deep: true })

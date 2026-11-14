@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
+import { getSharedSamples, postSharedSample } from './shared-samples'
+import type { SharedSamples } from './shared-samples'
 import SampleLedger from './SampleLedger.vue'
 import SampleStockTable from './SampleStockTable.vue'
 import SamplePicker from './SamplePicker.vue'
@@ -13,6 +15,7 @@ import type { Movement, MovementKind, Sample, SampleCategory } from './inventory
 
 const props = withDefaults(defineProps<{
   embedded?: boolean
+  shared?: boolean
   operatorName?: string
   canIssue?: boolean
   canMaintain?: boolean
@@ -23,7 +26,9 @@ const props = withDefaults(defineProps<{
   documentId?: string
 }>(), { canIssue: true, canMaintain: true })
 
-const data = ref(readSampleData())
+const data = ref(props.shared ? { samples: [] as Sample[], entries: [] as Movement[] } : readSampleData())
+const shared = ref<SharedSamples>()
+const busy = ref(false)
 const view = ref(props.showDocuments ? 'ledger' : props.customerName && props.canIssue ? 'documents' : 'samples')
 const orderModal = ref(false)
 const orderDialog = ref<HTMLDialogElement>()
@@ -61,7 +66,9 @@ const originalOptions = computed(() => data.value.entries.filter(entry =>
   && (kind.value === 'reverse' ? entry.kind === 'receipt' : entry.kind === 'pickup' || (entry.kind === 'issue'
     && shipmentStatus(data.value.entries, entry.id) !== 'cancelled'
     && (!entry.requiresDispatch || shipmentStatus(data.value.entries, entry.id) === 'sent')))))
-const stockRows = computed(() => data.value.samples.map(row => ({ ...row, quantity: balances(data.value.entries, row.id).stock })))
+const stockRows = computed(() => props.shared
+  ? (shared.value?.samples ?? []).map(row => ({ ...row, quantity: row.stock }))
+  : data.value.samples.map(row => ({ ...row, quantity: balances(data.value.entries, row.id).stock })))
 const blankFilters = () => ({ category: '', stock: '', keyword: '' })
 const filters = ref(blankFilters())
 const specifications = ref<SpecificationFilters>({})
@@ -85,14 +92,36 @@ function save(next: typeof data.value) {
   data.value = next
 }
 
-function run(action: () => void) {
+async function refreshShared() {
+  shared.value = await getSharedSamples()
+  data.value = shared.value
+}
+
+onMounted(() => { if (props.shared) void run(refreshShared) })
+
+async function commitShared(sample?: Sample, entry?: Movement) {
+  if (!shared.value) throw new Error('共享库存尚未加载')
+  try {
+    await postSharedSample(shared.value.revision, sample, entry)
+  }
+  catch (error) {
+    await refreshShared().catch(() => {})
+    throw error
+  }
+  await refreshShared()
+}
+
+async function run(action: () => void | Promise<void>) {
+  if (busy.value) return
+  busy.value = true
   message.value = ''
-  try { action() }
+  try { await action() }
   catch (error) { message.value = error instanceof Error ? error.message : String(error) }
+  finally { busy.value = false }
 }
 
 function addSample() {
-  run(() => {
+  run(async () => {
     if (!props.canMaintain)
       throw new Error('没有库存维护权限')
     const { product, spec, location, minimum } = sample.value
@@ -102,7 +131,9 @@ function addSample() {
       throw new Error('该规格和库位已存在')
     const row = { ...sample.value, id: crypto.randomUUID(), product: product.trim(), spec: spec.trim(), location: location.trim(), minimum }
     const inDraft = view.value === 'documents' && kind.value === 'receipt'
-    save({ samples: [...data.value.samples, row], entries: inDraft ? data.value.entries : receive(row, initialQuantity.value) })
+    const entry = inDraft ? undefined : receiptEntry(row, initialQuantity.value)
+    if (props.shared) await commitShared(row, entry)
+    else save({ samples: [...data.value.samples, row], entries: entry ? post(data.value.entries, entry) : data.value.entries })
     if (inDraft) pick(row.id, true)
     sample.value = blankSample()
     initialQuantity.value = undefined
@@ -111,13 +142,13 @@ function addSample() {
   })
 }
 
-function receive(row: Sample, quantity?: number) {
+function receiptEntry(row: Sample, quantity?: number): Movement {
   if (!props.canMaintain || typeof quantity !== 'number' || !Number.isSafeInteger(quantity) || quantity < 1)
     throw new Error('请输入至少 1 份的整数入库数量')
-  return post(data.value.entries, {
+  return {
     id: crypto.randomUUID(), kind: 'receipt', customer: '', reason: '样品入库',
     time: new Date().toLocaleString('zh-CN'), lines: [{ sample: row, quantity }],
-  })
+  }
 }
 
 function openAdjustment(row: Sample, action: 'receipt' | 'adjustDown') {
@@ -130,17 +161,17 @@ function openAdjustment(row: Sample, action: 'receipt' | 'adjustDown') {
 }
 
 function adjustStock() {
-  run(() => {
+  run(async () => {
     const row = data.value.samples.find(item => item.id === adjustmentRow.value?.id)
     if (!row) throw new Error('请选择已有样品')
     const quantity = receiptQuantity.value
     if (!props.canMaintain || typeof quantity !== 'number' || !Number.isSafeInteger(quantity) || quantity < 1)
       throw new Error('请输入有效数量')
-    const entries = adjustmentKind.value === 'receipt' ? receive(row, quantity) : post(data.value.entries, {
+    const entry: Movement = adjustmentKind.value === 'receipt' ? receiptEntry(row, quantity) : {
       id: crypto.randomUUID(), kind: 'adjustDown', customer: '', reason: adjustmentReason.value,
       time: new Date().toLocaleString('zh-CN'), lines: [{ sample: row, quantity }],
-    })
-    save({ ...data.value, entries })
+    }
+    await writeEntry(entry)
     adjustmentDialog.value?.close()
     message.value = adjustmentKind.value === 'receipt' ? '库存已增加' : '库存已调减'
   })
@@ -165,20 +196,20 @@ function buildEntry(): Movement {
 }
 
 function record() {
-  run(() => {
+  run(async () => {
     const entry = buildEntry()
     if (orderModal.value) {
-      writeEntry(entry)
+      await writeEntry(entry)
       closeOrder()
       message.value = '出库成功，库存已扣减'
       return
     }
     if (selectingSamples.value) {
-      post(data.value.entries, entry)
+      if (!props.shared) post(data.value.entries, entry)
       preview.value = entry
       return
     }
-    complete(entry)
+    await complete(entry)
   })
 }
 
@@ -202,20 +233,21 @@ function printOrderDraft(event: MouseEvent) {
   if (!form?.reportValidity()) return
   run(() => {
     const entry = buildEntry()
-    post(readSampleData(data.value).entries, entry)
+    if (!props.shared) post(readSampleData(data.value).entries, entry)
     print(entry, true, true)
   })
 }
 
-function writeEntry(entry: Movement) {
+async function writeEntry(entry: Movement) {
   if (!allowed(entry.kind))
     throw new Error('没有该记账权限')
+  if (props.shared) return commitShared(undefined, entry)
   const current = readSampleData(data.value)
   save({ ...current, entries: post(current.entries, entry) })
 }
 
-function complete(entry: Movement) {
-  writeEntry(entry)
+async function complete(entry: Movement) {
+  await writeEntry(entry)
   quantities.value = {}
   picked.value = []
   pickerOpen.value = false
@@ -236,10 +268,10 @@ function openShipment(entry: Movement, action: 'cancel' | 'dispatch') {
 }
 
 function updateShipment() {
-  run(() => {
+  run(async () => {
     if (!shipmentEntry.value) return
     const action = shipmentAction.value
-    writeEntry({ id: crypto.randomUUID(), kind: action, customer: '', original: shipmentEntry.value.id,
+    await writeEntry({ id: crypto.randomUUID(), kind: action, customer: '', original: shipmentEntry.value.id,
       reason: action === 'cancel' ? shipmentValue.value : '实际寄出',
       tracking: action === 'dispatch' ? shipmentValue.value.trim() : undefined,
       time: new Date().toLocaleString('zh-CN'), lines: [] })
@@ -283,6 +315,7 @@ function print(entry: Movement, internal = false, draft = false) {
       <button v-for="[id, label] in tabs" :key="id" :aria-pressed="view === id" @click="view = id; message = ''">{{ label }}</button>
     </nav>
     <p v-if="message" role="status">{{ message }}</p>
+    <button v-if="props.shared && !orderModal" type="button" :disabled="busy" @click="run(refreshShared)">刷新库存</button>
     <section v-if="view === 'samples' || view === 'management'">
       <div class="sample-heading">
         <h1>{{ view === 'management' ? '样品管理' : '样品库' }}</h1>

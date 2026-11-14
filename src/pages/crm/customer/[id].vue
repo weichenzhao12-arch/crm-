@@ -13,7 +13,9 @@ import { storeToRefs } from 'pinia'
 import { isSalesUser, useAdminStore } from '~/stores/admin'
 import { useCrmStore } from '~/stores/crm'
 import type { CrmFollowUp, CrmQuoteRecord } from '~/stores/crm'
-import { readSampleData } from '~/local-test/sample-storage'
+import { getSharedSamples } from '~/local-test/shared-samples'
+import { crmFeaturesEnabled } from '~/features/crm/release'
+import type { Movement } from '~/local-test/inventory'
 import { shipmentStatus } from '~/local-test/inventory'
 import { samplePermissions } from '~/local-test/permissions'
 
@@ -33,12 +35,26 @@ const reminderModal = ref({
   content: '',
   nextAction: '联系客户',
 })
-const localRecords = import.meta.env.DEV
+const localRecords = crmFeaturesEnabled
 const activityTab = ref<'follow' | 'quote' | 'samples'>(route.query.tab === 'quote' ? 'quote' : 'follow')
 const sampleAccess = computed(() => samplePermissions(admin.currentUser))
+const sharedSampleEntries = ref<Movement[]>([])
+const sampleError = ref('')
+watch([activityTab, () => customer.value?.id], async ([tab], _, onCleanup) => {
+  sharedSampleEntries.value = []
+  sampleError.value = ''
+  if (tab !== 'samples' || !customer.value || !(sampleAccess.value.issue || sampleAccess.value.maintain)) return
+  let active = true
+  onCleanup(() => { active = false })
+  try {
+    const data = await getSharedSamples()
+    if (active) sharedSampleEntries.value = data.entries
+  }
+  catch { if (active) sampleError.value = '暂时无法读取寄样记录' }
+})
 const sampleRecords = computed(() => {
   if (!localRecords || !customer.value || !(sampleAccess.value.issue || sampleAccess.value.maintain)) return []
-  const { entries } = readSampleData()
+  const entries = sharedSampleEntries.value
   return entries.filter(entry => entry.kind === 'issue' && entry.customerId === customer.value?.id).reverse()
     .map(entry => ({ ...entry, status: shipmentStatus(entries, entry.id), tracking: entries.find(item => item.kind === 'dispatch' && item.original === entry.id)?.tracking }))
 })
@@ -395,7 +411,7 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
             </div>
           </section>
           <section v-else class="activity-content">
-            <div v-if="!sampleRecords.length" class="empty">暂无寄样记录</div>
+            <div v-if="!sampleRecords.length" class="empty">{{ sampleError || '暂无寄样记录' }}</div>
             <div v-for="entry in sampleRecords" :key="entry.id" class="record-row">
               <div>
                 <b>{{ { pending: '待寄出', sent: '已寄出', cancelled: '已撤销' }[entry.status] }}</b>

@@ -1,4 +1,9 @@
 import { Hono } from 'hono'
+import { isCustomerSnapshot, mergeCustomerSnapshot } from './customer-snapshot'
+import type { CustomerRow } from './customer-snapshot'
+import { balances, post } from '../src/local-test/inventory'
+import type { Movement, Sample } from '../src/local-test/inventory'
+import { samplePermissions } from '../src/local-test/permissions'
 import { handle } from 'hono/cloudflare-pages'
 import type { Context, Next } from 'hono'
 import { isPasswordHash, normalizePasswordForStorage, verifyPassword } from '../src/features/auth/password'
@@ -82,7 +87,7 @@ function userPayloadToDbRow(user: AdminUserPayload) {
     displayName: String(user.displayName || account || '新账号').trim(),
     role: String(user.role || 'quoter').trim(),
     enabled: user.enabled === false ? 0 : 1,
-    password: normalizePasswordForStorage(user.password),
+    password: user.password ? normalizePasswordForStorage(user.password) : '',
     permissions: JSON.stringify(user.permissions || {}),
   }
 }
@@ -101,7 +106,7 @@ async function syncAdminUsers(db: D1Database, users: unknown) {
         display_name = excluded.display_name,
         role = excluded.role,
         enabled = excluded.enabled,
-        password = excluded.password,
+        password = CASE WHEN excluded.password = '' THEN users.password ELSE excluded.password END,
         permissions = excluded.permissions,
         updated_at = CURRENT_TIMESTAMP
     `).bind(row.id, row.account, row.displayName, row.role, row.enabled, row.password, row.permissions),
@@ -308,10 +313,9 @@ async function readNormalizedState(db: D1Database, key: string, fallback: any) {
       displayName: row.display_name,
       role: row.role,
       enabled: Boolean(row.enabled),
-      password: row.password,
       permissions: parseStoredJson(row.permissions || '{}', {}),
     }))
-    return users.length ? users : fallback
+    return users
   }
 
   return fallback
@@ -345,7 +349,7 @@ app.post('/auth/login', async (c) => {
     .bind(account)
     .first<AdminUserRow>()
 
-  if (!user || !verifyPassword(password, user.password))
+  if (!user || !password || !user.password || !verifyPassword(password, user.password))
     return c.json({ message: '账号或密码不正确' }, 401)
 
   if (!isPasswordHash(user.password)) {
@@ -574,13 +578,105 @@ app.post('/customers/:id/handoff', async (c) => {
   return c.json({ value, revision })
 })
 
+function legacyCustomerAccess(user: AdminUserRow) {
+  const permissions = userPermissions(user)
+  const all = user.role === 'owner' || permissions.viewAllCustomers === true
+  return {
+    read: (row: CustomerRow) => all || (row.assignedToUserId ? row.assignedToUserId === user.id
+      : Boolean(row.owner?.trim() && [user.id, user.account, user.display_name].includes(row.owner.trim()))),
+    assign: user.role === 'owner' || (all && permissions.transferCustomers === true),
+    remove: user.role === 'owner' || permissions.deleteCustomers === true,
+    self: user.id,
+  }
+}
+
+app.use('/sample-ledger', requireLogin)
+app.on(['GET', 'POST'], '/sample-ledger', async (c) => {
+  const actor = c.get('user')
+  const access = samplePermissions({ enabled: true, role: actor.role, permissions: userPermissions(actor) })
+  if (!access.issue && !access.maintain) return c.json({ message: '无样品权限' }, 403)
+  const db = c.env.DB
+  const stored = await db.prepare('SELECT value, revision FROM crm_sample_ledger WHERE singleton = 1')
+    .first<{ value: string, revision: number }>()
+  if (!stored) return c.json({ message: '共享样品账本尚未初始化' }, 503)
+  const data = JSON.parse(stored.value) as { samples: Sample[], entries: Movement[] }
+  const customers = await db.prepare("SELECT value FROM app_state WHERE key = 'customers'").first<{ value: string }>()
+  const customerRows = await readNormalizedState(db, 'customers', customers ? parseStoredJson(customers.value, null) : null)
+  if (!isCustomerSnapshot(customerRows)) return c.json({ message: '客户快照格式无效' }, 409)
+  const allowedCustomers = new Set(customerRows.filter(legacyCustomerAccess(actor).read).map(row => row.id))
+  const visibleEntry = (entry: Movement) => actor.role === 'owner' || (entry.customerId
+    ? allowedCustomers.has(entry.customerId) : entry.openedById === actor.id || (access.maintain && ['receipt', 'reverse', 'adjustDown'].includes(entry.kind)))
+  c.header('Cache-Control', 'no-store')
+  if (c.req.method === 'GET') return c.json({
+    revision: stored.revision,
+    samples: data.samples.map(sample => ({ ...sample, ...balances(data.entries, sample.id) })),
+    entries: data.entries.filter(visibleEntry),
+  })
+  const body = await c.req.json().catch(() => null)
+  if (body?.revision !== stored.revision) return c.json({ message: '库存已更新，请刷新后重试' }, 409)
+  const sample = body.sample
+  const entry = body.entry
+  if (!sample && !entry) return c.json({ message: '请提供样品或库存单据' }, 400)
+  if (sample) {
+    if (!access.maintain) return c.json({ message: '无库存维护权限' }, 403)
+    const fields = ['id', 'product', 'spec', 'location', 'category', 'height', 'needleCount', 'needleRow', 'backing', 'density', 'poundWeight'] as const
+    if (fields.some(key => sample[key] !== undefined && (typeof sample[key] !== 'string' || sample[key].length > 240))
+      || ['id', 'product', 'spec', 'location'].some(key => !sample[key]?.trim())
+      || data.samples.some(row => row.id === sample.id || (row.product === sample.product.trim() && row.spec === sample.spec.trim() && row.location === sample.location.trim())))
+      return c.json({ message: '样品资料无效或重复' }, 400)
+    data.samples.push({ ...Object.fromEntries(fields.map(key => [key, sample[key]?.trim()])), minimum: 5 } as Sample)
+  }
+  if (entry) {
+    const issue = ['issue', 'cancel', 'dispatch'].includes(entry.kind)
+    if (!(issue ? access.issue : access.maintain)) return c.json({ message: '无该单据操作权限' }, 403)
+    if (![ 'issue', 'cancel', 'dispatch', 'receipt', 'return', 'reverse', 'adjustDown' ].includes(entry.kind)
+      || typeof entry.id !== 'string' || !entry.id.trim() || entry.id.length > 120 || typeof entry.reason !== 'string'
+      || typeof entry.customer !== 'string' || entry.customer.length > 240 || entry.reason.length > 2000
+      || (entry.customerId !== undefined && typeof entry.customerId !== 'string')
+      || (entry.original !== undefined && typeof entry.original !== 'string')
+      || !Array.isArray(entry.lines) || entry.lines.length > 200
+      || (entry.tracking !== undefined && typeof entry.tracking !== 'string'))
+      return c.json({ message: '单据格式无效' }, 400)
+    const original = data.entries.find(row => row.id === entry.original)
+    if (original && !visibleEntry(original)) return c.json({ message: '无权操作原单' }, 403)
+    if (entry.customerId && !allowedCustomers.has(entry.customerId)) return c.json({ message: '无权关联该客户' }, 403)
+    const lines = entry.lines.map((line: { sampleId?: string, quantity?: number } | null) => ({
+      sample: data.samples.find(row => row.id === line?.sampleId), quantity: line?.quantity,
+    }))
+    if (lines.some((line: { sample?: Sample }) => !line.sample)) return c.json({ message: '样品不存在' }, 400)
+    const linked = ['return', 'reverse', 'cancel', 'dispatch'].includes(entry.kind)
+    try {
+      data.entries = post(data.entries, {
+        id: entry.id, kind: entry.kind, reason: entry.reason, customer: linked ? original?.customer ?? '' : entry.customer,
+        customerId: linked ? original?.customerId : entry.customerId, original: linked ? entry.original : undefined,
+        tracking: entry.tracking, requiresDispatch: entry.kind === 'issue', time: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }),
+        openedBy: actor.display_name, openedById: actor.id, lines,
+      })
+    }
+    catch (error) { return c.json({ message: error instanceof Error ? error.message : '无法记账' }, 409) }
+  }
+  const updated = await db.prepare('UPDATE crm_sample_ledger SET value = ?, revision = revision + 1 WHERE singleton = 1 AND revision = ?')
+    .bind(JSON.stringify(data), stored.revision).run()
+  return updated.meta.changes ? c.json({ revision: stored.revision + 1 }) : c.json({ message: '库存已更新，请刷新后重试' }, 409)
+})
+
 app.get('/state/:key', async (c) => {
   const key = c.req.param('key')
+  if (!['customers', 'admin-users', 'pricing', 'system-state'].includes(key))
+    return c.json({ message: '未知数据类型' }, 404)
   if (key === 'customers' && c.env.CUSTOMER_ROW_API === 'enabled')
     return c.json({ message: '请使用新版客资接口' }, 410)
   const row = await c.env.DB.prepare('SELECT value, revision FROM app_state WHERE key = ?').bind(key).first<{ value: string, revision: string }>()
   const fallback = row ? parseStoredJson(row.value, null) : null
   c.header('Cache-Control', 'no-store, no-cache, must-revalidate')
+  if (key === 'admin-users') return c.json({ value: await readNormalizedState(c.env.DB, key, null) })
+  if (key === 'system-state' && c.get('user').role !== 'owner' && userPermissions(c.get('user')).restoreRecords !== true)
+    return c.json({ message: '当前账号无权查看回收站和操作日志' }, 403)
+  if (key === 'customers') {
+    const value = await readNormalizedState(c.env.DB, key, fallback)
+    if (!isCustomerSnapshot(value)) return c.json({ message: '客户快照格式无效' }, 500)
+    return c.json({ value: value.filter(legacyCustomerAccess(c.get('user')).read), revision: row?.revision ?? null })
+  }
   try {
     const value = await readNormalizedState(c.env.DB, key, fallback)
     return c.json({ value, revision: key === 'customers' ? row?.revision ?? null : undefined })
@@ -592,19 +688,21 @@ app.get('/state/:key', async (c) => {
 
 app.put('/state/:key', async (c) => {
   const key = c.req.param('key')
+  if (!['customers', 'admin-users', 'pricing', 'system-state'].includes(key))
+    return c.json({ message: '未知数据类型' }, 404)
   if (key === 'customers' && c.env.CUSTOMER_ROW_API === 'enabled')
     return c.json({ message: '旧版整表写入已停用' }, 410)
   const user = c.get('user')
   const body = await c.req.json<{ value: unknown, revision?: string | null }>()
-  if (key === 'customers' && !Array.isArray(body.value))
+  if (key === 'customers' && !isCustomerSnapshot(body.value))
     return c.json({ message: '客户数据格式不正确' }, 400)
   const canWrite
     = key === 'admin-users'
-      ? hasPermission(user, 'manageUsers')
+      ? user.role === 'owner'
       : key === 'pricing'
         ? (hasPermission(user, 'manageProducts') || hasPermission(user, 'manageMaterials') || hasPermission(user, 'importExcel'))
         : key === 'system-state'
-          ? hasPermission(user, 'restoreRecords')
+          ? user.role === 'owner' || userPermissions(user).restoreRecords === true
           : true
 
   if (!canWrite)
@@ -612,10 +710,20 @@ app.put('/state/:key', async (c) => {
 
   let revision: string | undefined
   if (key === 'customers') {
+    if (user.role === 'viewer') return c.json({ message: '当前账号不能修改客户' }, 403)
     if (!Object.prototype.hasOwnProperty.call(body, 'revision'))
       return c.json({ message: '客户页面版本已过期，请刷新后重试' }, 409)
     if (body.revision !== null && (typeof body.revision !== 'string' || !body.revision))
       return c.json({ message: '客户数据版本无效，请刷新后重试' }, 409)
+    const stored = await c.env.DB.prepare("SELECT value, revision FROM app_state WHERE key = 'customers'").first<{ value: string, revision: string }>()
+    if ((stored?.revision ?? null) !== body.revision)
+      return c.json({ message: '云端客户数据已被其他页面修改，请刷新后重试' }, 409)
+    const current = await readNormalizedState(c.env.DB, key, stored ? parseStoredJson(stored.value, null) : null)
+    if (!isCustomerSnapshot(current) || !isCustomerSnapshot(body.value))
+      return c.json({ message: '客户快照格式无效' }, 409)
+    const merged = mergeCustomerSnapshot(current, body.value, legacyCustomerAccess(user))
+    if (!merged) return c.json({ message: '不能修改其他负责人的客户、转移归属或删除无权限的客户' }, 403)
+    body.value = merged
     revision = crypto.randomUUID()
     const statement = body.revision === null
       ? c.env.DB.prepare('INSERT INTO app_state (key, value, updated_by, revision, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO NOTHING')

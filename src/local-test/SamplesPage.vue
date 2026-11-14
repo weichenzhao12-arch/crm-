@@ -30,7 +30,7 @@ watch(() => route.query.customer, () => {
   <p v-if="route.query.customer && (crm.cloudLoadState !== 'ready' || !customer)">当前客户尚未加载或不可访问。</p>
   <Workshop v-else-if="access.issue || access.maintain"
     :key="`${route.query.customer || ''}:${route.query.view || ''}:${route.query.document || ''}`"
-    embedded :can-issue="access.issue" :can-maintain="access.maintain"
+    embedded shared :can-issue="access.issue" :can-maintain="access.maintain"
     :operator-name="admin.currentUser?.displayName || admin.currentUser?.account"
     :customer-id="customer?.id" :customer-name="customer?.name" :customer-options="customerOptions" :show-documents="route.query.view === 'ledger'" :document-id="typeof route.query.document === 'string' ? route.query.document : undefined" />
   <p v-else>当前账号没有样品出库或库存维护权限。</p>
