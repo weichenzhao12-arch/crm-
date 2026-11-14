@@ -1,14 +1,12 @@
-import { customerControls } from './customer-controls'
 import type { AdminUser } from '../../stores/admin'
 import type { CrmCustomer } from '../../stores/crm'
 
 export function reminderCustomers(customers: CrmCustomer[], user?: AdminUser) {
   if (!user?.enabled) return []
-  if (customerControls(user).viewAll) return customers
-  const names = [user.displayName, user.account, user.id].filter(Boolean)
+  const names = [user.displayName, user.account, user.id].map(name => name.trim()).filter(Boolean)
   return customers.filter(row => row.assignedToUserId
     ? row.assignedToUserId === user.id
-    : names.includes(row.owner))
+    : names.includes(row.owner?.trim()))
 }
 
 export function dueReminderGroups(customers: CrmCustomer[], day: string) {

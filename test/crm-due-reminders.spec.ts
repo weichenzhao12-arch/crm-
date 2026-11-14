@@ -18,7 +18,9 @@ it('groups due reminders without exposing another sales account or altering comp
   expect(scope.map(item => item.id)).toEqual(['customer-a'])
   expect(dueReminderGroups(scope, '2026-11-09').map(group => group.entries.map(item => item.reminder.id))).toEqual([['today'], ['late']])
   expect(customer.followUps[0]?.reminderDone).toBe(false)
-  expect(reminderCustomers([customer, other], { ...user, role: 'owner' })).toHaveLength(2)
+  for (const role of ['owner', 'manager'] as const)
+    expect(reminderCustomers([customer, other], { ...user, role, permissions: { ...user.permissions, viewAllCustomers: true } })).toEqual([customer])
+  expect(reminderCustomers([{ ...customer, assignedToUserId: '', owner: '' }], user)).toEqual([])
 })
 
 it('claims the popup once per account and business date', () => {

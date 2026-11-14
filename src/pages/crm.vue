@@ -17,6 +17,8 @@ import { useAuth } from '~/composables/useAuth'
 import { isSalesUser, useAdminStore } from '~/stores/admin'
 import { normalizeCustomer, useCrmStore } from '~/stores/crm'
 import { followDay } from '~/features/crm/today-follow'
+import { reminderCustomers } from '~/features/crm/due-reminders'
+import { crmFeaturesEnabled } from '~/features/crm/release'
 import { customerControls } from '~/features/crm/customer-controls'
 import type { CrmCustomer, IntentLevel } from '~/stores/crm'
 import CrmStatisticsPage from '~/pages/crm/statistics.vue'
@@ -474,7 +476,7 @@ const intentCounts = computed(() => (['A', 'B', 'C', 'D', 'E', 'F'] as IntentLev
 
 const dueReminders = computed(() => {
   const todayKey = followDay()
-  return scopedCustomers.value.flatMap(customer =>
+  return reminderCustomers(crm.cloudLoadState === 'ready' ? customers.value : [], loginUser.value).flatMap(customer =>
     customer.followUps
       .filter(follow => follow.reminderDate && follow.reminderDate <= todayKey && !follow.reminderDone)
       .map(follow => ({
@@ -643,7 +645,7 @@ async function handleLogout() {
       </div>
     </section>
 
-    <section v-if="reminderVisible" class="reminder-mask">
+    <section v-if="!crmFeaturesEnabled && reminderVisible" class="reminder-mask">
       <div class="reminder-dialog">
         <header>
           <h2>客户跟进提醒</h2>

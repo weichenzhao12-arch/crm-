@@ -15,6 +15,7 @@ import { isSalesUser, useAdminStore } from '~/stores/admin'
 import { normalizeCustomer, useCrmStore } from '~/stores/crm'
 import { customerControls } from '~/features/crm/customer-controls'
 import { followDay, isTodayFollow } from '~/features/crm/today-follow'
+import { reminderCustomers } from '~/features/crm/due-reminders'
 import { crmFeaturesEnabled } from '~/features/crm/release'
 import { useSystemStore } from '~/stores/system'
 import { useAuthStore } from '~/stores/auth'
@@ -177,7 +178,7 @@ const filteredCustomers = computed(() => scopedCustomers.value.filter((customer)
   const yearMatched = yearFilter.value === 'all' || dateKey.startsWith(`${yearFilter.value}-`)
   const monthMatched = monthFilter.value === 'all' || dateKey.slice(5, 7) === monthFilter.value
   const todayMatched = stageFilter.value === 'todayFollow'
-    ? hasTodayFollowOrReminder(customer)
+    ? myReminderCustomerIds.value.has(customer.id) && hasTodayFollowOrReminder(customer)
     : stageFilter.value === 'todayNew'
       ? isTodayNewCustomer(customer)
       : stageFilter.value === 'important'
@@ -188,7 +189,8 @@ const filteredCustomers = computed(() => scopedCustomers.value.filter((customer)
 }))
 
 const myCustomerCount = computed(() => customers.value.filter(customer => customerBelongsToUser(customer, loginUser.value?.id)).length)
-const todayFollowCount = computed(() => scopedCustomers.value.filter(hasTodayFollowOrReminder).length)
+const myReminderCustomerIds = computed(() => new Set(reminderCustomers(customers.value, loginUser.value).map(row => row.id)))
+const todayFollowCount = computed(() => scopedCustomers.value.filter(row => myReminderCustomerIds.value.has(row.id) && hasTodayFollowOrReminder(row)).length)
 const quotedCount = computed(() => scopedCustomers.value.filter(customer => customer.stage === 'quoted').length)
 const wonCount = computed(() => scopedCustomers.value.filter(customer => customer.stage === 'won').length)
 
