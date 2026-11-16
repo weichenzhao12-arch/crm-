@@ -16,4 +16,19 @@ Target: quote-crm-system / glass.neiceban.com.
 - Frontend built with VITE_CLOUD_MODULES and VITE_CRM_FEATURES enabled; compiled Worker packaged
   as the advanced-mode dist/_worker.js artifact (generated file, not source).
 
-Production deployment and post-release acceptance results will be appended after verification.
+## Released And Verified
+
+- Production deployment: d190b0f2.quote-crm-system.pages.dev, source commit f5dfdd8.
+- Verified custom domain: https://glass.neiceban.com/.
+- GitHub default branch `dev` fast-forwarded from 4f12796 to f5dfdd8; review branch also synchronized.
+- Post-release module health: D1/R2/warehouse/personnel ready; PDF remains unbound and deferred.
+- Actual production acceptance passed: unauthenticated denial, warehouse-only isolation from CRM/admin,
+  concurrent reservations, shipment, idempotent replay, automatic cut remnants, cancellation, return,
+  zero balance and dealer visibility isolation. SPA routes and JavaScript assets returned HTTP 200.
+- Production acceptance used a dedicated short-lived warehouse-only identity, a clearly labeled test
+  stock and two test dispatches. All test stock was returned/zeroed before targeted fixture removal.
+  Test sessions were revoked; only the identified disposable fixtures were removed. Real customers
+  and existing user permissions/passwords were not changed by acceptance tests.
+- Dealer password is stored only in the ignored D-drive file `.local-data/dealer-access-password.txt`;
+  do not commit it, embed it in URLs, or put it in frontend variables.
+- Physical printer output and staff warehouse acceptance are still required. No claim of zero bugs.

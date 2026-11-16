@@ -1,5 +1,7 @@
 # 2026-11-16 发布检查
 
+最新发布状态：已通过实际 Cloudflare 测试站及正式站接口验收并上线，详情见 production-release-2026-11-16.md。下面保留早期阻塞检查记录供追溯。
+
 ## 本日后续修正结果
 
 - 原先的缺失生产接口、DEV-only 入口和团队范围问题已补代码，详见 cloud-modules-rollout.md。
