@@ -114,7 +114,7 @@ const leadTableColumns = [
 
 const loginUser = computed(() => admin.currentUser)
 const isOwner = computed(() => loginUser.value?.role === 'owner')
-const isPrivileged = computed(() => loginUser.value?.role === 'owner' || loginUser.value?.role === 'manager')
+const isPrivileged = computed(() => loginUser.value?.role === 'owner')
 const controls = computed(() => customerControls(loginUser.value))
 const canViewAll = computed(() => controls.value.viewAll)
 const canManageLeads = computed(() => controls.value.transfer)

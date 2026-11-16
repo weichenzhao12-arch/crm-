@@ -96,7 +96,7 @@ export function localWarehouse(db: DatabaseSync) {
       const actor = String(user.id)
       const permissions = JSON.parse(String(user.permissions))
       const access = warehouseAccess({ enabled: 1, role: String(user.role), permissions })
-      const allCustomers = user.role === 'owner' || user.role === 'manager' || permissions.manageUsers === true || String(user.account).toLowerCase() === 'admin'
+      const allCustomers = user.role === 'owner' || permissions.viewAllCustomers === true || permissions.manageUsers === true || String(user.account).toLowerCase() === 'admin'
       function allow(condition: boolean) { if (!condition) throw new WarehouseError('没有此操作权限', 403) }
       function canSee(order: Order) { return access.allOrders || orderResponsible(order) === actor }
       function redact(order: Order) {

@@ -21,12 +21,12 @@ export function applyRouterGuards(router: Router) {
       return { path: '/warehouse' }
     if (to.path === '/warehouse/manage' && !warehouseAccess(currentUser).stock)
       return { path: '/warehouse' }
-    const canManage = currentUser?.role === 'owner' || currentUser?.role === 'manager' || Boolean(currentUser?.permissions.manageUsers)
+    const canManage = currentUser?.role === 'owner' || Boolean(currentUser?.permissions.manageUsers)
     if (to.path.startsWith('/admin') && !canManage)
       return { path: '/' }
 
     if (to.path === '/quote' && to.query.view === 'cost') {
-      const canCalculateCost = currentUser?.role === 'owner' || currentUser?.role === 'manager' || Boolean(currentUser?.permissions.costCalculation)
+      const canCalculateCost = currentUser?.role === 'owner' || Boolean(currentUser?.permissions.costCalculation)
       if (!canCalculateCost)
         return { path: '/quote', query: { view: 'quote' } }
     }

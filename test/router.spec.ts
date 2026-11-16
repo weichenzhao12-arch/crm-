@@ -32,6 +32,22 @@ describe('router guards', () => {
 
     expect(router.currentRoute.value.path).toBe('/')
   })
+  it('does not grant managers cost or account access without explicit permission', async () => {
+    const admin = useAdminStore()
+    const user = admin.users.find(item => item.role === 'quoter')!
+    user.role = 'manager'
+    user.permissions.manageUsers = false
+    user.permissions.costCalculation = false
+    admin.setCurrentUser(user.id)
+    useAuthStore().setToken('manager-test')
+    await router.push('/admin')
+    expect(router.currentRoute.value.path).toBe('/')
+    await router.push('/quote?view=cost')
+    expect(router.currentRoute.value.query.view).toBe('quote')
+    user.permissions.costCalculation = true
+    await router.push('/quote?view=cost')
+    expect(router.currentRoute.value.query.view).toBe('cost')
+  })
   it('allows a warehouse-only user to log out without redirect loops', async () => {
     const auth = useAuthStore()
     const admin = useAdminStore()

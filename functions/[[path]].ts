@@ -74,7 +74,7 @@ function userPermissions(row: AdminUserRow) {
 }
 
 function hasPermission(row: AdminUserRow, permission: string) {
-  if (row.role === 'owner' || row.role === 'manager')
+  if (row.role === 'owner')
     return true
   return Boolean(userPermissions(row)[permission])
 }

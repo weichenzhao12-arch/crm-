@@ -126,7 +126,7 @@ const leadTableColumns = [
 const followUpColumns = leadTableColumns.filter(column => column.includes('跟踪反馈'))
 
 const loginUser = computed(() => admin.currentUser)
-const isPrivileged = computed(() => loginUser.value?.role === 'owner' || loginUser.value?.role === 'manager')
+const isPrivileged = computed(() => loginUser.value?.role === 'owner')
 const controls = computed(() => customerControls(loginUser.value))
 const canViewAll = computed(() => controls.value.viewAll)
 const canDeleteCustomers = computed(() => controls.value.remove)

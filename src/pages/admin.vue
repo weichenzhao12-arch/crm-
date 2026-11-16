@@ -636,7 +636,7 @@ function changeOwnPassword() {
               <h3>报价与商品</h3>
               <label><input v-model="user.permissions.exportQuote" type="checkbox" @change="admin.saveUsers()"><span><b>报价导出</b><small>允许导出报价单 PDF / Word</small></span></label>
               <label><input v-model="user.permissions.temporaryEdit" type="checkbox" @change="admin.saveUsers()"><span><b>临时改价</b><small>允许在报价时临时调整单价</small></span></label>
-              <label><input v-model="user.permissions.costCalculation" type="checkbox" :disabled="user.role === 'owner' || user.role === 'manager'" @change="admin.saveUsers()"><span><b>成本计算</b><small>允许查看和使用草坪成本计算器</small></span></label>
+              <label><input v-model="user.permissions.costCalculation" type="checkbox" :disabled="user.role === 'owner'" @change="admin.saveUsers()"><span><b>成本计算</b><small>允许查看和使用草坪成本计算器</small></span></label>
               <label><input v-model="user.permissions.manageProducts" type="checkbox" @change="admin.saveUsers()"><span><b>产品管理</b><small>新增、修改和删除产品</small></span></label>
               <label><input v-model="user.permissions.manageMaterials" type="checkbox" @change="admin.saveUsers()"><span><b>辅料管理</b><small>新增、修改和删除辅料</small></span></label>
               <label><input v-model="user.permissions.importExcel" type="checkbox" @change="admin.saveUsers()"><span><b>产品表格导入</b><small>批量导入产品价格表</small></span></label>

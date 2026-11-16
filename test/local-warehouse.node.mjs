@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { test } from 'node:test'
 
-const base = new URL(process.argv[2] || 'http://127.0.0.1:5181')
+const base = new URL(process.env.WAREHOUSE_TEST_URL || process.argv.find(argument => argument.startsWith('http://')) || 'http://127.0.0.1:5181')
 assert.equal(base.hostname, '127.0.0.1')
 const api = '/api/local-warehouse'
 async function request(path, { body, token, cookie, method, requestKey = randomUUID() } = {}) {
@@ -176,8 +176,10 @@ test('warehouse: role isolation, handoff, transaction, cut and return, dealer ex
   assert.equal((await request('/api/state/admin-users', { token: owner, method: 'PUT', body: { value: [...existingUsers, ...granular] } })).status, 200)
   const [reader, receiver, shipper] = await Promise.all(granular.map(user => login(user.id)))
   const manager = await login('manager-all')
-  assert.equal((await view(manager)).customers.length, 3)
-  assert.equal((await customerHistory(manager)).status, 200)
+  assert.equal((await request('/api/state/pricing', { token: manager, method: 'PUT', body: { value: {} } })).status, 403)
+  assert.equal((await view(manager)).customers.length, 0)
+  assert.equal((await customerHistory(manager)).status, 403)
+  assert.equal((await post('orders', form([line()], { customerId: 'lead-a' }), manager)).status, 403)
   assert.equal((await request(`${api}/`, { token: reader })).status, 200)
   assert.equal((await post('orders', form([line()]), reader)).status, 403)
   assert.equal((await post('stock', { id: 'demo-a', rolls: 1 }, reader)).status, 403)
