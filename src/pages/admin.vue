@@ -21,14 +21,43 @@ import { useSystemStore } from '~/stores/system'
 import type { RecycleRecord } from '~/stores/system'
 import { warehouseAccess, warehousePermissionFields } from '~/features/warehouse/model'
 import { localWarehouseEnabled } from '~/features/warehouse/release'
+import PersonHandoffDialog from '~/features/personnel/PersonHandoffDialog.vue'
+import { positionOptions } from '~/features/personnel/hierarchy'
 
 const quote = useQuoteStore()
 const admin = useAdminStore()
 function warehousePermissionChecked(user: typeof admin.users[number], key: typeof warehousePermissionFields[number][0]) {
   const access = warehouseAccess(user)
-  if (key === 'warehouseCreate') return access.sales
-  if (key === 'warehouseEnterPrice') return user.permissions[key] ?? access.sales
-  return user.role === 'owner' || Boolean(user.permissions[key])
+  const values = { warehouseOnly: access.only, warehouseRead: access.enter, warehouseAddSpec: access.addSpec, warehouseReceive: access.receive, warehouseIssue: access.issue, warehouseVisibility: access.visibility, warehouseCreate: access.sales, warehousePick: access.pick, warehouseShip: access.ship, warehouseAllOrders: access.allOrders, warehouseCancelAny: access.cancelAny, warehouseReturn: access.returnStock, warehouseHistory: access.history, warehousePrint: access.print, warehouseEnterPrice: access.price, warehouseViewPrice: access.viewPrice, warehousePrintPrice: access.printPrice }
+  return values[key]
+}
+function applyWarehousePreset(user: typeof admin.users[number]) {
+  if (user.role === 'owner') return
+  user.role = 'viewer'
+  for (const key of Object.keys(user.permissions)) {
+    if (key !== 'position' && key !== 'supervisorId') (user.permissions as Record<string, unknown>)[key] = false
+  }
+  user.permissions.position = 'warehouse'
+  user.permissions.supervisorId = ''
+  for (const [key] of warehousePermissionFields) user.permissions[key] = false
+  for (const key of ['warehouseOnly', 'warehouseRead', 'warehouseAddSpec', 'warehouseReceive', 'warehouseIssue', 'warehouseCreate', 'warehousePick', 'warehouseShip', 'warehousePrint', 'warehouseAllOrders', 'warehouseHistory'] as const) user.permissions[key] = true
+  void admin.saveUsers()
+}
+function updateWarehousePermission(user: typeof admin.users[number], key: typeof warehousePermissionFields[number][0], enabled: boolean) {
+  if (user.role === 'owner') return
+  const values = Object.fromEntries(warehousePermissionFields.map(([field]) => [field, warehousePermissionChecked(user, field)]))
+  Object.assign(user.permissions, values)
+  user.permissions.warehouseStock = false
+  user.permissions[key] = enabled
+  if (enabled && key !== 'warehouseOnly') user.permissions.warehouseRead = true
+  if (!enabled && key === 'warehouseRead') for (const [field] of warehousePermissionFields) if (field !== 'warehouseOnly') user.permissions[field] = false
+  if (enabled && key === 'warehouseEnterPrice') user.permissions.warehouseCreate = true
+  if (enabled && key === 'warehouseCancelAny') user.permissions.warehouseAllOrders = true
+  if (!enabled && key === 'warehouseAllOrders') user.permissions.warehouseCancelAny = false
+  if (enabled && key === 'warehousePrintPrice') Object.assign(user.permissions, { warehousePrint: true, warehouseViewPrice: true })
+  if (!enabled && (key === 'warehousePrint' || key === 'warehouseViewPrice')) user.permissions.warehousePrintPrice = false
+  if (!enabled && key === 'warehouseCreate') user.permissions.warehouseEnterPrice = false
+  void admin.saveUsers()
 }
 const crm = useCrmStore()
 const system = useSystemStore()
@@ -36,7 +65,47 @@ const { pricing } = storeToRefs(quote)
 const { users } = storeToRefs(admin)
 const { activeRecycleBin, recentLogs } = storeToRefs(system)
 
-const activeTab = ref<'products' | 'materials' | 'users' | 'recycle'>('users')
+const activeTab = ref<'products' | 'materials' | 'users' | 'recycle' | 'departments'>('users')
+const departmentFilter = ref('all')
+const departmentName = ref('')
+const departmentBusy = ref(false)
+const departmentStatus = ref('')
+const departmentSearch = ref('')
+const filteredUsers = computed(() => users.value.filter(user => departmentFilter.value === 'all' || (user.departmentId || '') === departmentFilter.value))
+const filteredDepartments = computed(() => admin.departments.filter(item => item.name.includes(departmentSearch.value.trim())))
+const canMaintainDepartments = computed(() => admin.currentUser?.role === 'owner')
+const personnelDialog = ref<{ sourceId: string, mode: 'department' | 'leave', nextDepartmentId?: string } | null>(null)
+function moveDepartment(user: typeof admin.users[number], event: Event) {
+  const field = event.target as HTMLSelectElement
+  const next = field.value
+  field.value = user.departmentId || ''
+  if ((user.departmentId || '') !== next) personnelDialog.value = { sourceId: user.id, mode: 'department', nextDepartmentId: next }
+}
+async function personnelCompleted() {
+  personnelDialog.value = null
+  await admin.loadCloudUsers()
+  await crm.loadCloudCustomers()
+}
+function departmentLabel(id?: string) { return admin.departments.find(item => item.id === id)?.name || '未分部门' }
+async function addDepartment() {
+  if (departmentBusy.value) return
+  departmentBusy.value = true
+  departmentStatus.value = ''
+  try {
+    if (await admin.saveDepartment({ name: departmentName.value })) {
+      departmentName.value = ''
+      departmentStatus.value = '部门已新增'
+    }
+  }
+  finally { departmentBusy.value = false }
+}
+async function saveDepartment(id: string, name: string, enabled: boolean) {
+  if (departmentBusy.value) return
+  departmentBusy.value = true
+  departmentStatus.value = ''
+  try { if (await admin.saveDepartment({ id, name, enabled })) departmentStatus.value = '部门设置已保存' }
+  finally { departmentBusy.value = false }
+}
 const keyword = ref('')
 const oldPassword = ref('')
 const newPassword = ref('')
@@ -68,6 +137,7 @@ onMounted(() => {
     quote.savePricing()
   })
   admin.loadCloudUsers()
+  if (localWarehouseEnabled) void admin.loadDepartments()
   system.loadCloudSystemState()
 })
 
@@ -427,6 +497,7 @@ function changeOwnPassword() {
 
     <section class="admin-tabs">
       <button :class="{ active: activeTab === 'users' }" @click="activeTab = 'users'">账号权限</button>
+      <button v-if="localWarehouseEnabled" :class="{ active: activeTab === 'departments' }" @click="activeTab = 'departments'">部门管理</button>
       <button :class="{ active: activeTab === 'recycle' }" @click="activeTab = 'recycle'">回收站/记录</button>
     </section>
 
@@ -505,6 +576,12 @@ function changeOwnPassword() {
       </div>
     </section>
 
+    <section v-else-if="activeTab === 'departments' && localWarehouseEnabled" class="admin-panel department-panel">
+      <header><h2>部门管理</h2><button :disabled="departmentBusy" @click="admin.loadDepartments()">刷新部门</button></header>
+      <p v-if="admin.departmentError" role="alert">{{ admin.departmentError }}</p><p v-if="departmentStatus" role="status">{{ departmentStatus }}</p>
+      <form class="department-tools" @submit.prevent="addDepartment"><label>新增部门<input v-model.trim="departmentName" maxlength="40" required placeholder="部门名称" :disabled="!canMaintainDepartments"></label><button class="primary-action" :disabled="departmentBusy || !canMaintainDepartments">新增部门</button><label>搜索部门<input v-model="departmentSearch" type="search" placeholder="部门名称"></label></form>
+      <div class="department-table"><table><thead><tr><th>部门名称</th><th>人数</th><th>状态</th><th>操作</th></tr></thead><tbody><tr v-for="department in filteredDepartments" :key="department.id"><td><input v-model.trim="department.name" :aria-label="`部门名称 ${department.id}`" maxlength="40" :disabled="!canMaintainDepartments || departmentBusy"></td><td>{{ users.filter(user => user.departmentId === department.id).length }}</td><td>{{ department.enabled ? '启用' : '已停用' }}</td><td><button :disabled="departmentBusy || !canMaintainDepartments" @click="saveDepartment(department.id, department.name, department.enabled)">保存名称</button><button :disabled="departmentBusy || !canMaintainDepartments" @click="saveDepartment(department.id, department.name, !department.enabled)">{{ department.enabled ? '停用' : '启用' }}</button></td></tr></tbody></table></div>
+    </section>
     <section v-else-if="activeTab === 'users'" class="admin-panel">
       <header>
         <h2>账号权限</h2>
@@ -515,8 +592,10 @@ function changeOwnPassword() {
         <label>当前账号修改密码<input v-model="newPassword" type="password" placeholder="输入新密码"></label>
         <button @click="changeOwnPassword">修改密码</button>
       </div>
+      <label v-if="localWarehouseEnabled" class="department-filter">部门筛选<select v-model="departmentFilter"><option value="all">全部部门</option><option value="">未分部门</option><option v-for="department in admin.departments" :key="department.id" :value="department.id">{{ department.name }}{{ department.enabled ? '' : '（已停用）' }}</option></select></label>
+      <p v-if="localWarehouseEnabled && admin.departmentError" role="alert">{{ admin.departmentError }}</p>
       <div class="user-cards">
-        <article v-for="user in users" :key="user.id" class="user-permission-card">
+        <article v-for="user in filteredUsers" :key="user.id" class="user-permission-card">
           <header>
             <div class="user-card-title"><i>{{ user.displayName.slice(0, 1) || '用' }}</i><div><b>{{ user.displayName || user.account }}</b><span>{{ user.account }}</span></div></div>
             <label class="account-enabled"><input v-model="user.enabled" type="checkbox" @change="admin.saveUsers()">账号启用</label>
@@ -524,20 +603,27 @@ function changeOwnPassword() {
           <div class="account-fields">
             <label>登录账号<input v-model="user.account" @blur="admin.saveUsers()"></label>
             <label>显示姓名<input v-model="user.displayName" @blur="admin.saveUsers()"></label>
+            <label>岗位<select v-model="user.permissions.position" @change="admin.saveUsers()"><option :value="undefined">未设置</option><option v-for="[value, name] in positionOptions" :key="value" :value="value">{{ name }}</option></select></label>
+            <label>直属上级<select v-model="user.permissions.supervisorId" @change="admin.saveUsers()"><option value="">无</option><option v-for="person in users.filter(person => person.id !== user.id && person.enabled && ['director', 'supervisor'].includes(person.permissions.position || ''))" :key="person.id" :value="person.id">{{ person.displayName }}</option></select></label>
+            <label v-if="localWarehouseEnabled">所属部门<select :value="user.departmentId || ''" :disabled="!canMaintainDepartments || user.role === 'owner'" @change="moveDepartment(user, $event)"><option value="">未分部门</option><option v-for="department in admin.departments" :key="department.id" :value="department.id" :disabled="!department.enabled && user.departmentId !== department.id">{{ department.name }}{{ department.enabled ? '' : '（已停用）' }}</option></select></label>
             <label>角色模板
               <select v-model="user.role" @change="applyUserRole(user)">
-                <option value="owner">主账号（仅管理与数据查看）</option>
-                <option value="manager">管理员</option>
-                <option value="quoter">报价员</option>
+                <option value="owner">主账号（全部权限）</option>
+                <option value="manager">销售主管（含管理权限）</option>
+                <option value="quoter">销售人员</option>
+                <option v-if="localWarehouseEnabled" value="clerk">行政文员</option>
                 <option value="viewer">只读</option>
               </select>
             </label>
           </div>
+          <div v-if="localWarehouseEnabled && canMaintainDepartments && user.role !== 'owner'" class="admin-actions"><button @click="personnelDialog = { sourceId: user.id, mode: 'department' }">调部门 / 客户交接</button><button class="danger" @click="personnelDialog = { sourceId: user.id, mode: 'leave' }">离职交接</button></div>
+          <div v-if="user.role !== 'owner'" class="admin-actions"><button :disabled="!user.permissions.position" @click="admin.applyPositionPreset(user)">应用岗位默认权限</button></div>
           <div class="permission-groups">
             <section>
               <h3>客户与数据</h3>
               <label><input v-model="user.permissions.viewAllCustomers" type="checkbox" @change="admin.saveUsers()"><span><b>查看全部客户与团队统计</b><small>关闭时，客户、今日跟进和数据统计都只显示本人数据</small></span></label>
               <template v-if="showLocalSamplePermissions">
+                <label><input v-model="user.permissions.assignUnclaimedCustomers" type="checkbox" @change="admin.saveUsers()"><span><b>分配未认领推广线索</b><small>只分配待认领客资，不转移已由销售负责的客户</small></span></label>
                 <label><input v-model="user.permissions.transferCustomers" type="checkbox" @change="admin.saveUsers()"><span><b>批量转移客资</b><small>需另有查看全部客资权限；不授予删除权限</small></span></label>
                 <label><input v-model="user.permissions.issueSamples" type="checkbox" @change="admin.saveUsers()"><span><b>样品出库（本地测试）</b><small>选样、备样、领样和打印</small></span></label>
                 <label><input v-model="user.permissions.manageSampleStock" type="checkbox" @change="admin.saveUsers()"><span><b>样品库存维护（本地测试）</b><small>新增规格、入库、退回和冲销</small></span></label>
@@ -549,9 +635,6 @@ function changeOwnPassword() {
             <section>
               <h3>报价与商品</h3>
               <label><input v-model="user.permissions.exportQuote" type="checkbox" @change="admin.saveUsers()"><span><b>报价导出</b><small>允许导出报价单 PDF / Word</small></span></label>
-              <template v-if="localWarehouseEnabled">
-                <label v-for="[key, label] in warehousePermissionFields" :key="key"><input :checked="warehousePermissionChecked(user, key)" :disabled="user.role === 'owner'" type="checkbox" @change="user.permissions[key] = ($event.target as HTMLInputElement).checked; admin.saveUsers()"><span><b>{{ label }}（仓库）</b><small v-if="key === 'warehousePrintPrice'">同时需要查看全部发货价格和打印发货单权限</small><small v-else-if="key === 'warehouseEnterPrice'">需有开单权限；不授予查看他人价格权限</small></span></label>
-              </template>
               <label><input v-model="user.permissions.temporaryEdit" type="checkbox" @change="admin.saveUsers()"><span><b>临时改价</b><small>允许在报价时临时调整单价</small></span></label>
               <label><input v-model="user.permissions.costCalculation" type="checkbox" :disabled="user.role === 'owner' || user.role === 'manager'" @change="admin.saveUsers()"><span><b>成本计算</b><small>允许查看和使用草坪成本计算器</small></span></label>
               <label><input v-model="user.permissions.manageProducts" type="checkbox" @change="admin.saveUsers()"><span><b>产品管理</b><small>新增、修改和删除产品</small></span></label>
@@ -559,6 +642,11 @@ function changeOwnPassword() {
               <label><input v-model="user.permissions.importExcel" type="checkbox" @change="admin.saveUsers()"><span><b>产品表格导入</b><small>批量导入产品价格表</small></span></label>
             </section>
             <section>
+              <h3 v-if="localWarehouseEnabled">仓库岗位与操作</h3>
+              <template v-if="localWarehouseEnabled">
+                <button :disabled="user.role === 'owner'" @click="applyWarehousePreset(user)">应用纯仓库模板</button>
+                <label v-for="[key, label] in warehousePermissionFields" :key="key"><input :checked="warehousePermissionChecked(user, key)" :disabled="user.role === 'owner'" type="checkbox" @change="updateWarehousePermission(user, key, ($event.target as HTMLInputElement).checked)"><span><b>{{ label }}</b><small v-if="key === 'warehousePrintPrice'">同时启用打印和查看价格；关闭任意一项即关闭含价打印</small><small v-else-if="key === 'warehouseEnterPrice'">同时启用开单，不授予查看他人价格</small><small v-else-if="key === 'warehouseRead'">关闭时同时撤销所有仓库操作权限</small><small v-else-if="key === 'warehouseAllOrders'">关闭后只查看和处理本人单据</small></span></label>
+              </template>
               <h3>系统管理</h3>
               <label><input v-model="user.permissions.manageUsers" type="checkbox" @change="admin.saveUsers()"><span><b>账号与权限管理</b><small>允许新增账号、调整角色和权限</small></span></label>
               <label><input v-model="user.permissions.restoreRecords" type="checkbox" @change="admin.saveUsers()"><span><b>回收站恢复</b><small>恢复已删除记录并查看操作日志</small></span></label>
@@ -620,10 +708,18 @@ function changeOwnPassword() {
         </section>
       </div>
     </section>
+    <PersonHandoffDialog v-if="personnelDialog" :source-id="personnelDialog.sourceId" :mode="personnelDialog.mode" :next-department-id="personnelDialog.nextDepartmentId" @close="personnelDialog = null; admin.loadCloudUsers()" @completed="personnelCompleted" />
   </main>
 </template>
 
 <style scoped>
+.department-tools { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; padding: 14px 0; }
+.department-tools label, .department-filter { display: grid; gap: 5px; font-size: 13px; }
+.department-filter { max-width: 280px; margin: 12px 0; }
+.department-table { overflow: auto; }
+.department-table table { width: 100%; border-collapse: collapse; }
+.department-table th, .department-table td { padding: 8px 12px; border-bottom: 1px solid var(--crm-line); text-align: left; white-space: nowrap; }
+.department-table td button { margin-right: 6px; }
 .admin-page{min-height:100vh;background:#eef3f8;padding:24px;color:#142235}
 .admin-hero{display:flex;align-items:center;justify-content:space-between;gap:18px;max-width:1680px;margin:0 auto 18px;padding:24px;border-radius:18px;background:linear-gradient(135deg,#10243f,#1f5f8b);color:#fff}
 .admin-hero p{margin:0 0 6px;color:#cce5ff;font-weight:800}

@@ -34,6 +34,12 @@
 .wh-order-footer > span { margin-right: auto; font-size: 13px; }
 .wh-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 8px; margin: 10px 0; }
 .wh-grid .wh-wide { grid-column: span 2; }
+.wh-customer-picker { position: relative; min-width: 0; }
+.wh-customer-picker > button { margin-top: 5px; }
+.wh-customer-picker > .wh-bound { margin-left: 8px; }
+.wh-customer-dialog > label { margin-bottom: 10px; }
+.wh-customer-dialog footer > span { margin-right: auto; font-size: 12px; }
+.wh-bound { color: #1f674f; font-size: 11px; }
 .wh-page .wh-check { display: flex; align-items: center; min-height: 34px; }
 .wh-reason { margin-top: 12px; }
 .wh-line { border: 1px solid var(--crm-line-strong); border-radius: 7px; padding: 6px 9px; margin: 8px 0; min-width: 0; }

@@ -1,14 +1,15 @@
 // Start the CRM with `vite --mode local-crm` on a fresh local instance before running this test.
 import assert from 'node:assert/strict'
+import { randomUUID } from 'node:crypto'
 import { test } from 'node:test'
 
 const base = new URL(process.argv[2] || 'http://127.0.0.1:5181')
 assert.equal(base.hostname, '127.0.0.1')
 const api = '/api/local-warehouse'
-async function request(path, { body, token, cookie, method } = {}) {
+async function request(path, { body, token, cookie, method, requestKey = randomUUID() } = {}) {
   const res = await fetch(new URL(path, base), {
     method: method || (body ? 'POST' : 'GET'),
-    headers: { ...(body && { 'Content-Type': 'application/json' }), ...(token && { Authorization: `Bearer ${token}` }), ...(cookie && { Cookie: cookie }) },
+    headers: { ...(body && { 'Content-Type': 'application/json', 'Idempotency-Key': requestKey }), ...(token && { Authorization: `Bearer ${token}` }), ...(cookie && { Cookie: cookie }) },
     body: body ? JSON.stringify(body) : undefined,
   })
   return { status: res.status, data: await res.json(), cookie: res.headers.get('set-cookie')?.split(';')[0] }
@@ -45,6 +46,10 @@ test('warehouse: role isolation, handoff, transaction, cut and return, dealer ex
   assert.equal((await view(owner)).stocks.find(stock => stock.code === 'TEST-NO-MODEL').rolls, 1)
   assert.equal((await view(sales)).customers.some(customer => customer.id === 'lead-b'), false)
   assert.deepEqual((await view(warehouse)).customers, [])
+  assert.equal((await request('/api/state/customers', { token: warehouse })).status, 403)
+  assert.equal((await request('/api/state/pricing', { token: warehouse })).status, 403)
+  assert.equal((await request('/api/state/admin-users', { token: warehouse })).status, 403)
+  assert.equal((await post('stock', { id: 'demo-a', visible: false }, warehouse)).status, 403)
   assert.equal((await post('stock', { id: 'demo-a', rolls: 2 }, sales)).status, 403)
   assert.equal((await post('stock', { id: 'demo-a', rolls: 2, remnants: [{ meters: 26, count: 1 }] }, warehouse)).status, 400)
   assert.equal((await getStock('demo-a')).rolls, before.rolls)
@@ -55,13 +60,23 @@ test('warehouse: role isolation, handoff, transaction, cut and return, dealer ex
   const created = await post('orders', body, sales)
   assert.equal(created.status, 200)
   const { id } = created.data
+  const customerHistory = (token, customerId = 'lead-a') => request(`${api}/customer-orders?customerId=${customerId}`, { token })
+  assert.equal((await customerHistory(sales)).data.orders[0].id, id)
+  assert.equal((await customerHistory(other)).status, 403)
+  assert.equal((await customerHistory(warehouse)).status, 403)
+  assert.equal((await customerHistory(owner)).status, 200)
+  const loose = await post('orders', form([line()], { receiver: '演示客户甲' }), sales)
+  assert.equal(loose.status, 200)
+  assert.equal((await customerHistory(sales)).data.orders.some(order => order.id === loose.data.id), false)
+  assert.equal((await post('dispatch', { id: loose.data.id, action: 'cancel', reason: '手填同名不绑定' }, sales)).status, 200)
   const action = (action, token = warehouse, data = {}) => post('dispatch', { id, action, ...data }, token)
   assert.equal((await view(other)).orders.some(order => order.id === id), false)
   assert.equal((await view(warehouse)).orders.find(order => order.id === id).lines[1].price, null)
   assert.equal((await action('ship', sales)).status, 403)
   assert.equal((await action('reject')).status, 400)
   assert.equal((await action('reject', warehouse, { reason: '核对包装' })).status, 200)
-  assert.equal((await post('orders', { ...body, id }, other)).status, 404)
+  assert.equal((await customerHistory(sales)).data.orders.find(order => order.id === id).status, 'rejected')
+  assert.equal((await post('orders', { ...body, id }, other)).status, 403)
   assert.equal((await post('orders', { ...body, id }, sales)).status, 200)
   assert.equal((await action('logistics', warehouse, { driver: '司机', packaging: ['银色', '', ''] })).status, 200)
   const print = (priced, token) => request(`${api}/print?id=${id}&priced=${priced}`, { token })
@@ -85,8 +100,9 @@ test('warehouse: role isolation, handoff, transaction, cut and return, dealer ex
   assert.equal(stock.remnants[18], 1)
   assert.equal(stock.remnants[7], undefined)
   assert.equal((await dealerView()).stocks[0].rolls, stock.rolls)
-  assert.equal((await action('return', warehouse, { reason: '客户退回全部' })).status, 200)
-  assert.equal((await action('return', warehouse, { reason: '重复退回' })).status, 409)
+  assert.equal((await action('return', warehouse, { reason: '客户退回全部' })).status, 403)
+  assert.equal((await action('return', owner, { reason: '客户退回全部' })).status, 200)
+  assert.equal((await action('return', owner, { reason: '重复退回' })).status, 409)
   stock = await getStock('demo-a')
   assert.equal(stock.rolls, before.rolls - 1)
   assert.equal(stock.remnants[7], 2)
@@ -104,7 +120,7 @@ test('warehouse: role isolation, handoff, transaction, cut and return, dealer ex
   const invalid = await post('orders', form([line(), line('roll', 25, 1, b.id)]), warehouse)
   assert.equal(invalid.status, 409)
   assert.deepEqual(await getStock('demo-a'), stock)
-  assert.equal((await post('stock', { id: 'demo-a', rolls: 1, remnants: [{ meters: 11, count: 2 }], visible: false }, warehouse)).status, 200)
+  assert.equal((await post('stock', { id: 'demo-a', rolls: 1, remnants: [{ meters: 11, count: 2 }], visible: false }, owner)).status, 200)
   assert.equal((await getStock('demo-a')).remnants[11], 2)
   assert.equal((await dealerView()).stocks.length, 0)
   assert.equal((await request(`${api}/dealer`, { method: 'DELETE', cookie })).status, 200)
@@ -150,4 +166,28 @@ test('warehouse: role isolation, handoff, transaction, cut and return, dealer ex
   assert.equal((await post('stock', { id: meterStock.id, direction: 'in', remnants: [{ meters: 25, count: 1 }, { meters: 3.5, count: 2 }] }, warehouse)).status, 200)
   assert.equal((await getStock(meterStock.id)).rolls, 2)
   assert.equal((await getStock(meterStock.id)).remnants['3.5'], 2)
+  const existingUsers = (await request('/api/state/admin-users', { token: owner })).data.value
+  const granular = [
+    { id: 'read-only', permissions: { warehouseRead: true } },
+    { id: 'receive-only', permissions: { warehouseReceive: true } },
+    { id: 'ship-only', permissions: { warehouseShip: true, warehouseCreate: false, warehousePick: false, warehouseReturn: false, warehouseCancelAny: false, warehouseAllOrders: true } },
+    { id: 'manager-all', role: 'manager', permissions: { warehouseCreate: true, viewAllCustomers: false } },
+  ].map(user => ({ ...user, account: user.id, displayName: user.id, enabled: true, role: user.role || 'viewer', password: '123456' }))
+  assert.equal((await request('/api/state/admin-users', { token: owner, method: 'PUT', body: { value: [...existingUsers, ...granular] } })).status, 200)
+  const [reader, receiver, shipper] = await Promise.all(granular.map(user => login(user.id)))
+  const manager = await login('manager-all')
+  assert.equal((await view(manager)).customers.length, 3)
+  assert.equal((await customerHistory(manager)).status, 200)
+  assert.equal((await request(`${api}/`, { token: reader })).status, 200)
+  assert.equal((await post('orders', form([line()]), reader)).status, 403)
+  assert.equal((await post('stock', { id: 'demo-a', rolls: 1 }, reader)).status, 403)
+  assert.equal((await post('stock', { id: 'demo-a', rolls: 1 }, receiver)).status, 200)
+  assert.equal((await post('stock', { id: 'demo-a', rolls: 1, direction: 'out', reason: '越权' }, receiver)).status, 403)
+  assert.equal((await post('stock', { category: '景观草', code: 'DENIED', name: '越权新增', width: 2, length: 25 }, receiver)).status, 403)
+  assert.equal((await post('stock', { id: 'demo-a', visible: true }, receiver)).status, 403)
+  assert.equal((await post('orders', form([line()]), shipper)).status, 403)
+  const delegated = await post('orders', form([line()]), owner)
+  assert.equal(delegated.status, 200)
+  for (const action of ['cancel', 'return', 'reject', 'logistics']) assert.equal((await post('dispatch', { id: delegated.data.id, action, reason: '不能连带授权' }, shipper)).status, 403)
+  assert.equal((await post('dispatch', { id: delegated.data.id, action: 'ship' }, shipper)).status, 200)
 })

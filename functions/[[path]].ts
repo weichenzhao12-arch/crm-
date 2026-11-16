@@ -8,6 +8,7 @@ import { handle } from 'hono/cloudflare-pages'
 import type { Context, Next } from 'hono'
 import { isPasswordHash, normalizePasswordForStorage, verifyPassword } from '../src/features/auth/password'
 import { canAccessCustomer } from '../src/features/crm/customer-access'
+import { validateHierarchy } from '../src/features/personnel/hierarchy'
 import { canExecuteHandoff, insertHandoffLog, updateHandoffOwner } from './customer-handoff'
 
 interface Env {
@@ -25,6 +26,7 @@ interface AdminUserRow {
   enabled: number
   password: string
   permissions: string
+  department_id?: string | null
 }
 
 interface SessionRow {
@@ -40,6 +42,7 @@ interface AdminUserPayload {
   enabled?: boolean
   password?: string
   permissions?: unknown
+  departmentId?: string
 }
 
 interface AppBindings {
@@ -57,6 +60,7 @@ function jsonUser(row: AdminUserRow) {
     role: row.role,
     enabled: Boolean(row.enabled),
     permissions: JSON.parse(row.permissions || '{}'),
+    departmentId: row.department_id || '',
   }
 }
 
@@ -89,18 +93,19 @@ function userPayloadToDbRow(user: AdminUserPayload) {
     enabled: user.enabled === false ? 0 : 1,
     password: user.password ? normalizePasswordForStorage(user.password) : '',
     permissions: JSON.stringify(user.permissions || {}),
+    departmentId: user.departmentId?.trim() || null,
   }
 }
 
-async function syncAdminUsers(db: D1Database, users: unknown) {
+async function syncAdminUsers(db: D1Database, users: unknown, actorId: string) {
   if (!Array.isArray(users))
     return
 
   const rows = users.map(userPayloadToDbRow).filter(user => user.id && user.account)
   const statements = rows.map(row =>
     db.prepare(`
-      INSERT INTO users (id, account, display_name, role, enabled, password, permissions, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      INSERT INTO users (id, account, display_name, role, enabled, password, permissions, department_id, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(id) DO UPDATE SET
         account = excluded.account,
         display_name = excluded.display_name,
@@ -108,8 +113,9 @@ async function syncAdminUsers(db: D1Database, users: unknown) {
         enabled = excluded.enabled,
         password = CASE WHEN excluded.password = '' THEN users.password ELSE excluded.password END,
         permissions = excluded.permissions,
+        department_id = users.department_id,
         updated_at = CURRENT_TIMESTAMP
-    `).bind(row.id, row.account, row.displayName, row.role, row.enabled, row.password, row.permissions),
+    `).bind(row.id, row.account, row.displayName, row.role, row.enabled, row.password, row.permissions, row.departmentId),
   )
 
   const ids = rows.map(row => row.id)
@@ -121,8 +127,10 @@ async function syncAdminUsers(db: D1Database, users: unknown) {
     statements.push(db.prepare(`DELETE FROM users WHERE id != 'owner' AND id NOT IN (${placeholders})`).bind(...ids))
   }
 
-  if (statements.length)
-    await db.batch(statements)
+  statements.push(db.prepare(`INSERT INTO app_state (key, value, updated_by, updated_at) VALUES ('admin-users', ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = CURRENT_TIMESTAMP`)
+    .bind(JSON.stringify(users), actorId))
+  await db.batch(statements)
 }
 
 async function replaceJsonRows(db: D1Database, table: string, rows: any[], mapper: (row: any) => D1PreparedStatement) {
@@ -314,6 +322,7 @@ async function readNormalizedState(db: D1Database, key: string, fallback: any) {
       role: row.role,
       enabled: Boolean(row.enabled),
       permissions: parseStoredJson(row.permissions || '{}', {}),
+      departmentId: row.department_id || '',
     }))
     return users
   }
@@ -337,6 +346,8 @@ async function requireLogin(c: Context<AppBindings>, next: Next) {
     return c.json({ message: '账号不可用' }, 401)
 
   c.set('user', user)
+  if (userPermissions(user).warehouseOnly === true && user.role !== 'owner')
+    return c.json({ message: '仓库岗位不能访问其他业务模块' }, 403)
   await next()
 }
 
@@ -392,6 +403,37 @@ app.use('/state/*', requireLogin)
 app.use('/customers/*', requireLogin)
 app.use('/images', requireLogin)
 app.use('/pdf', requireLogin)
+app.use('/departments', requireLogin)
+
+app.get('/departments', async (c) => {
+  const actor = c.get('user')
+  if (actor.role !== 'owner' && actor.role !== 'manager' && !userPermissions(actor).manageUsers)
+    return c.json({ message: '无权查看部门管理' }, 403)
+  const { results } = await c.env.DB.prepare('SELECT id, name, enabled FROM departments ORDER BY rowid').all<{ id: string, name: string, enabled: number }>()
+  return c.json({ departments: results.map(row => ({ ...row, enabled: Boolean(row.enabled) })) })
+})
+
+app.post('/departments', async (c) => {
+  if (c.get('user').role !== 'owner') return c.json({ message: '仅主账号可维护部门' }, 403)
+  const body = await c.req.json<{ id?: string, name?: string, enabled?: boolean }>()
+  if ((body.id !== undefined && (typeof body.id !== 'string' || !body.id || body.id.length > 128)) || typeof body.name !== 'string' || !body.name.trim() || body.name.trim().length > 40 || (body.enabled !== undefined && typeof body.enabled !== 'boolean'))
+    return c.json({ message: '请填写有效的部门名称（最多40字）' }, 400)
+  const name = body.name.trim()
+  const id = body.id || crypto.randomUUID()
+  if (body.id && !await c.env.DB.prepare('SELECT id FROM departments WHERE id = ?').bind(id).first()) return c.json({ message: '部门不存在' }, 404)
+  const duplicate = await c.env.DB.prepare('SELECT id FROM departments WHERE name = ? COLLATE NOCASE AND id != ?').bind(name, id).first()
+  if (duplicate) return c.json({ message: '部门名称已存在' }, 409)
+  try {
+    await c.env.DB.prepare(`INSERT INTO departments (id, name, enabled) VALUES (?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET name = excluded.name, enabled = excluded.enabled, updated_at = CURRENT_TIMESTAMP`)
+      .bind(id, name, body.enabled === false ? 0 : 1).run()
+  }
+  catch (error) {
+    if (String(error).includes('UNIQUE constraint failed')) return c.json({ message: '部门名称已存在' }, 409)
+    throw error
+  }
+  return c.json({ ok: true, id })
+})
 
 function customerReadScope(user: AdminUserRow) {
   return user.role === 'owner' || (user.role === 'manager' && userPermissions(user).viewAllCustomers === true)
@@ -708,6 +750,26 @@ app.put('/state/:key', async (c) => {
   if (!canWrite)
     return c.json({ message: '当前账号没有权限修改此数据' }, 403)
 
+  if (key === 'admin-users' && !Array.isArray(body.value)) return c.json({ message: '人员数据格式不正确' }, 400)
+
+  if (key === 'admin-users' && Array.isArray(body.value)) {
+    const hierarchyError = validateHierarchy(body.value)
+    if (hierarchyError) return c.json({ message: hierarchyError }, 400)
+    const { results: departments } = await c.env.DB.prepare('SELECT id, enabled FROM departments').all<{ id: string, enabled: number }>()
+    const { results: existing } = await c.env.DB.prepare('SELECT id, department_id FROM users').all<{ id: string, department_id: string | null }>()
+    for (const person of body.value as AdminUserPayload[]) {
+      if (person.departmentId === undefined) continue
+      if (typeof person.departmentId !== 'string') return c.json({ message: '人员部门格式不正确' }, 400)
+      const departmentId = person.departmentId.trim()
+      const department = departments.find(item => item.id === departmentId)
+      const prior = existing.find(item => item.id === person.id)
+      if (departmentId && (!department || (!department.enabled && prior?.department_id !== departmentId)))
+        return c.json({ message: '不能分配到不存在或已停用的部门' }, 400)
+      if (prior && (prior.department_id || '') !== departmentId)
+        return c.json({ message: '部门调动请使用人员交接流程，先确认客户如何处理' }, 409)
+    }
+  }
+
   let revision: string | undefined
   if (key === 'customers') {
     if (user.role === 'viewer') return c.json({ message: '当前账号不能修改客户' }, 403)
@@ -734,15 +796,21 @@ app.put('/state/:key', async (c) => {
     if (!result.meta.changes)
       return c.json({ message: '云端客户数据已被其他页面修改，请刷新后重试' }, 409)
   }
-  else {
+  else if (key !== 'admin-users') {
     await c.env.DB
       .prepare('INSERT INTO app_state (key, value, updated_by, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = CURRENT_TIMESTAMP')
       .bind(key, JSON.stringify(body.value ?? null), user.id)
       .run()
   }
 
-  if (key === 'admin-users')
-    await syncAdminUsers(c.env.DB, body.value)
+  if (key === 'admin-users') {
+    try { await syncAdminUsers(c.env.DB, body.value, user.id) }
+    catch (error) {
+      if (String(error).includes('DEPARTMENT_INACTIVE')) return c.json({ message: '部门已停用，请刷新部门列表后重新选择', }, 409)
+      if (String(error).includes('OFFBOARDED_USER')) return c.json({ message: '离职账号必须保留历史，不能重新启用或删除' }, 409)
+      throw error
+    }
+  }
   await syncNormalizedState(c.env.DB, key, body.value)
 
   return c.json({ ok: true, revision })

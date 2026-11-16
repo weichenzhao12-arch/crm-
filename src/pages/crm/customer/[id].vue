@@ -18,6 +18,9 @@ import { crmFeaturesEnabled } from '~/features/crm/release'
 import type { Movement } from '~/local-test/inventory'
 import { shipmentStatus } from '~/local-test/inventory'
 import { samplePermissions } from '~/local-test/permissions'
+import { localWarehouseEnabled } from '~/features/warehouse/release'
+import { warehouseAccess } from '~/features/warehouse/model'
+import CustomerDeliveries from '~/features/warehouse/CustomerDeliveries.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -36,7 +39,8 @@ const reminderModal = ref({
   nextAction: '联系客户',
 })
 const localRecords = crmFeaturesEnabled
-const activityTab = ref<'follow' | 'quote' | 'samples'>(route.query.tab === 'quote' ? 'quote' : 'follow')
+const activityTab = ref<'follow' | 'quote' | 'samples' | 'shipments'>(route.query.tab === 'shipments' && localWarehouseEnabled ? 'shipments' : route.query.tab === 'quote' ? 'quote' : 'follow')
+const warehousePermissions = computed(() => warehouseAccess(admin.currentUser))
 const sampleAccess = computed(() => samplePermissions(admin.currentUser))
 const sharedSampleEntries = ref<Movement[]>([])
 const sampleError = ref('')
@@ -336,6 +340,7 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
               <button :class="{ active: activityTab === 'follow' }" @click="activityTab = 'follow'">跟进记录</button>
               <button :class="{ active: activityTab === 'quote' }" @click="activityTab = 'quote'">报价记录</button>
               <button v-if="localRecords && (sampleAccess.issue || sampleAccess.maintain)" :class="{ active: activityTab === 'samples' }" @click="activityTab = 'samples'">寄样记录</button>
+              <button v-if="localWarehouseEnabled" :class="{ active: activityTab === 'shipments' }" @click="activityTab = 'shipments'">发货记录</button>
             </div>
             <div class="header-actions">
               <template v-if="activityTab === 'follow'">
@@ -346,7 +351,8 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
                 <button @click="newQuote">{{ localRecords ? '场地报价' : '新建报价' }}</button>
                 <RouterLink v-if="localRecords" :to="{ path: '/quote/b2b', query: { customerId: customer.id } }">普通报价</RouterLink>
               </template>
-              <RouterLink v-else-if="sampleAccess.issue" :to="{ path: '/samples', query: { customer: customer.id } }">寄样开单</RouterLink>
+              <RouterLink v-else-if="activityTab === 'samples' && sampleAccess.issue" :to="{ path: '/samples', query: { customer: customer.id } }">寄样开单</RouterLink>
+              <RouterLink v-else-if="activityTab === 'shipments' && warehousePermissions.sales" :to="{ path: '/warehouse', query: { customerId: customer.id } }">发货开单</RouterLink>
             </div>
           </header>
 
@@ -410,7 +416,7 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
               <strong v-if="quote.snapshot?.kind !== 'standard'">{{ quote.amount.toFixed(2) }} 元</strong>
             </div>
           </section>
-          <section v-else class="activity-content">
+          <section v-else-if="activityTab === 'samples'" class="activity-content">
             <div v-if="!sampleRecords.length" class="empty">{{ sampleError || '暂无寄样记录' }}</div>
             <div v-for="entry in sampleRecords" :key="entry.id" class="record-row">
               <div>
@@ -421,6 +427,7 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
               </div>
             </div>
           </section>
+          <section v-else-if="activityTab === 'shipments' && localWarehouseEnabled" class="activity-content"><CustomerDeliveries :customer-id="customer.id" /></section>
         </article>
       </section>
 

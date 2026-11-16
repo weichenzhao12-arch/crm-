@@ -25,6 +25,7 @@ export function useAuth() {
         }
         else
           admin.users.push({ ...data.user, password: normalizePasswordForStorage(password), enabled: data.user.enabled, displayName: data.user.displayName, permissions: data.user.permissions } as any)
+        admin.cacheUsers()
         admin.setCurrentUser(data.user.id)
         auth.setToken(data.token)
         auth.setUser({

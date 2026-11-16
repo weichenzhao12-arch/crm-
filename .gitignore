@@ -14,3 +14,4 @@ src/types/typed-router.d.ts
 *.log
 homepage*.png
 homepage*.har
+/.local-data/

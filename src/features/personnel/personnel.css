@@ -1,0 +1,21 @@
+.ph-dialog { width: min(1020px, calc(100% - 24px)); max-height: 90dvh; margin: auto; border: 1px solid var(--crm-line-strong); border-radius: 8px; padding: 18px; color: var(--crm-text); background: var(--crm-surface); }
+.ph-dialog::backdrop { background: rgb(15 30 45 / 50%); }
+.ph-dialog header, .ph-dialog footer, .ph-fields { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+.ph-dialog header { justify-content: space-between; align-items: center; border-bottom: 1px solid var(--crm-line); padding-bottom: 10px; }
+.ph-dialog h2 { margin: 0; font-size: 20px; }
+.ph-dialog footer { justify-content: flex-end; padding-top: 14px; }
+.ph-dialog label { display: grid; gap: 5px; font-size: 13px; min-width: 0; }
+.ph-dialog input:not([type=checkbox]), .ph-dialog select, .ph-dialog button { min-height: 34px; border: 1px solid var(--crm-line-strong); border-radius: 6px; padding: 5px 9px; color: var(--crm-text); background: var(--crm-surface); max-width: 100%; }
+.ph-dialog button { cursor: pointer; }
+.ph-dialog button:disabled { opacity: .5; cursor: not-allowed; }
+.ph-dialog .ph-primary { color: white; background: var(--crm-blue-dark); }
+.ph-targets { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; padding: 12px 0; }
+.ph-targets label { display: flex; align-items: center; flex-wrap: wrap; }
+.ph-targets input[type=number] { width: 75px; }
+.ph-fields { margin: 10px 0; }
+.ph-error { padding: 10px; color: #a52530; background: #fff0f1; }
+.ph-scroll { max-height: 370px; overflow: auto; border: 1px solid var(--crm-line); }
+.ph-scroll table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.ph-scroll td, .ph-scroll th { padding: 8px; border-bottom: 1px solid var(--crm-line); text-align: left; white-space: nowrap; }
+.ph-scroll thead { position: sticky; top: 0; background: var(--crm-surface-soft); }
+.ph-order-target { margin-top: 12px; max-width: 320px; }

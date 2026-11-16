@@ -1,10 +1,25 @@
 import { defineStore } from 'pinia'
-import { getCloudState, putCloudState } from '~/api/cloud-storage'
+import { apiFetch, getCloudState, putCloudState } from '~/api/cloud-storage'
 import { normalizePasswordForStorage, verifyPassword } from '~/features/auth/password'
+import { validateHierarchy } from '~/features/personnel/hierarchy'
+import { positionPreset } from '~/features/personnel/presets'
 
-export type AdminRole = 'owner' | 'manager' | 'quoter' | 'viewer'
+export type AdminRole = 'owner' | 'manager' | 'quoter' | 'viewer' | 'clerk'
 
 export interface AdminPermission {
+  position?: import('~/features/personnel/hierarchy').Position
+  supervisorId?: string
+  warehouseOnly?: boolean
+  warehouseRead?: boolean
+  warehouseAddSpec?: boolean
+  warehouseReceive?: boolean
+  warehouseIssue?: boolean
+  warehouseVisibility?: boolean
+  warehousePick?: boolean
+  warehouseAllOrders?: boolean
+  warehouseCancelAny?: boolean
+  warehouseReturn?: boolean
+  warehouseHistory?: boolean
   warehouseCreate?: boolean
   warehouseStock?: boolean
   warehouseShip?: boolean
@@ -38,7 +53,10 @@ export interface AdminUser {
   enabled: boolean
   password: string
   permissions: AdminPermission
+  departmentId?: string
 }
+
+export interface Department { id: string, name: string, enabled: boolean }
 
 /** 主账号和只读账号不属于销售人员，不参与销售业绩与排行榜。 */
 export function isSalesUser(user: Pick<AdminUser, 'enabled' | 'role'>) {
@@ -59,6 +77,19 @@ function clone<T>(value: T): T {
 }
 
 function permissionsForRole(role: AdminRole): AdminPermission {
+  if (role === 'clerk') {
+    return {
+      manageProducts: false, manageMaterials: false, importExcel: false, manageUsers: false,
+      exportQuote: false, temporaryEdit: false, costCalculation: false, viewAllCustomers: false,
+      importCustomers: true, exportCustomers: false, deleteCustomers: false, restoreRecords: false,
+      assignUnclaimedCustomers: true, issueSamples: true, manageSampleStock: true,
+      warehouseRead: true, warehouseCreate: true, warehousePrint: true, warehouseEnterPrice: false,
+      warehouseViewPrice: false, warehousePrintPrice: false, warehouseReceive: true,
+      warehouseIssue: false, warehouseVisibility: false, warehouseAddSpec: false,
+      warehouseShip: false, warehousePick: false, warehouseCancelAny: false, warehouseReturn: false,
+      warehouseHistory: true, warehouseAllOrders: false,
+    }
+  }
   if (role === 'owner') {
     return {
       manageProducts: true,
@@ -83,7 +114,7 @@ function permissionsForRole(role: AdminRole): AdminPermission {
       manageUsers: false,
       exportQuote: true,
       temporaryEdit: true,
-      costCalculation: true,
+      costCalculation: false,
       viewAllCustomers: true,
       importCustomers: true,
       exportCustomers: true,
@@ -129,7 +160,7 @@ function normalizePermissions(raw: Partial<AdminPermission> | undefined, role: A
   return {
     ...defaults,
     ...(raw || {}),
-    costCalculation: role === 'owner' || role === 'manager' || Boolean(raw?.costCalculation),
+    costCalculation: role === 'owner' || Boolean(raw?.costCalculation),
     viewAllCustomers: raw?.viewAllCustomers ?? manageFallback ?? defaults.viewAllCustomers,
     importCustomers: raw?.importCustomers ?? raw?.importExcel ?? defaults.importCustomers,
     exportCustomers: raw?.exportCustomers ?? raw?.exportQuote ?? defaults.exportCustomers,
@@ -148,6 +179,7 @@ function normalizeUser(raw: Partial<AdminUser>): AdminUser {
     enabled: raw.enabled !== false,
     password: raw.password === '' ? '' : normalizePasswordForStorage(raw.password),
     permissions: normalizePermissions(raw.permissions, role),
+    departmentId: raw.departmentId || '',
   }
 }
 
@@ -166,6 +198,7 @@ function defaultUsers(): AdminUser[] {
       id: 'sales-1',
       account: 'sales1',
       displayName: '销售一部',
+      departmentId: 'sales-one',
       role: 'quoter',
       enabled: true,
       password: normalizePasswordForStorage('123456'),
@@ -175,6 +208,7 @@ function defaultUsers(): AdminUser[] {
       id: 'sales-2',
       account: 'sales2',
       displayName: '销售二部',
+      departmentId: 'sales-two',
       role: 'quoter',
       enabled: true,
       password: normalizePasswordForStorage('123456'),
@@ -212,12 +246,40 @@ export const useAdminStore = defineStore('admin', {
     users: loadUsers(),
     currentUserId: loadCurrentUserId(),
     saveError: '',
+    departments: [] as Department[],
+    departmentError: '',
   }),
   getters: {
     currentUser: state => state.users.find(user => user.id === state.currentUserId) ?? state.users[0],
   },
   actions: {
+    async loadDepartments() {
+      try {
+        this.departments = (await apiFetch<{ departments: Department[] }>('/api/departments')).departments
+        this.departmentError = ''
+      }
+      catch (error) { this.departmentError = error instanceof Error ? error.message : '部门读取失败' }
+    },
+    async saveDepartment(department: { id?: string, name: string, enabled?: boolean }) {
+      try {
+        await apiFetch('/api/departments', { method: 'POST', body: JSON.stringify(department) })
+        await this.loadDepartments()
+        return !this.departmentError
+      }
+      catch (error) {
+        this.departmentError = error instanceof Error ? error.message : '部门保存失败'
+        return false
+      }
+    },
+    cacheUsers() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(clone(this.users)))
+    },
     saveUsers() {
+      const error = validateHierarchy(this.users)
+      if (error) {
+        this.saveError = error
+        return Promise.resolve(false)
+      }
       const snapshot = clone(this.users)
       localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot))
       adminChangeVersion++
@@ -270,6 +332,13 @@ export const useAdminStore = defineStore('admin', {
     applyRole(user: AdminUser) {
       user.permissions = clone(permissionsForRole(user.role))
       this.saveUsers()
+    },
+    applyPositionPreset(user: AdminUser) {
+      if (user.role === 'owner' || !user.permissions.position) return Promise.resolve(false)
+      const position = user.permissions.position
+      user.permissions = positionPreset(position, user.permissions)
+      user.role = position === 'warehouse' || position === 'other' ? 'viewer' : position === 'clerk' ? 'clerk' : position === 'sales' ? 'quoter' : 'manager'
+      return this.saveUsers()
     },
     updateOwnPassword(oldPassword: string, nextPassword: string) {
       const user = this.currentUser

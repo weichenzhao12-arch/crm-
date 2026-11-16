@@ -20,6 +20,8 @@ import { crmFeaturesEnabled } from '~/features/crm/release'
 import { useSystemStore } from '~/stores/system'
 import { useAuthStore } from '~/stores/auth'
 import type { CrmCustomer, IntentLevel } from '~/stores/crm'
+import PersonHandoffDialog from '~/features/personnel/PersonHandoffDialog.vue'
+import { localWarehouseEnabled } from '~/features/warehouse/release'
 
 const router = useRouter()
 const route = useRoute()
@@ -45,6 +47,12 @@ const selectedUserId = ref('all')
 const yearFilter = ref('all')
 const monthFilter = ref('all')
 const transferTargetUserId = ref('')
+const handoffSourceId = ref('')
+async function handoffCompleted() {
+  handoffSourceId.value = ''
+  selectedCustomerIds.value = []
+  await crm.loadCloudCustomers()
+}
 const sampleDialogCustomerId = ref('')
 const sampleForm = ref({
   sampleSent: false,
@@ -122,7 +130,7 @@ const isPrivileged = computed(() => loginUser.value?.role === 'owner' || loginUs
 const controls = computed(() => customerControls(loginUser.value))
 const canViewAll = computed(() => controls.value.viewAll)
 const canDeleteCustomers = computed(() => controls.value.remove)
-const canTransferCustomers = computed(() => controls.value.transfer)
+const canTransferCustomers = computed(() => controls.value.transfer && (!localWarehouseEnabled || ['owner', 'manager'].includes(admin.currentUser?.role || '')))
 const canManageLeads = computed(() => controls.value.transfer)
 const canSelectCustomers = computed(() => controls.value.select)
 const canExportCustomers = computed(() => isPrivileged.value || Boolean(loginUser.value?.permissions.exportCustomers))
@@ -635,6 +643,12 @@ function batchTransferCustomers() {
   const targetUser = salesUsers.value.find(user => user.id === transferTargetUserId.value)
   if (!targetUser)
     return
+  if (localWarehouseEnabled) {
+    const sources = [...new Set(customers.value.filter(customer => selectedCustomerIds.value.includes(customer.id)).map(customer => customer.assignedToUserId))]
+    if (sources.length !== 1 || !sources[0]) { window.alert('请按原负责人选择客资后分批交接；未分配客资请使用线索分配'); return }
+    handoffSourceId.value = sources[0]
+    return
+  }
   if (!window.confirm(`确定把已选中的 ${selectedCustomerIds.value.length} 条客资转移给 ${targetUser.displayName || targetUser.account} 吗？`))
     return
   const selectedIds = new Set(selectedCustomerIds.value)
@@ -829,6 +843,7 @@ function batchTransferCustomers() {
       </div>
       <footer class="table-footer">共 {{ filteredCustomers.length }} 位客户</footer>
     </section>
+    <PersonHandoffDialog v-if="handoffSourceId" :source-id="handoffSourceId" mode="handoff" :initial-customer-ids="selectedCustomerIds" :initial-target-id="transferTargetUserId" @close="handoffSourceId = ''" @completed="handoffCompleted" />
   </main>
 </template>
 

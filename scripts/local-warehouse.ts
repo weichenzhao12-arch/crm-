@@ -1,8 +1,9 @@
-import { randomUUID, timingSafeEqual } from 'node:crypto'
+import { createHash, randomUUID, timingSafeEqual } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { DatabaseSync } from 'node:sqlite'
 import type { Line, Order, Stock } from '../src/features/warehouse/model'
-import { availableStock, measurement, moveStock, planLines, warehouseAccess, WarehouseError, warehouseFields, wholeCount } from '../src/features/warehouse/model'
+import { orderResponsible, availableStock, measurement, moveStock, planLines, warehouseAccess, WarehouseError, warehouseFields, wholeCount } from '../src/features/warehouse/model'
+import { seedLocalOnce } from './local-database'
 
 const demo = {
   category: '景观草', code: 'KT-L25-01', name: 'C型深色休闲草', height: '25 mm', stitches: '15 针/10 cm', gauge: '420 针排',
@@ -32,16 +33,21 @@ async function readBody(req: IncomingMessage) {
   catch { throw new WarehouseError('表单格式不正确') }
 }
 
+function canonical(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonical)
+  if (value !== null && typeof value === 'object') return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, canonical(item)]))
+  return value
+}
+
 export function localWarehouse(db: DatabaseSync) {
-  db.exec(`CREATE TABLE warehouse_stock (id TEXT PRIMARY KEY, value TEXT NOT NULL);
-    CREATE TABLE warehouse_orders (id TEXT PRIMARY KEY, value TEXT NOT NULL);
-    CREATE TABLE warehouse_log (event TEXT NOT NULL, actor TEXT NOT NULL, target TEXT NOT NULL, detail TEXT NOT NULL, time TEXT NOT NULL);`)
   const saveStock = db.prepare('INSERT OR REPLACE INTO warehouse_stock VALUES (?, ?)')
   const saveOrder = db.prepare('INSERT OR REPLACE INTO warehouse_orders VALUES (?, ?)')
   const stockList = () => db.prepare('SELECT value FROM warehouse_stock ORDER BY rowid').all().map(row => JSON.parse(String(row.value)) as Stock)
   const orderList = () => db.prepare('SELECT value FROM warehouse_orders ORDER BY rowid DESC').all().map(row => JSON.parse(String(row.value)) as Order)
-  saveStock.run(demo.id, JSON.stringify(demo))
-  saveStock.run('demo-b', JSON.stringify({ ...demo, id: 'demo-b', code: 'KT-S50-01', category: '运动草', name: '足球场运动草', height: '50 mm', gauge: '5/8″', rolls: 3, remnants: {}, visible: false }))
+  seedLocalOnce(db, 'warehouse-demo-v1', () => {
+    saveStock.run(demo.id, JSON.stringify(demo))
+    saveStock.run('demo-b', JSON.stringify({ ...demo, id: 'demo-b', code: 'KT-S50-01', category: '运动草', name: '足球场运动草', height: '50 mm', gauge: '5/8″', rolls: 3, remnants: {}, visible: false }))
+  })
   const dealerPassword = Buffer.from(process.env.LOCAL_DEALER_PASSWORD || 'kingturf-local')
   const dealerTokens = new Map<string, number>()
   let failures = 0
@@ -88,15 +94,24 @@ export function localWarehouse(db: DatabaseSync) {
         WHERE s.token = ? AND s.expires_at > ? AND u.enabled = 1`).get(token, new Date().toISOString())
       if (!user) throw new WarehouseError('未登录或登录已过期', 401)
       const actor = String(user.id)
-      const access = warehouseAccess({ enabled: 1, role: String(user.role), permissions: JSON.parse(String(user.permissions)) })
+      const permissions = JSON.parse(String(user.permissions))
+      const access = warehouseAccess({ enabled: 1, role: String(user.role), permissions })
+      const allCustomers = user.role === 'owner' || user.role === 'manager' || permissions.manageUsers === true || String(user.account).toLowerCase() === 'admin'
       function allow(condition: boolean) { if (!condition) throw new WarehouseError('没有此操作权限', 403) }
-      function canSee(order: Order) { return access.ship || access.print || order.creator === actor }
+      function canSee(order: Order) { return access.allOrders || orderResponsible(order) === actor }
       function redact(order: Order) {
-        return access.viewPrice || (access.price && order.creator === actor)
+        return access.viewPrice || (access.price && orderResponsible(order) === actor)
           ? order : { ...order, lines: order.lines.map(line => ({ ...line, price: null })) }
       }
       function log(event: string, target: string, detail: unknown) {
         db.prepare('INSERT INTO warehouse_log VALUES (?, ?, ?, ?, ?)').run(event, actor, target, JSON.stringify(detail), new Date().toISOString())
+      }
+      if (path === '/customer-orders' && method === 'GET') {
+        allow(!access.only)
+        const customerId = new URL(req.url || '/', 'http://localhost').searchParams.get('customerId') || ''
+        const customer = db.prepare('SELECT assigned_to_user_id FROM crm_customers WHERE id = ?').get(customerId)
+        allow(Boolean(customer && (allCustomers || customer.assigned_to_user_id === actor)))
+        return send(200, { orders: orderList().filter(order => order.customerId === customerId).map(redact) })
       }
       allow(access.enter)
       if (path === '/print' && method === 'GET') {
@@ -111,9 +126,12 @@ export function localWarehouse(db: DatabaseSync) {
       if (path === '/' && method === 'GET') {
         const physical = stockList()
         const available = availableStock(physical, orderList())
-        const customers = access.sales ? (user.role === 'owner'
-          ? db.prepare('SELECT id, name FROM crm_customers ORDER BY name').all()
-          : db.prepare('SELECT id, name FROM crm_customers WHERE assigned_to_user_id = ? ORDER BY name').all(actor)) : []
+        const customers = access.sales && !access.only ? (allCustomers
+          ? db.prepare('SELECT id, name, value FROM crm_customers ORDER BY name').all()
+          : db.prepare('SELECT id, name, value FROM crm_customers WHERE assigned_to_user_id = ? ORDER BY name').all(actor)).map(row => {
+            const value = JSON.parse(String(row.value))
+            return { id: row.id, name: row.name, phone: String(value.phone || '') }
+          }) : []
         return send(200, {
           access, customers, orders: orderList().filter(canSee).map(redact),
           stocks: physical.map(({ visible, ...stock }) => {
@@ -121,21 +139,58 @@ export function localWarehouse(db: DatabaseSync) {
             const view = { ...stock, availableRolls: free.rolls, reservedRolls: stock.rolls - free.rolls, availableRemnants: free.remnants }
             return access.stock ? { ...view, visible } : view
           }),
-          history: access.stock || access.ship ? db.prepare('SELECT event, actor, target, time FROM warehouse_log ORDER BY rowid DESC LIMIT 100').all() : [],
+          history: access.history ? db.prepare('SELECT event, actor, target, time FROM warehouse_log ORDER BY rowid DESC LIMIT 100').all() : [],
         })
       }
 
       if (method !== 'POST') throw new WarehouseError('操作不存在', 404)
       const body = await readBody(req)
+      if (!['/stock', '/orders', '/dispatch'].includes(path)) throw new WarehouseError('操作不存在', 404)
+      const requestKey = req.headers['idempotency-key']
+      if (typeof requestKey !== 'string' || !/^[\w-]{8,128}$/.test(requestKey)) throw new WarehouseError('缺少有效的提交编号，请刷新开单页面后重试')
+      const requestHash = createHash('sha256').update(JSON.stringify(canonical(body))).digest('hex')
+      function authorizeMutation() {
+        if (path === '/orders') {
+          allow(access.sales)
+          if (body.customerId) {
+            const customer = db.prepare('SELECT assigned_to_user_id FROM crm_customers WHERE id = ?').get(String(body.customerId))
+            allow(!access.only && Boolean(customer && (allCustomers || customer.assigned_to_user_id === actor)))
+          }
+        }
+        if (path === '/stock') {
+          allow(access.stock)
+          allow(body.id ? access.receive || access.issue || access.visibility : access.addSpec)
+          if (body.rolls || body.remnants?.length) allow(body.direction === 'out' ? access.issue : access.receive)
+        }
+        if (path === '/dispatch') {
+          const order = orderList().find(item => item.id === body.id)
+          if (!order) throw new WarehouseError('找不到发货单', 404)
+          allow(canSee(order))
+          allow(body.action === 'cancel' ? access.cancelAny || (access.sales && orderResponsible(order) === actor)
+            : body.action === 'return' ? access.returnStock : body.action === 'logistics' || body.action === 'reject' ? access.pick : access.ship)
+        }
+      }
       // Keep validation, balances, order and audit entry in a single synchronous transaction.
       db.exec('BEGIN IMMEDIATE')
       let result: unknown = { ok: true }
       try {
+        authorizeMutation()
+        const prior = db.prepare('SELECT operation, request_hash, result FROM warehouse_requests WHERE actor = ? AND request_key = ?').get(actor, requestKey)
+        if (prior) {
+          if (prior.operation !== path || prior.request_hash !== requestHash) throw new WarehouseError('该提交编号已成功使用且内容不同，请先核对已有单据，不要重复开单', 409)
+          const reference = JSON.parse(String(prior.result)) as { orderId?: string }
+          const previous = reference.orderId ? orderList().find(order => order.id === reference.orderId) : undefined
+          if (reference.orderId && !previous) throw new WarehouseError('原提交单据不存在，请联系管理员', 409)
+          if (previous) allow(canSee(previous))
+          db.exec('COMMIT')
+          return send(200, previous ? redact(previous) : { ok: true })
+        }
         const stocks = stockList()
         if (path === '/stock') {
           allow(access.stock)
           const current = body.id ? stocks.find(stock => stock.id === body.id) : undefined
           if (body.id && !current) throw new WarehouseError('规格不存在', 404)
+          allow(current ? access.receive || access.issue || access.visibility : access.addSpec)
           const stock = current || ({
             ...Object.fromEntries(warehouseFields.map(([key]) => [key, field(body[key])])),
             id: randomUUID(), width: measurement(body.width), length: measurement(body.length), rolls: 0, remnants: {}, visible: false,
@@ -146,6 +201,9 @@ export function localWarehouse(db: DatabaseSync) {
           const rolls = wholeCount(body.rolls ?? 0)
           if (body.direction !== undefined && !['in', 'out'].includes(body.direction)) throw new WarehouseError('库存操作类型无效')
           const outgoing = body.direction === 'out'
+          if (rolls || body.remnants?.length) allow(outgoing ? access.issue : access.receive)
+          if (current && typeof body.visible === 'boolean' && body.visible !== current.visible) allow(access.visibility)
+          if (!current && body.visible === true) allow(access.visibility)
           const reason = field(body.reason, 300)
           if (outgoing && (!current || !reason)) throw new WarehouseError('手动出库须选择已有规格并填写原因')
           if (outgoing && body.autoMeters === true) {
@@ -185,13 +243,13 @@ export function localWarehouse(db: DatabaseSync) {
           }
         }
         else if (path === '/orders') {
-          allow(access.sales || access.ship)
+          allow(access.sales)
           const old = body.id ? orderList().find(order => order.id === body.id) : undefined
-          if (body.id && (!old || old.creator !== actor)) throw new WarehouseError('找不到可修改的发货单', 404)
+          if (body.id && (!old || orderResponsible(old) !== actor)) throw new WarehouseError('找不到可修改的发货单', 404)
           if (old && old.status !== 'rejected') throw new WarehouseError('只有退回单可以重新提交', 409)
           const customerId = field(body.customerId)
           const customer = customerId ? db.prepare('SELECT name, assigned_to_user_id FROM crm_customers WHERE id = ?').get(customerId) : null
-          if (customerId) allow(access.sales && Boolean(customer && (user.role === 'owner' || customer.assigned_to_user_id === actor)))
+          if (customerId) allow(access.sales && !access.only && Boolean(customer && (allCustomers || customer.assigned_to_user_id === actor)))
           const receiver = field(body.receiver) || String(customer?.name || '')
           if (!receiver) throw new WarehouseError('请填写收货名称')
           if (!Array.isArray(body.lines) || !body.lines.length || body.lines.length > 100) throw new WarehouseError('请填写发货明细（最多100行）')
@@ -209,7 +267,7 @@ export function localWarehouse(db: DatabaseSync) {
           })
           const lines = planLines(availableStock(stocks, orderList()), requested)
           const order: Order = {
-            id: old?.id || `FH-${randomUUID().slice(0, 8).toUpperCase()}`, creator: actor, openedBy: String(user.display_name),
+            id: old?.id || `FH-${randomUUID().slice(0, 8).toUpperCase()}`, creator: old?.creator || actor, responsibleUserId: actor, openedBy: old?.openedBy || String(user.display_name),
             date, customerId, receiver, address: field(body.address, 300), phone: field(body.phone), driver: field(body.driver),
             driverPhone: field(body.driverPhone), plate: field(body.plate), lines, status: 'pending', reason: '',
           }
@@ -222,7 +280,9 @@ export function localWarehouse(db: DatabaseSync) {
           const order = orderList().find(item => item.id === body.id)
           if (!order) throw new WarehouseError('找不到发货单', 404)
           const { action } = body
-          allow(action === 'cancel' ? access.ship || (access.sales && order.creator === actor) : access.ship)
+          allow(canSee(order))
+          allow(action === 'cancel' ? access.cancelAny || (access.sales && orderResponsible(order) === actor)
+            : action === 'return' ? access.returnStock : action === 'logistics' || action === 'reject' ? access.pick : access.ship)
           if (action === 'cancel') {
             if (!['pending', 'rejected'].includes(order.status)) throw new WarehouseError('仅未出库的发货单可以撤销；已出库请办理退货', 409)
           }
@@ -254,6 +314,8 @@ export function localWarehouse(db: DatabaseSync) {
           result = redact(order)
         }
         else throw new WarehouseError('操作不存在', 404)
+        const reference = result && typeof result === 'object' && 'id' in result ? { orderId: result.id } : { ok: true }
+        db.prepare('INSERT INTO warehouse_requests VALUES (?, ?, ?, ?, ?, ?)').run(actor, requestKey, path, requestHash, JSON.stringify(reference), new Date().toISOString())
         db.exec('COMMIT')
       }
       catch (error) { db.exec('ROLLBACK'); throw error }
@@ -261,6 +323,7 @@ export function localWarehouse(db: DatabaseSync) {
     }
     catch (error) {
       if (error instanceof WarehouseError) return send(error.status, { message: error.message })
+      if (error instanceof Error && /database is locked|SQLITE_BUSY/.test(error.message)) return send(409, { message: '库存正在被其他操作更新，请使用原提交编号重试' })
       console.error(error)
       return send(500, { message: '本地成品库接口错误' })
     }

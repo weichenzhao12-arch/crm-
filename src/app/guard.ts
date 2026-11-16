@@ -17,6 +17,8 @@ export function applyRouterGuards(router: Router) {
       return { path: '/' }
 
     const currentUser = admin.currentUser
+    if (auth.isAuthenticated && warehouseAccess(currentUser).only && !to.meta.public && !to.path.startsWith('/warehouse'))
+      return { path: '/warehouse' }
     if (to.path === '/warehouse/manage' && !warehouseAccess(currentUser).stock)
       return { path: '/warehouse' }
     const canManage = currentUser?.role === 'owner' || currentUser?.role === 'manager' || Boolean(currentUser?.permissions.manageUsers)

@@ -10,10 +10,12 @@ export type Kind = 'roll' | 'remnant' | 'cut' | 'meter'
 export interface Line { stockId: string, kind: Kind, meters: number, count: number, packaging: string, price: number | null }
 export type OrderLine = Line & { product: Specs, width: number, sourceMeters?: number }
 export interface Order {
+  responsibleUserId?: string
   id: string, creator: string, openedBy: string, date: string, customerId: string, receiver: string, address: string,
   phone: string, driver: string, driverPhone: string, plate: string, lines: OrderLine[],
   status: 'pending' | 'rejected' | 'shipped' | 'returned' | 'cancelled', reason: string,
 }
+export function orderResponsible(order: Order) { return order.responsibleUserId || order.creator }
 export interface StockView extends Omit<Stock, 'visible'> { visible?: boolean, availableRolls?: number, reservedRolls?: number, availableRemnants?: Record<string, number> }
 
 export function availableStock(stocks: Stock[], orders: Order[], excluding = '') {
@@ -41,22 +43,37 @@ export function availableStock(stocks: Stock[], orders: Order[], excluding = '')
 }
 
 export const warehousePermissionFields = [
-  ['warehouseCreate', '销售开单'], ['warehouseStock', '仓库入库与公开范围'], ['warehouseShip', '仓库开单与确认出库'],
+  ['warehouseOnly', '仅仓库岗位（隔离其他模块）'], ['warehouseRead', '查看仓库库存'],
+  ['warehouseAddSpec', '新增库存规格'], ['warehouseReceive', '库存入库'], ['warehouseIssue', '手动出库'], ['warehouseVisibility', '设置代理商可见范围'],
+  ['warehouseCreate', '开发货单'], ['warehousePick', '核货与填写物流'], ['warehouseShip', '确认发货出库'],
+  ['warehouseAllOrders', '查看全部发货单'], ['warehouseCancelAny', '撤销他人未出库单'], ['warehouseReturn', '退货入库'], ['warehouseHistory', '查看出入库记录'],
   ['warehousePrint', '打印发货单'], ['warehouseEnterPrice', '手填单价'], ['warehouseViewPrice', '查看全部发货价格'], ['warehousePrintPrice', '打印含价单'],
 ] as const
 
 export function warehouseAccess(user?: { enabled?: boolean | number, role?: string, permissions?: Partial<Record<typeof warehousePermissionFields[number][0], boolean>> } | null) {
   const has = (key: typeof warehousePermissionFields[number][0]) => Boolean(user?.enabled && (user.role === 'owner' || user.permissions?.[key] === true))
-  const stock = has('warehouseStock')
+  const explicit = (key: typeof warehousePermissionFields[number][0], legacy = false) => Boolean(user?.enabled && (user.role === 'owner' || user.permissions?.[key] === true || (user.permissions?.[key] === undefined && legacy)))
+  const legacyStock = Boolean(user?.enabled && (user.role === 'owner' || (user.permissions as { warehouseStock?: boolean })?.warehouseStock))
   const ship = has('warehouseShip')
+  const addSpec = explicit('warehouseAddSpec', legacyStock)
+  const receive = explicit('warehouseReceive', legacyStock)
+  const issue = explicit('warehouseIssue', legacyStock)
+  const visibility = explicit('warehouseVisibility', legacyStock)
+  const stock = addSpec || receive || issue || visibility
+  const pick = explicit('warehousePick', ship)
+  const cancelAny = explicit('warehouseCancelAny', ship)
+  const returnStock = explicit('warehouseReturn', ship)
+  const history = explicit('warehouseHistory', legacyStock || ship)
+  const allOrders = explicit('warehouseAllOrders', ship || has('warehousePrint'))
   const print = has('warehousePrint')
-  const sales = has('warehouseCreate') || Boolean(user?.enabled && user.permissions?.warehouseCreate !== false && ['manager', 'quoter'].includes(user.role || ''))
+  const sales = explicit('warehouseCreate', Boolean(user?.enabled && (ship || ['manager', 'quoter'].includes(user.role || ''))))
   const viewPrice = has('warehouseViewPrice')
   return {
-    stock, ship, print, sales, viewPrice,
-    price: (sales || ship) && (has('warehouseEnterPrice') || (sales && user?.permissions?.warehouseEnterPrice !== false)),
+    stock, ship, print, sales, viewPrice, addSpec, receive, issue, visibility, pick, cancelAny, returnStock, history, allOrders,
+    only: has('warehouseOnly') && user?.role !== 'owner',
+    price: sales && explicit('warehouseEnterPrice', ['manager', 'quoter'].includes(user?.role || '')),
     printPrice: print && viewPrice && has('warehousePrintPrice'),
-    enter: sales || stock || ship || print,
+    enter: has('warehouseRead') || sales || stock || ship || print || pick || cancelAny || returnStock || history || allOrders,
   }
 }
 

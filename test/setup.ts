@@ -6,7 +6,9 @@ config.global.stubs = {
   },
 }
 
-Object.defineProperty(window, 'scrollTo', {
-  value: () => {},
-  writable: true,
-})
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'scrollTo', {
+    value: () => {},
+    writable: true,
+  })
+}

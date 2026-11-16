@@ -23,7 +23,8 @@ const isAdmin = computed(() => route.path.startsWith('/admin'))
 const pageTitle = computed(() => String(route.meta.title || (isQuote.value ? '报价管理' : isAdmin.value ? '系统管理' : '工作台')))
 const canManage = computed(() => ['owner', 'manager'].includes(admin.currentUser?.role || '') || Boolean(admin.currentUser?.permissions.manageUsers))
 const canCalculateCost = computed(() => ['owner', 'manager'].includes(admin.currentUser?.role || '') || Boolean(admin.currentUser?.permissions.costCalculation))
-const warehouseOperator = computed(() => localWarehouseEnabled && warehouseAccess(admin.currentUser).ship && !warehouseAccess(admin.currentUser).sales)
+const warehouseOnly = computed(() => warehouseAccess(admin.currentUser).only)
+const warehouseOperator = computed(() => localWarehouseEnabled && warehouseOnly.value)
 
 const navItems = computed(() => [
   { label: admin.currentUser?.role === 'owner' ? '数据主页' : '工作台', to: '/crm', icon: 'dashboard', exact: true },
@@ -40,7 +41,7 @@ const navItems = computed(() => [
   { label: '产品资料', to: '/quote?view=settings', icon: 'product', adminOnly: true },
   { label: '成本计算', to: '/quote?view=cost', icon: 'calculator', costAccess: true },
   { label: '数据统计', to: '/crm/statistics', icon: 'stats', hideForOwner: true },
-].filter(item => (!item.adminOnly || canManage.value) && (!item.costAccess || canCalculateCost.value) && (!item.hideForOwner || admin.currentUser?.role !== 'owner')))
+].filter(item => (!warehouseOnly.value || item.to.startsWith('/warehouse')) && (!item.adminOnly || canManage.value) && (!item.costAccess || canCalculateCost.value) && (!item.hideForOwner || admin.currentUser?.role !== 'owner')))
 
 function navActive(item: { to: string, exact?: boolean }) {
   if (item.to === '/quote/orders' && (route.path === '/quote/b2b' || (route.path === '/quote' && (!route.query.view || ['quote', 'print'].includes(String(route.query.view))))))
@@ -65,9 +66,9 @@ async function handleLogout() {
   <div class="app-shell" :class="{ 'nav-open': mobileNavOpen, 'sample-print-layout': route.path === '/samples' || route.path === '/quote/b2b' }">
     <button v-if="mobileNavOpen" class="nav-backdrop" aria-label="关闭导航" @click="mobileNavOpen = false" />
     <aside class="app-sidebar">
-      <RouterLink class="brand" to="/crm" @click="mobileNavOpen = false">
+      <RouterLink class="brand" to="/crm" title="金特夫人造草坪" aria-label="金特夫人造草坪" @click="mobileNavOpen = false">
         <span class="brand-mark">▦</span>
-        <b>客资 CRM</b>
+        <b class="brand-name">金特夫人造草坪</b>
       </RouterLink>
       <p class="nav-label">业务管理</p>
       <nav class="main-nav">
@@ -83,7 +84,7 @@ async function handleLogout() {
         </RouterLink>
       </nav>
       <nav class="sidebar-foot">
-        <RouterLink v-if="canManage" to="/admin" @click="mobileNavOpen = false"><span class="nav-icon" data-icon="settings" /><span>系统管理</span></RouterLink>
+        <RouterLink v-if="canManage && !warehouseOnly" to="/admin" @click="mobileNavOpen = false"><span class="nav-icon" data-icon="settings" /><span>系统管理</span></RouterLink>
       </nav>
     </aside>
 
@@ -91,22 +92,24 @@ async function handleLogout() {
       <header class="app-topbar">
         <button class="mobile-menu" aria-label="打开导航" @click="mobileNavOpen = true">☰</button>
         <div class="breadcrumb"><span>CRM</span><i>/</i><b>{{ pageTitle }}</b></div>
-        <div class="global-search"><span>⌕</span><input aria-label="全局搜索" placeholder="搜索客户、电话、报价编号"></div>
+        <div v-if="!warehouseOnly" class="global-search"><span>⌕</span><input aria-label="全局搜索" placeholder="搜索客户、电话、报价编号"></div>
         <div class="top-actions">
           <button class="icon-button" :title="themeLabel" @click="toggleTheme">◐</button>
-          <button class="notification" title="待办提醒">♧<i /></button>
+          <button v-if="!warehouseOnly" class="notification" title="待办提醒">♧<i /></button>
           <span class="avatar">{{ user?.name?.slice(0, 1) || '用' }}</span>
           <span class="user-name"><b>{{ user?.name || '当前用户' }}</b><small>{{ user?.role === 'owner' ? '系统所有者' : warehouseOperator ? '仓库人员' : user?.role === 'manager' ? '销售主管' : '销售人员' }}</small></span>
           <button v-if="isAuthenticated" class="logout" @click="handleLogout">退出</button>
         </div>
       </header>
-      <CrmDueReminders v-if="localDueReminders && isAuthenticated" />
+      <CrmDueReminders v-if="localDueReminders && isAuthenticated && !warehouseOnly" />
       <RouterView />
     </section>
   </div>
 </template>
 
 <style scoped>
+.brand .brand-name { font-size: 16px; line-height: 1.3; white-space: nowrap; letter-spacing: 0; }
+.brand .brand-mark { flex-shrink: 0; }
 @media print {
   .sample-print-layout .app-sidebar,
   .sample-print-layout .app-topbar,
