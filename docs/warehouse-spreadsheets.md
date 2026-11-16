@@ -36,3 +36,16 @@ checked separately. Granting import alone does not bypass them.
 
 Verification before release: 173 automated tests passed; Vue typecheck, production frontend build and
 Pages Functions compilation passed. Cloud staging/production release checks are recorded separately.
+
+## Release 2026-11-16
+
+- Source commit: 9db47a2. GitHub default dev and review branches synchronized.
+- Actual staging deployment: 608a4425.quote-crm-release-qa-20261114.pages.dev.
+- Staging passed identical-parameter merge, duplicate-row aggregation, retry protection, receipts while
+  locked, whole-batch rollback, export permission checks and dealer internal-field redaction.
+- Production deployment: 9da37d1b.quote-crm-system.pages.dev / glass.neiceban.com.
+- Production canary passed new-stock import, identical-row aggregation, idempotent replay, internal
+  metadata export and invalid-row atomic rollback. Test stock was zeroed before targeted cleanup.
+- Pre-update D1 export was restored into an in-memory database and passed integrity and foreign-key
+  checks. Backup and temporary credentials remain outside Git on D drive.
+- No schema migration or replacement of existing inventory quantities was required.
