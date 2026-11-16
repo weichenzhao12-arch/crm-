@@ -5,7 +5,11 @@ export const warehouseFields = [
 ] as const
 
 export type Specs = Record<typeof warehouseFields[number][0], string>
-export type Stock = Specs & { id: string, width: number, length: number, rolls: number, remnants: Record<string, number>, visible: boolean }
+export const warehouseInternalFields = [['location', '库位'], ['batch', '批次'], ['productionDate', '生产日期'], ['supplier', '供应商'], ['remark', '备注']] as const
+export type Stock = Specs & Partial<Record<typeof warehouseInternalFields[number][0], string>> & { id: string, width: number, length: number, rolls: number, remnants: Record<string, number>, visible: boolean }
+export function stockProductKey(stock: Specs & { width: number, length: number }) {
+  return JSON.stringify([...warehouseFields.map(([key]) => key === 'code' ? stock[key].trim().toLowerCase() : stock[key].trim()), stock.width, stock.length])
+}
 export type Kind = 'roll' | 'remnant' | 'cut' | 'meter'
 export interface Line { stockId: string, kind: Kind, meters: number, count: number, packaging: string, price: number | null }
 export type OrderLine = Line & { product: Specs, width: number, sourceMeters?: number }
@@ -48,6 +52,7 @@ export const warehousePermissionFields = [
   ['warehouseCreate', '开发货单'], ['warehousePick', '核货与填写物流'], ['warehouseShip', '确认发货出库'],
   ['warehouseAllOrders', '查看全部发货单'], ['warehouseCancelAny', '撤销他人未出库单'], ['warehouseReturn', '退货入库'], ['warehouseHistory', '查看出入库记录'],
   ['warehousePrint', '打印发货单'], ['warehouseEnterPrice', '手填单价'], ['warehouseViewPrice', '查看全部发货价格'], ['warehousePrintPrice', '打印含价单'],
+  ['warehouseImport', '表格批量入库'], ['warehouseExport', '导出完整库存资料'],
 ] as const
 
 export function warehouseAccess(user?: { enabled?: boolean | number, role?: string, permissions?: Partial<Record<typeof warehousePermissionFields[number][0], boolean>> } | null) {
@@ -68,12 +73,14 @@ export function warehouseAccess(user?: { enabled?: boolean | number, role?: stri
   const print = has('warehousePrint')
   const sales = explicit('warehouseCreate', Boolean(user?.enabled && (ship || ['manager', 'quoter'].includes(user.role || ''))))
   const viewPrice = has('warehouseViewPrice')
+  const importStock = has('warehouseImport')
+  const exportStock = has('warehouseExport')
   return {
-    stock, ship, print, sales, viewPrice, addSpec, receive, issue, visibility, pick, cancelAny, returnStock, history, allOrders,
+    stock, ship, print, sales, viewPrice, addSpec, receive, issue, visibility, pick, cancelAny, returnStock, history, allOrders, importStock, exportStock,
     only: has('warehouseOnly') && user?.role !== 'owner',
     price: sales && explicit('warehouseEnterPrice', ['manager', 'quoter'].includes(user?.role || '')),
     printPrice: print && viewPrice && has('warehousePrintPrice'),
-    enter: has('warehouseRead') || sales || stock || ship || print || pick || cancelAny || returnStock || history || allOrders,
+    enter: has('warehouseRead') || sales || stock || ship || print || pick || cancelAny || returnStock || history || allOrders || importStock || exportStock,
   }
 }
 

@@ -11,6 +11,23 @@ import StockTable from './StockTable.vue'
 import DeliveryPrint from './DeliveryPrint.vue'
 import './warehouse.css'
 import { pendingMutation } from './mutation'
+import StockSheetDialog from './StockSheetDialog.vue'
+import { downloadStockWorkbook } from './stock-sheet'
+const sheetDialog = ref<InstanceType<typeof StockSheetDialog>>()
+const sheetBusy = ref(false)
+async function downloadSheet(template = false) {
+  if (sheetBusy.value) return
+  sheetBusy.value = true
+  try {
+    if (template) { if (state.value?.access.importStock) await downloadStockWorkbook() }
+    else if (state.value?.access.exportStock) {
+      const snapshot = await apiFetch<{ stocks: StockView[] }>('/api/local-warehouse/export', { cache: 'no-store' })
+      await downloadStockWorkbook(snapshot.stocks)
+    }
+  }
+  catch (cause) { error.value = message(cause) }
+  finally { sheetBusy.value = false }
+}
 const props = withDefaults(defineProps<{ management?: boolean }>(), { management: false })
 watch(() => props.management, () => { dialog.value?.close(); notice.value = ''; void load() })
 
@@ -188,7 +205,8 @@ async function print(copies: number) {
 
 <template>
   <main class="wh-page">
-    <header class="wh-header"><div><p class="wh-brand">仓储管理</p><h1>{{ management ? '库存管理' : '仓库' }}</h1></div><div class="wh-actions"><RouterLink v-if="management" class="wh-link" to="/warehouse">返回仓库</RouterLink><button type="button" @click="load">刷新</button><RouterLink v-if="!management && state?.access.addSpec" class="wh-link" to="/warehouse/manage">库存管理</RouterLink><button v-if="management && state?.access.addSpec" type="button" class="wh-primary" @click="editStock()">新增规格</button><button v-if="!management && state?.access.sales" type="button" class="wh-primary" @click="editOrder()">开发货单</button></div></header>
+    <header class="wh-header"><div><p class="wh-brand">仓储管理</p><h1>{{ management ? '库存管理' : '仓库' }}</h1></div><div class="wh-actions"><RouterLink v-if="management" class="wh-link" to="/warehouse">返回仓库</RouterLink><button type="button" @click="load">刷新</button><RouterLink v-if="!management && state?.access.stock" class="wh-link" to="/warehouse/manage">库存管理</RouterLink><button v-if="state?.access.importStock" type="button" :disabled="sheetBusy" @click="downloadSheet(true)">下载模板</button><button v-if="state?.access.importStock" type="button" @click="sheetDialog?.open()">表格入库</button><button v-if="state?.access.exportStock" type="button" :disabled="sheetBusy" @click="downloadSheet()">导出库存</button><button v-if="management && state?.access.addSpec" type="button" class="wh-primary" @click="editStock()">新增规格</button><button v-if="!management && state?.access.sales" type="button" class="wh-primary" @click="editOrder()">开发货单</button></div></header>
+    <StockSheetDialog v-if="state?.access.importStock" ref="sheetDialog" :stocks="state.stocks" :access="state.access" :actor="auth.user?.id || ''" @reload="load" />
     <p v-if="error" class="wh-error" role="alert">{{ error }}</p><p v-if="notice" class="wh-notice" role="status">{{ notice }}</p>
     <template v-if="state && (!management || state.access.stock)">
       <nav v-if="!management" class="wh-tabs" aria-label="仓库视图"><button :class="{ active: tab === 'stock' }" @click="tab = 'stock'">仓库库存</button><button :class="{ active: tab === 'orders' }" @click="tab = 'orders'">发货单</button><button v-if="state.access.history" :class="{ active: tab === 'history' }" @click="tab = 'history'">出入库记录</button></nav>

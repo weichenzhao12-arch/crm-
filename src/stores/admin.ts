@@ -12,6 +12,8 @@ export interface AdminPermission {
   customerScope?: import('~/features/personnel/scope').CustomerScope
   managedDepartmentIds?: string[]
   warehouseOnly?: boolean
+  warehouseImport?: boolean
+  warehouseExport?: boolean
   warehouseRead?: boolean
   warehouseAddSpec?: boolean
   warehouseReceive?: boolean

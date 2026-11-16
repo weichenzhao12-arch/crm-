@@ -1,4 +1,5 @@
-import { availableStock, measurement, moveStock, orderResponsible, planLines, warehouseAccess, warehouseFields, WarehouseError, wholeCount } from '../src/features/warehouse/model'
+import { availableStock, measurement, moveStock, orderResponsible, planLines, warehouseAccess, warehouseFields, warehouseInternalFields, stockProductKey, WarehouseError, wholeCount } from '../src/features/warehouse/model'
+import { planStockImport } from '../src/features/warehouse/stock-import'
 import type { Line, Order, Stock } from '../src/features/warehouse/model'
 import { getAllowedCustomerUserIds } from '../src/features/personnel/scope'
 
@@ -57,6 +58,14 @@ export async function warehouseCloud(request: Request, db: D1Database): Promise<
       return json(200, { orders: orders.filter(order => order.customerId === url.searchParams.get('customerId')).map(redact) })
     }
     allow(access.enter)
+    if (request.method === 'GET' && path === '/export') {
+      allow(access.exportStock)
+      const free = availableStock(stocks, orders)
+      return json(200, { stocks: stocks.map(stock => {
+        const available = free.find(item => item.id === stock.id)!
+        return { ...stock, availableRolls: available.rolls, reservedRolls: stock.rolls - available.rolls, availableRemnants: available.remnants }
+      }) })
+    }
     if (request.method === 'GET' && path === '/print') {
       allow(access.print)
       const priced = url.searchParams.get('priced') === '1'
@@ -74,11 +83,12 @@ export async function warehouseCloud(request: Request, db: D1Database): Promise<
         stocks: stocks.map(({ visible, ...stock }) => {
           const available = free.find(item => item.id === stock.id)!
           const view = { ...stock, availableRolls: available.rolls, reservedRolls: stock.rolls - available.rolls, availableRemnants: available.remnants }
+          if (!access.stock && !access.exportStock) for (const [key] of warehouseInternalFields) delete view[key]
           return access.stock ? { ...view, visible } : view
         }),
       })
     }
-    if (request.method !== 'POST' || !['/stock', '/orders', '/dispatch'].includes(path)) throw new WarehouseError('操作不存在', 404)
+    if (request.method !== 'POST' || !['/stock', '/orders', '/dispatch', '/import'].includes(path)) throw new WarehouseError('操作不存在', 404)
     const reader = request.body?.getReader()
     const chunks: Uint8Array[] = []
     let size = 0
@@ -87,7 +97,7 @@ export async function warehouseCloud(request: Request, db: D1Database): Promise<
         const part = await reader.read()
         if (part.done) break
         size += part.value.byteLength
-        if (size > 65536) { await reader.cancel(); throw new WarehouseError('表单过大', 413) }
+        if (size > (path === '/import' ? 1048576 : 65536)) { await reader.cancel(); throw new WarehouseError('表单过大', 413) }
         chunks.push(part.value)
       }
     }
@@ -103,6 +113,7 @@ export async function warehouseCloud(request: Request, db: D1Database): Promise<
     const requestHash = await digest(body)
     const oldOrder = orders.find(order => order.id === body.id)
     let boundCustomer: Customer | undefined
+    if (path === '/import') allow(access.importStock)
     if (path === '/orders') {
       allow(access.sales)
       if (body.customerId) {
@@ -133,12 +144,21 @@ export async function warehouseCloud(request: Request, db: D1Database): Promise<
     let changedOrder: Order | undefined
     let event = ''
     let target = ''
+    if (path === '/import') {
+      const reason = field(body.reason, 300)
+      if (!reason) throw new WarehouseError('请填写批量入库原因')
+      const plan = planStockImport(stocks, body.rows, access)
+      changedStocks = plan.stocks.map(stock => stocks.some(existing => existing.id === stock.id) ? stock : { ...stock, id: crypto.randomUUID() })
+      availableStock([...stocks.filter(stock => !changedStocks.some(changed => changed.id === stock.id)), ...changedStocks], orders)
+      event = '表格批量入库'
+      target = requestKey
+    }
     if (path === '/stock') {
       const current = body.id ? stocks.find(stock => stock.id === body.id) : undefined
       if (body.id && !current) throw new WarehouseError('规格不存在', 404)
       const stock = current || { ...Object.fromEntries(warehouseFields.map(([key]) => [key, field(body[key])])), id: crypto.randomUUID(), width: measurement(body.width), length: measurement(body.length), rolls: 0, remnants: {}, visible: false } as Stock
       if (!stock.code || !stock.name || !stock.category) throw new WarehouseError('请填写分类、货号和产品名称')
-      if (!current && stocks.some(item => item.code.toLowerCase() === stock.code.toLowerCase() && item.width === stock.width && item.length === stock.length)) throw new WarehouseError('相同货号和尺寸已存在，请给原规格入库', 409)
+      if (!current && stocks.some(item => stockProductKey(item) === stockProductKey(stock))) throw new WarehouseError('完全相同的产品规格已存在，请给原规格入库', 409)
       const rolls = wholeCount(body.rolls ?? 0)
       if (body.direction !== undefined && !['in', 'out'].includes(body.direction)) throw new WarehouseError('库存操作类型无效')
       const outgoing = body.direction === 'out'

@@ -2,7 +2,8 @@ import { createHash, randomUUID, timingSafeEqual } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { DatabaseSync } from 'node:sqlite'
 import type { Line, Order, Stock } from '../src/features/warehouse/model'
-import { orderResponsible, availableStock, measurement, moveStock, planLines, warehouseAccess, WarehouseError, warehouseFields, wholeCount } from '../src/features/warehouse/model'
+import { orderResponsible, availableStock, measurement, moveStock, planLines, warehouseAccess, WarehouseError, warehouseFields, warehouseInternalFields, stockProductKey, wholeCount } from '../src/features/warehouse/model'
+import { planStockImport } from '../src/features/warehouse/stock-import'
 import { seedLocalOnce } from './local-database'
 import { getAllowedCustomerUserIds } from '../src/features/personnel/scope'
 
@@ -18,12 +19,12 @@ function field(value: unknown, max = 150) {
   return value.trim()
 }
 
-async function readBody(req: IncomingMessage) {
+async function readBody(req: IncomingMessage, limit = 65536) {
   const chunks: Buffer[] = []
   let size = 0
   for await (const chunk of req) {
     size += chunk.length
-    if (size > 65536) throw new WarehouseError('表单过大', 413)
+    if (size > limit) throw new WarehouseError('表单过大', 413)
     chunks.push(chunk)
   }
   try {
@@ -87,7 +88,7 @@ export function localWarehouse(db: DatabaseSync) {
           return send(200, { ok: true })
         }
         if ((dealerTokens.get(token) || 0) <= Date.now()) throw new WarehouseError('请输入查询密码', 401)
-        return send(200, { stocks: availableStock(stockList(), orderList()).filter(stock => stock.visible).map(({ visible, ...stock }) => stock) })
+        return send(200, { stocks: availableStock(stockList(), orderList()).filter(stock => stock.visible).map(stock => ({ ...Object.fromEntries(warehouseFields.map(([key]) => [key, stock[key]])), id: stock.id, width: stock.width, length: stock.length, rolls: stock.rolls, remnants: stock.remnants })) })
       }
 
       const token = req.headers.authorization?.match(/^Bearer (\S+)$/i)?.[1] || ''
@@ -121,6 +122,15 @@ export function localWarehouse(db: DatabaseSync) {
         return send(200, { orders: orderList().filter(order => order.customerId === customerId).map(redact) })
       }
       allow(access.enter)
+      if (path === '/export' && method === 'GET') {
+        allow(access.exportStock)
+        const stocks = stockList()
+        const available = availableStock(stocks, orderList())
+        return send(200, { stocks: stocks.map(stock => {
+          const free = available.find(item => item.id === stock.id)!
+          return { ...stock, availableRolls: free.rolls, reservedRolls: stock.rolls - free.rolls, availableRemnants: free.remnants }
+        }) })
+      }
       if (path === '/print' && method === 'GET') {
         allow(access.print)
         const query = new URL(req.url || '/', 'http://localhost').searchParams
@@ -142,6 +152,7 @@ export function localWarehouse(db: DatabaseSync) {
           stocks: physical.map(({ visible, ...stock }) => {
             const free = available.find(item => item.id === stock.id)!
             const view = { ...stock, availableRolls: free.rolls, reservedRolls: stock.rolls - free.rolls, availableRemnants: free.remnants }
+            if (!access.stock && !access.exportStock) for (const [key] of warehouseInternalFields) delete view[key]
             return access.stock ? { ...view, visible } : view
           }),
           history: access.history ? db.prepare('SELECT event, actor, target, time FROM warehouse_log ORDER BY rowid DESC LIMIT 100').all() : [],
@@ -149,12 +160,13 @@ export function localWarehouse(db: DatabaseSync) {
       }
 
       if (method !== 'POST') throw new WarehouseError('操作不存在', 404)
-      const body = await readBody(req)
-      if (!['/stock', '/orders', '/dispatch'].includes(path)) throw new WarehouseError('操作不存在', 404)
+      const body = await readBody(req, path === '/import' ? 1048576 : 65536)
+      if (!['/stock', '/orders', '/dispatch', '/import'].includes(path)) throw new WarehouseError('操作不存在', 404)
       const requestKey = req.headers['idempotency-key']
       if (typeof requestKey !== 'string' || !/^[\w-]{8,128}$/.test(requestKey)) throw new WarehouseError('缺少有效的提交编号，请刷新开单页面后重试')
       const requestHash = createHash('sha256').update(JSON.stringify(canonical(body))).digest('hex')
       function authorizeMutation() {
+        if (path === '/import') allow(access.importStock)
         if (path === '/orders') {
           allow(access.sales)
           if (body.customerId) {
@@ -181,6 +193,8 @@ export function localWarehouse(db: DatabaseSync) {
       db.exec('BEGIN IMMEDIATE')
       let result: unknown = { ok: true }
       try {
+        const currentActor = db.prepare(`SELECT u.role, u.permissions FROM users u JOIN sessions s ON s.user_id=u.id WHERE u.id=? AND u.enabled=1 AND s.token=? AND s.expires_at>?`).get(actor, token, new Date().toISOString())
+        if (!currentActor || currentActor.role !== user.role || currentActor.permissions !== user.permissions) throw new WarehouseError('权限或登录状态已变化，请重新加载后重试', 409)
         authorizeMutation()
         const prior = db.prepare('SELECT operation, request_hash, result FROM warehouse_requests WHERE actor = ? AND request_key = ?').get(actor, requestKey)
         if (prior) {
@@ -193,7 +207,18 @@ export function localWarehouse(db: DatabaseSync) {
           return send(200, previous ? redact(previous) : { ok: true })
         }
         const stocks = stockList()
-        if (path === '/stock') {
+        if (path === '/import') {
+          const reason = field(body.reason, 300)
+          if (!reason) throw new WarehouseError('请填写批量入库原因')
+          const plan = planStockImport(stocks, body.rows, access)
+          for (const stock of plan.stocks) {
+            if (!stocks.some(existing => existing.id === stock.id)) stock.id = randomUUID()
+            saveStock.run(stock.id, JSON.stringify(stock))
+          }
+          availableStock(stockList(), orderList())
+          log('表格批量入库', requestKey, { reason, created: plan.created, updated: plan.updated, receivedRolls: plan.receivedRolls, stocks: plan.stocks })
+        }
+        else if (path === '/stock') {
           allow(access.stock)
           const current = body.id ? stocks.find(stock => stock.id === body.id) : undefined
           if (body.id && !current) throw new WarehouseError('规格不存在', 404)
@@ -203,8 +228,8 @@ export function localWarehouse(db: DatabaseSync) {
             id: randomUUID(), width: measurement(body.width), length: measurement(body.length), rolls: 0, remnants: {}, visible: false,
           } as Stock)
           if (!stock.code || !stock.name || !stock.category) throw new WarehouseError('请填写分类、货号和产品名称')
-          if (!current && stocks.some(item => item.code.toLowerCase() === stock.code.toLowerCase() && item.width === stock.width && item.length === stock.length))
-            throw new WarehouseError('相同货号和尺寸已存在，请给原规格入库', 409)
+          if (!current && stocks.some(item => stockProductKey(item) === stockProductKey(stock)))
+            throw new WarehouseError('完全相同的产品规格已存在，请给原规格入库', 409)
           const rolls = wholeCount(body.rolls ?? 0)
           if (body.direction !== undefined && !['in', 'out'].includes(body.direction)) throw new WarehouseError('库存操作类型无效')
           const outgoing = body.direction === 'out'

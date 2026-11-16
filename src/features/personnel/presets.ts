@@ -15,7 +15,7 @@ export function positionPreset(position: Position, previous: AdminPermission): A
   }
   if (position === 'warehouse') {
     permissions.supervisorId = ''
-    Object.assign(permissions, { warehouseOnly: true, warehouseRead: true, warehouseReceive: true, warehouseIssue: true, warehouseCreate: true, warehousePick: true, warehouseShip: true, warehousePrint: true, warehouseAllOrders: true, warehouseHistory: true })
+    Object.assign(permissions, { warehouseOnly: true, warehouseRead: true, warehouseReceive: true, warehouseIssue: true, warehouseCreate: true, warehousePick: true, warehouseShip: true, warehousePrint: true, warehouseAllOrders: true, warehouseHistory: true, warehouseImport: true, warehouseExport: true })
   }
   return permissions
 }

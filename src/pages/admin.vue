@@ -29,7 +29,7 @@ const quote = useQuoteStore()
 const admin = useAdminStore()
 function warehousePermissionChecked(user: typeof admin.users[number], key: typeof warehousePermissionFields[number][0]) {
   const access = warehouseAccess(user)
-  const values = { warehouseOnly: access.only, warehouseRead: access.enter, warehouseAddSpec: access.addSpec, warehouseReceive: access.receive, warehouseIssue: access.issue, warehouseVisibility: access.visibility, warehouseCreate: access.sales, warehousePick: access.pick, warehouseShip: access.ship, warehouseAllOrders: access.allOrders, warehouseCancelAny: access.cancelAny, warehouseReturn: access.returnStock, warehouseHistory: access.history, warehousePrint: access.print, warehouseEnterPrice: access.price, warehouseViewPrice: access.viewPrice, warehousePrintPrice: access.printPrice }
+  const values = { warehouseOnly: access.only, warehouseRead: access.enter, warehouseAddSpec: access.addSpec, warehouseReceive: access.receive, warehouseIssue: access.issue, warehouseVisibility: access.visibility, warehouseCreate: access.sales, warehousePick: access.pick, warehouseShip: access.ship, warehouseAllOrders: access.allOrders, warehouseCancelAny: access.cancelAny, warehouseReturn: access.returnStock, warehouseHistory: access.history, warehousePrint: access.print, warehouseEnterPrice: access.price, warehouseViewPrice: access.viewPrice, warehousePrintPrice: access.printPrice, warehouseImport: access.importStock, warehouseExport: access.exportStock }
   return values[key]
 }
 function applyWarehousePreset(user: typeof admin.users[number]) {
@@ -43,7 +43,7 @@ function applyWarehousePreset(user: typeof admin.users[number]) {
   user.permissions.customerScope = 'own'
   user.permissions.managedDepartmentIds = []
   for (const [key] of warehousePermissionFields) user.permissions[key] = false
-  for (const key of ['warehouseOnly', 'warehouseRead', 'warehouseAddSpec', 'warehouseReceive', 'warehouseIssue', 'warehouseCreate', 'warehousePick', 'warehouseShip', 'warehousePrint', 'warehouseAllOrders', 'warehouseHistory'] as const) user.permissions[key] = true
+  for (const key of ['warehouseOnly', 'warehouseRead', 'warehouseAddSpec', 'warehouseReceive', 'warehouseIssue', 'warehouseCreate', 'warehousePick', 'warehouseShip', 'warehousePrint', 'warehouseAllOrders', 'warehouseHistory', 'warehouseImport', 'warehouseExport'] as const) user.permissions[key] = true
   void admin.saveUsers()
 }
 function updateWarehousePermission(user: typeof admin.users[number], key: typeof warehousePermissionFields[number][0], enabled: boolean) {
