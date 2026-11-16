@@ -4,6 +4,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import type { Line, Order, Stock } from '../src/features/warehouse/model'
 import { orderResponsible, availableStock, measurement, moveStock, planLines, warehouseAccess, WarehouseError, warehouseFields, wholeCount } from '../src/features/warehouse/model'
 import { seedLocalOnce } from './local-database'
+import { getAllowedCustomerUserIds } from '../src/features/personnel/scope'
 
 const demo = {
   category: '景观草', code: 'KT-L25-01', name: 'C型深色休闲草', height: '25 mm', stitches: '15 针/10 cm', gauge: '420 针排',
@@ -96,7 +97,13 @@ export function localWarehouse(db: DatabaseSync) {
       const actor = String(user.id)
       const permissions = JSON.parse(String(user.permissions))
       const access = warehouseAccess({ enabled: 1, role: String(user.role), permissions })
-      const allCustomers = user.role === 'owner' || permissions.viewAllCustomers === true || permissions.manageUsers === true || String(user.account).toLowerCase() === 'admin'
+      const scopeRows = db.prepare('SELECT id, enabled, department_id, permissions FROM users ORDER BY id').all()
+      const scopeUsers = scopeRows.map(row => ({
+        id: String(row.id), enabled: row.enabled === 1, departmentId: String(row.department_id || ''), permissions: JSON.parse(String(row.permissions)),
+      }))
+      const allowedCustomerUsers = new Set(getAllowedCustomerUserIds(scopeUsers, actor))
+      const allCustomers = user.role === 'owner' || permissions.viewAllCustomers === true || permissions.customerScope === 'all' || permissions.manageUsers === true || String(user.account).toLowerCase() === 'admin'
+      const canCustomer = (customer: { assigned_to_user_id?: unknown } | null | undefined) => Boolean(customer && (allCustomers || typeof customer.assigned_to_user_id === 'string' && allowedCustomerUsers.has(customer.assigned_to_user_id)))
       function allow(condition: boolean) { if (!condition) throw new WarehouseError('没有此操作权限', 403) }
       function canSee(order: Order) { return access.allOrders || orderResponsible(order) === actor }
       function redact(order: Order) {
@@ -110,7 +117,7 @@ export function localWarehouse(db: DatabaseSync) {
         allow(!access.only)
         const customerId = new URL(req.url || '/', 'http://localhost').searchParams.get('customerId') || ''
         const customer = db.prepare('SELECT assigned_to_user_id FROM crm_customers WHERE id = ?').get(customerId)
-        allow(Boolean(customer && (allCustomers || customer.assigned_to_user_id === actor)))
+        allow(canCustomer(customer))
         return send(200, { orders: orderList().filter(order => order.customerId === customerId).map(redact) })
       }
       allow(access.enter)
@@ -126,9 +133,7 @@ export function localWarehouse(db: DatabaseSync) {
       if (path === '/' && method === 'GET') {
         const physical = stockList()
         const available = availableStock(physical, orderList())
-        const customers = access.sales && !access.only ? (allCustomers
-          ? db.prepare('SELECT id, name, value FROM crm_customers ORDER BY name').all()
-          : db.prepare('SELECT id, name, value FROM crm_customers WHERE assigned_to_user_id = ? ORDER BY name').all(actor)).map(row => {
+        const customers = access.sales && !access.only ? db.prepare('SELECT id, name, value, assigned_to_user_id FROM crm_customers ORDER BY name').all().filter(canCustomer).map(row => {
             const value = JSON.parse(String(row.value))
             return { id: row.id, name: row.name, phone: String(value.phone || '') }
           }) : []
@@ -153,8 +158,10 @@ export function localWarehouse(db: DatabaseSync) {
         if (path === '/orders') {
           allow(access.sales)
           if (body.customerId) {
+            const latestScopeRows = db.prepare('SELECT id, enabled, department_id, permissions FROM users ORDER BY id').all()
+            if (JSON.stringify(latestScopeRows) !== JSON.stringify(scopeRows)) throw new WarehouseError('客户权限已变化，请重新加载后重试', 409)
             const customer = db.prepare('SELECT assigned_to_user_id FROM crm_customers WHERE id = ?').get(String(body.customerId))
-            allow(!access.only && Boolean(customer && (allCustomers || customer.assigned_to_user_id === actor)))
+            allow(!access.only && canCustomer(customer))
           }
         }
         if (path === '/stock') {
@@ -249,7 +256,7 @@ export function localWarehouse(db: DatabaseSync) {
           if (old && old.status !== 'rejected') throw new WarehouseError('只有退回单可以重新提交', 409)
           const customerId = field(body.customerId)
           const customer = customerId ? db.prepare('SELECT name, assigned_to_user_id FROM crm_customers WHERE id = ?').get(customerId) : null
-          if (customerId) allow(access.sales && !access.only && Boolean(customer && (allCustomers || customer.assigned_to_user_id === actor)))
+          if (customerId) allow(access.sales && !access.only && canCustomer(customer))
           const receiver = field(body.receiver) || String(customer?.name || '')
           if (!receiver) throw new WarehouseError('请填写收货名称')
           if (!Array.isArray(body.lines) || !body.lines.length || body.lines.length > 100) throw new WarehouseError('请填写发货明细（最多100行）')

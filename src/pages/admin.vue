@@ -8,7 +8,7 @@
 </route>
 
 <script setup lang="ts">
-const showLocalSamplePermissions = import.meta.env.DEV
+const showLocalSamplePermissions = localWarehouseEnabled
 import * as XLSX from 'xlsx'
 import { storeToRefs } from 'pinia'
 import type { MaterialRecord, ProductRecord } from '~/features/quote/types'
@@ -23,6 +23,7 @@ import { warehouseAccess, warehousePermissionFields } from '~/features/warehouse
 import { localWarehouseEnabled } from '~/features/warehouse/release'
 import PersonHandoffDialog from '~/features/personnel/PersonHandoffDialog.vue'
 import { positionOptions } from '~/features/personnel/hierarchy'
+import CustomerScopeFields from '~/features/personnel/CustomerScopeFields.vue'
 
 const quote = useQuoteStore()
 const admin = useAdminStore()
@@ -39,6 +40,8 @@ function applyWarehousePreset(user: typeof admin.users[number]) {
   }
   user.permissions.position = 'warehouse'
   user.permissions.supervisorId = ''
+  user.permissions.customerScope = 'own'
+  user.permissions.managedDepartmentIds = []
   for (const [key] of warehousePermissionFields) user.permissions[key] = false
   for (const key of ['warehouseOnly', 'warehouseRead', 'warehouseAddSpec', 'warehouseReceive', 'warehouseIssue', 'warehouseCreate', 'warehousePick', 'warehouseShip', 'warehousePrint', 'warehouseAllOrders', 'warehouseHistory'] as const) user.permissions[key] = true
   void admin.saveUsers()
@@ -121,7 +124,7 @@ const permissionGuide = [
   { group: '商品资料', name: '辅料管理', field: 'manageMaterials', detail: '允许新增、修改、删除辅料、套餐辅料、默认图片和辅料价格。' },
   { group: '商品资料', name: '产品表格导入', field: 'importExcel', detail: '允许在后台批量导入产品价格表。' },
   { group: '账号权限', name: '账号管理', field: 'manageUsers', detail: '允许进入管理后台账号权限页，新增账号、修改角色和分配权限。' },
-  { group: '客户管理', name: '查看全部客户', field: 'viewAllCustomers', detail: '允许看到所有销售的客户；未勾选时只能看到自己的客户。' },
+  { group: '客户管理', name: '客户范围', field: 'customerScope', detail: '本人、团队或全部；提醒始终归客户负责人。' },
   { group: '客户管理', name: '导入客户', field: 'importCustomers', detail: '允许导入客资表格。普通销售导入后客户归自己。' },
   { group: '客户管理', name: '导出客户', field: 'exportCustomers', detail: '允许导出客资表格；普通销售默认不允许导出。' },
   { group: '客户管理', name: '删除客户', field: 'deleteCustomers', detail: '允许删除单个或批量删除客户，删除后进入 7 天回收站。' },
@@ -137,7 +140,7 @@ onMounted(() => {
     quote.savePricing()
   })
   admin.loadCloudUsers()
-  if (localWarehouseEnabled) void admin.loadDepartments()
+  void admin.loadDepartments()
   system.loadCloudSystemState()
 })
 
@@ -621,7 +624,7 @@ function changeOwnPassword() {
           <div class="permission-groups">
             <section>
               <h3>客户与数据</h3>
-              <label><input v-model="user.permissions.viewAllCustomers" type="checkbox" @change="admin.saveUsers()"><span><b>查看全部客户与团队统计</b><small>关闭时，客户、今日跟进和数据统计都只显示本人数据</small></span></label>
+              <CustomerScopeFields :user="user" :departments="admin.departments" :authorized="admin.currentUser?.role === 'owner' && admin.currentUser.enabled" @save="admin.saveUsers()" />
               <template v-if="showLocalSamplePermissions">
                 <label><input v-model="user.permissions.assignUnclaimedCustomers" type="checkbox" @change="admin.saveUsers()"><span><b>分配未认领推广线索</b><small>只分配待认领客资，不转移已由销售负责的客户</small></span></label>
                 <label><input v-model="user.permissions.transferCustomers" type="checkbox" @change="admin.saveUsers()"><span><b>批量转移客资</b><small>需另有查看全部客资权限；不授予删除权限</small></span></label>

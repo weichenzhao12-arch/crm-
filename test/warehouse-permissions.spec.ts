@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { warehouseAccess } from '../src/features/warehouse/model'
 
 describe('granular warehouse permissions', () => {
+  it('does not grant access to other orders through printing alone', () => {
+    const access = warehouseAccess({ enabled: true, role: 'viewer', permissions: { warehousePrint: true } })
+    expect(access.print).toBe(true)
+    expect(access.allOrders).toBe(false)
+  })
   it('separates receiving, issuing, visibility and new specifications', () => {
     const access = warehouseAccess({ enabled: true, role: 'viewer', permissions: { warehouseReceive: true } })
     expect(access.enter).toBe(true)

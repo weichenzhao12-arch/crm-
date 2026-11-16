@@ -64,7 +64,7 @@ export function warehouseAccess(user?: { enabled?: boolean | number, role?: stri
   const cancelAny = explicit('warehouseCancelAny', ship)
   const returnStock = explicit('warehouseReturn', ship)
   const history = explicit('warehouseHistory', legacyStock || ship)
-  const allOrders = explicit('warehouseAllOrders', ship || has('warehousePrint'))
+  const allOrders = explicit('warehouseAllOrders', ship)
   const print = has('warehousePrint')
   const sales = explicit('warehouseCreate', Boolean(user?.enabled && (ship || ['manager', 'quoter'].includes(user.role || ''))))
   const viewPrice = has('warehouseViewPrice')

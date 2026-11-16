@@ -20,6 +20,7 @@ import { followDay } from '~/features/crm/today-follow'
 import { reminderCustomers } from '~/features/crm/due-reminders'
 import { crmFeaturesEnabled } from '~/features/crm/release'
 import { customerControls } from '~/features/crm/customer-controls'
+import { visibleCustomerRows, visibleCustomerUsers } from '~/features/crm/customer-visibility'
 import type { CrmCustomer, IntentLevel } from '~/stores/crm'
 import CrmStatisticsPage from '~/pages/crm/statistics.vue'
 
@@ -32,7 +33,7 @@ const { users } = storeToRefs(admin)
 
 const keyword = ref('')
 const stageFilter = ref('全部')
-const selectedUserId = ref(admin.currentUser?.id || 'owner')
+const selectedUserId = ref('all')
 const leadCreationMode = ref<LeadCreationMode>('all')
 const reminderVisible = ref(false)
 const reminderDismissed = ref('')
@@ -120,7 +121,8 @@ const canViewAll = computed(() => controls.value.viewAll)
 const canManageLeads = computed(() => controls.value.transfer)
 const activeUser = computed(() => canManageLeads.value ? users.value.find(user => user.id === selectedUserId.value) || loginUser.value : loginUser.value)
 const canDeleteCustomers = computed(() => controls.value.remove)
-const salesUsers = computed(() => users.value.filter(isSalesUser))
+const allowedUserIds = computed(() => visibleCustomerUsers(users.value, loginUser.value))
+const salesUsers = computed(() => users.value.filter(user => isSalesUser(user) && (canViewAll.value || allowedUserIds.value.has(user.id))))
 
 function customerBelongsToUser(customer: CrmCustomer, userId?: string) {
   if (!userId)
@@ -128,18 +130,13 @@ function customerBelongsToUser(customer: CrmCustomer, userId?: string) {
 
   const user = users.value.find(item => item.id === userId)
   const names = [user?.displayName, user?.account].map(value => String(value || '').trim()).filter(Boolean)
-  return customer.assignedToUserId === userId || names.includes(String(customer.owner || '').trim())
+  return customer.assignedToUserId ? customer.assignedToUserId === userId : names.includes(String(customer.owner || '').trim())
 }
 
 const scopedCustomers = computed(() => {
-  if (!canViewAll.value)
-    return customers.value.filter(customer => customerBelongsToUser(customer, activeUser.value?.id))
-
+  const visible = visibleCustomerRows(customers.value, users.value, loginUser.value)
   const selectedUser = users.value.find(user => user.id === selectedUserId.value)
-  if (selectedUser && selectedUser.role !== 'owner')
-    return customers.value.filter(customer => customerBelongsToUser(customer, selectedUser.id))
-
-  return customers.value
+  return selectedUser ? visible.filter(customer => customerBelongsToUser(customer, selectedUser.id)) : visible
 })
 
 const filteredCustomers = computed(() => scopedCustomers.value.filter((customer) => {
@@ -301,6 +298,7 @@ function rowToCustomer(row: Record<string, any>, index: number) {
 }
 
 function exportLeadTable() {
+  if (!loginUser.value?.enabled || (!isOwner.value && loginUser.value.permissions.exportCustomers !== true)) return
   const rows = filteredCustomers.value.map(customerToLeadRow)
   const worksheet = XLSX.utils.json_to_sheet(rows.length ? rows : [Object.fromEntries(leadTableColumns.map(column => [column, '']))], { header: leadTableColumns })
   const workbook = XLSX.utils.book_new()
@@ -619,9 +617,9 @@ async function handleLogout() {
         <small>今天有 {{ dashboardCounts.pending }} 项跟进待处理，建议优先联系高意向客户</small>
       </div>
       <nav>
-        <label v-if="canViewAll" class="user-view">当前视角
+        <label v-if="canViewAll || allowedUserIds.size > 1" class="user-view">当前视角
           <select v-model="selectedUserId">
-            <option v-for="user in users" :key="user.id" :value="user.id">{{ user.displayName || user.account }}</option>
+            <option value="all">可见范围</option><option v-for="user in users.filter(person => canViewAll || allowedUserIds.has(person.id))" :key="user.id" :value="user.id">{{ user.displayName || user.account }}</option>
           </select>
         </label>
         <button @click="openPasswordDialog">修改密码</button>

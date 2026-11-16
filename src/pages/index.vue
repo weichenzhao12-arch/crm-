@@ -99,7 +99,7 @@ const quoteParamOptions = [
 
 const linkedCustomerId = computed(() => String(route.query.customerId || ''))
 const linkedCustomer = computed(() => linkedCustomerId.value ? crm.findCustomer(linkedCustomerId.value) : undefined)
-const fieldCustomers = computed(() => crm.cloudLoadState === 'ready' ? quoteCustomers(crm.customers, admin.currentUser) : [])
+const fieldCustomers = computed(() => crm.cloudLoadState === 'ready' ? quoteCustomers(crm.customers, admin.currentUser, admin.users) : [])
 const fieldCustomer = computed(() => fieldCustomers.value.find(row => row.id === linkedCustomerId.value))
 const fieldSaving = ref(false)
 const fieldSaveMessage = ref('')

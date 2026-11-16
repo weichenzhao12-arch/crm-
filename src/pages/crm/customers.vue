@@ -14,6 +14,7 @@ import { leadImportMessage, summarizeLeadImport } from '~/features/crm/lead-impo
 import { isSalesUser, useAdminStore } from '~/stores/admin'
 import { normalizeCustomer, useCrmStore } from '~/stores/crm'
 import { customerControls } from '~/features/crm/customer-controls'
+import { visibleCustomerRows, visibleCustomerUsers } from '~/features/crm/customer-visibility'
 import { followDay, isTodayFollow } from '~/features/crm/today-follow'
 import { reminderCustomers } from '~/features/crm/due-reminders'
 import { crmFeaturesEnabled } from '~/features/crm/release'
@@ -136,22 +137,22 @@ const canSelectCustomers = computed(() => controls.value.select)
 const canExportCustomers = computed(() => isPrivileged.value || Boolean(loginUser.value?.permissions.exportCustomers))
 const canImportCustomers = computed(() => isPrivileged.value || Boolean(loginUser.value?.permissions.importCustomers))
 const activeUser = computed(() => canManageLeads.value && selectedUserId.value !== 'all' ? users.value.find(user => user.id === selectedUserId.value) || loginUser.value : loginUser.value)
-const salesUsers = computed(() => users.value.filter(isSalesUser))
+const allowedUserIds = computed(() => visibleCustomerUsers(users.value, loginUser.value))
+const salesUsers = computed(() => users.value.filter(user => isSalesUser(user) && (canViewAll.value || allowedUserIds.value.has(user.id))))
 
 function customerBelongsToUser(customer: CrmCustomer, userId?: string) {
   if (!userId)
     return false
   const user = users.value.find(item => item.id === userId)
   const names = [user?.displayName, user?.account, user?.id].map(value => String(value || '').trim()).filter(Boolean)
-  return customer.assignedToUserId === userId || names.includes(String(customer.owner || '').trim())
+  return customer.assignedToUserId ? customer.assignedToUserId === userId : names.includes(String(customer.owner || '').trim())
 }
 
 const scopedCustomers = computed(() => {
-  if (!canViewAll.value)
-    return customers.value.filter(customer => customerBelongsToUser(customer, activeUser.value?.id))
+  const visible = visibleCustomerRows(customers.value, users.value, loginUser.value)
   if (selectedUserId.value !== 'all')
-    return customers.value.filter(customer => customerBelongsToUser(customer, selectedUserId.value))
-  return customers.value
+    return visible.filter(customer => customerBelongsToUser(customer, selectedUserId.value))
+  return visible
 })
 
 const yearOptions = computed(() => {
@@ -493,6 +494,7 @@ function rowToCustomer(row: Record<string, any>, index: number) {
 }
 
 function exportLeadTable() {
+  if (!canExportCustomers.value) return
   if (!canExportCustomers.value)
     return
   const rows = filteredCustomers.value.map(customerToLeadRow)
@@ -783,7 +785,7 @@ function batchTransferCustomers() {
           <span>⌕</span>
           <input v-model="keyword" placeholder="搜索客户、电话、微信">
         </div>
-        <label v-if="canViewAll">当前视角
+        <label v-if="canViewAll || allowedUserIds.size > 1">当前视角
           <select v-model="selectedUserId">
             <option value="all">全部客户</option>
             <option v-for="user in users" :key="user.id" :value="user.id">{{ user.displayName || user.account }}</option>

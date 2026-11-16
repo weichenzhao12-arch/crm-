@@ -9,6 +9,8 @@ export type AdminRole = 'owner' | 'manager' | 'quoter' | 'viewer' | 'clerk'
 export interface AdminPermission {
   position?: import('~/features/personnel/hierarchy').Position
   supervisorId?: string
+  customerScope?: import('~/features/personnel/scope').CustomerScope
+  managedDepartmentIds?: string[]
   warehouseOnly?: boolean
   warehouseRead?: boolean
   warehouseAddSpec?: boolean
@@ -115,7 +117,7 @@ function permissionsForRole(role: AdminRole): AdminPermission {
       exportQuote: true,
       temporaryEdit: true,
       costCalculation: false,
-      viewAllCustomers: true,
+      viewAllCustomers: false,
       importCustomers: true,
       exportCustomers: true,
       deleteCustomers: true,
@@ -161,7 +163,7 @@ function normalizePermissions(raw: Partial<AdminPermission> | undefined, role: A
     ...defaults,
     ...(raw || {}),
     costCalculation: role === 'owner' || Boolean(raw?.costCalculation),
-    viewAllCustomers: raw?.viewAllCustomers ?? manageFallback ?? defaults.viewAllCustomers,
+    viewAllCustomers: raw?.viewAllCustomers === true,
     importCustomers: raw?.importCustomers ?? raw?.importExcel ?? defaults.importCustomers,
     exportCustomers: raw?.exportCustomers ?? raw?.exportQuote ?? defaults.exportCustomers,
     deleteCustomers: raw?.deleteCustomers ?? manageFallback ?? defaults.deleteCustomers,
@@ -278,6 +280,20 @@ export const useAdminStore = defineStore('admin', {
       const error = validateHierarchy(this.users)
       if (error) {
         this.saveError = error
+        return Promise.resolve(false)
+      }
+      let priorUsers: AdminUser[] = []
+      try {
+        const cached: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
+        if (Array.isArray(cached)) priorUsers = cached
+      }
+      catch { /* A missing cache must not prevent directory validation. */ }
+      if (this.departments.length && this.users.some(user => user.permissions.managedDepartmentIds?.some((id) => {
+        const department = this.departments.find(item => item.id === id)
+        const previous = priorUsers.find(item => item.id === user.id)?.permissions?.managedDepartmentIds
+        return !department || (!department.enabled && !previous?.includes(id))
+      }))) {
+        this.saveError = '管理部门必须为启用的现有部门'
         return Promise.resolve(false)
       }
       const snapshot = clone(this.users)

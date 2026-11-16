@@ -14,6 +14,8 @@ import { isSalesUser, useAdminStore } from '~/stores/admin'
 import { useCrmStore } from '~/stores/crm'
 import CrmDueReminders from '~/local-test/CrmDueReminders.vue'
 import { crmFeaturesEnabled } from '~/features/crm/release'
+import { visibleCustomerRows, visibleCustomerUsers } from '~/features/crm/customer-visibility'
+import { customerControls } from '~/features/crm/customer-controls'
 
 const localDueReminders = crmFeaturesEnabled
 const crm = useCrmStore()
@@ -27,13 +29,9 @@ onMounted(() => {
 })
 
 const loginUser = computed(() => admin.currentUser)
-const canViewAll = computed(() => ['owner', 'manager'].includes(loginUser.value?.role || '') || Boolean(loginUser.value?.permissions.viewAllCustomers))
-const visibleCustomers = computed(() => canViewAll.value
-  ? customers.value
-  : customers.value.filter(customer =>
-      customer.assignedToUserId === loginUser.value?.id
-      || customer.owner === loginUser.value?.displayName
-      || customer.owner === loginUser.value?.account))
+const canViewAll = computed(() => customerControls(loginUser.value).viewAll)
+const allowedUserIds = computed(() => visibleCustomerUsers(users.value, loginUser.value))
+const visibleCustomers = computed(() => visibleCustomerRows(customers.value, users.value, loginUser.value))
 const activeCustomers = computed(() => visibleCustomers.value.filter(customer => customer.stage !== 'lost'))
 const quotedCustomers = computed(() => visibleCustomers.value.filter(customer => customer.quotes.length || customer.stage === 'quoted'))
 const wonCustomers = computed(() => visibleCustomers.value.filter(customer => customer.stage === 'won' || customer.quotes.some(quote => quote.isWon)))
@@ -50,8 +48,8 @@ const stages = computed(() => [
 ])
 const maxStage = computed(() => Math.max(...stages.value.map(item => item.count), 1))
 
-const ownerRanking = computed(() => users.value.filter(user => isSalesUser(user) && (canViewAll.value || user.id === loginUser.value?.id)).map((user) => {
-  const owned = visibleCustomers.value.filter(customer => customer.assignedToUserId === user.id || customer.owner === user.displayName || customer.owner === user.account)
+const ownerRanking = computed(() => users.value.filter(user => isSalesUser(user) && (canViewAll.value || allowedUserIds.value.has(user.id))).map((user) => {
+  const owned = visibleCustomers.value.filter(customer => customer.assignedToUserId ? customer.assignedToUserId === user.id : customer.owner === user.displayName || customer.owner === user.account)
   const deals = owned.filter(customer => customer.stage === 'won' || customer.quotes.some(quote => quote.isWon))
   const amount = owned.flatMap(customer => customer.quotes).reduce((sum, quote) => sum + Number(quote.dealAmount || (quote.isWon ? quote.amount : 0) || 0), 0)
   return { id: user.id, name: user.displayName || user.account, customers: owned.length, deals: deals.length, amount }

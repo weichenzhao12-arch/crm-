@@ -9,9 +9,15 @@ import type { Context, Next } from 'hono'
 import { isPasswordHash, normalizePasswordForStorage, verifyPassword } from '../src/features/auth/password'
 import { canAccessCustomer } from '../src/features/crm/customer-access'
 import { validateHierarchy } from '../src/features/personnel/hierarchy'
+import { warehouseCloud } from './warehouse-cloud'
+import { warehouseDealer } from './warehouse-dealer'
+import { handlePersonnelRequest } from './personnel-cloud'
 import { canExecuteHandoff, insertHandoffLog, updateHandoffOwner } from './customer-handoff'
 
 interface Env {
+  WAREHOUSE_ENABLED?: string
+  PERSONNEL_ENABLED?: string
+  DEALER_PASSWORD?: string
   DB: D1Database
   IMAGES: R2Bucket
   BROWSER?: BrowserRenderingBinding
@@ -382,6 +388,8 @@ app.get('/health', async (c) => {
     d1: { ok: false, message: '' },
     r2: { ok: Boolean(c.env.IMAGES), message: c.env.IMAGES ? 'bound' : 'missing binding' },
     pdf: { ok: Boolean(c.env.BROWSER), message: c.env.BROWSER ? 'bound' : 'missing binding' },
+    warehouse: { enabled: c.env.WAREHOUSE_ENABLED === 'enabled', ok: false },
+    personnel: { enabled: c.env.PERSONNEL_ENABLED === 'enabled', ok: false },
   }
 
   try {
@@ -392,12 +400,35 @@ app.get('/health', async (c) => {
     services.d1 = { ok: false, message: error instanceof Error ? error.message : 'connection failed' }
   }
 
+  if (services.warehouse.enabled || services.personnel.enabled) {
+    try {
+      const guard = await c.env.DB.prepare('SELECT ok FROM transaction_guard WHERE id = 1').first<{ ok: number }>()
+      const revision = await c.env.DB.prepare('SELECT revision FROM warehouse_revision WHERE id = 1').first<{ revision: number }>()
+      const migrated = guard?.ok === 1 && typeof revision?.revision === 'number'
+      services.warehouse.ok = migrated
+      services.personnel.ok = migrated
+    }
+    catch { /* Disabled or incomplete migrations must never report the module as ready. */ }
+  }
+
   return c.json({
-    ok: services.d1.ok && services.r2.ok,
+    ok: services.d1.ok && services.r2.ok && (!services.warehouse.enabled || services.warehouse.ok) && (!services.personnel.enabled || services.personnel.ok),
     services,
     checkedAt: new Date().toISOString(),
   })
 })
+
+app.all('/local-warehouse', async c => c.env.WAREHOUSE_ENABLED === 'enabled'
+  ? warehouseCloud(c.req.raw, c.env.DB) : c.json({ message: '仓库尚未启用' }, 503))
+app.all('/local-warehouse/*', async c => {
+  if (c.env.WAREHOUSE_ENABLED !== 'enabled') return c.json({ message: '仓库尚未启用' }, 503)
+  if (new URL(c.req.url).pathname === '/api/local-warehouse/dealer') return warehouseDealer(c.req.raw, c.env.DB, c.env.DEALER_PASSWORD || '')
+  return warehouseCloud(c.req.raw, c.env.DB)
+})
+app.all('/local-personnel', async c => c.env.PERSONNEL_ENABLED === 'enabled'
+  ? handlePersonnelRequest(c.req.raw, c.env.DB) : c.json({ message: '人员交接尚未启用' }, 503))
+app.all('/local-personnel/*', async c => c.env.PERSONNEL_ENABLED === 'enabled'
+  ? handlePersonnelRequest(c.req.raw, c.env.DB) : c.json({ message: '人员交接尚未启用' }, 503))
 
 app.use('/state/*', requireLogin)
 app.use('/customers/*', requireLogin)
@@ -435,10 +466,13 @@ app.post('/departments', async (c) => {
   return c.json({ ok: true, id })
 })
 
-function customerReadScope(user: AdminUserRow) {
-  return user.role === 'owner' || (user.role === 'manager' && userPermissions(user).viewAllCustomers === true)
-    ? 'all' as const
-    : 'own' as const
+async function customerReadScope(db: D1Database, user: AdminUserRow) {
+  const { getAllowedCustomerUserIds } = await import('../src/features/personnel/scope')
+  const { results } = await db.prepare('SELECT id, enabled, department_id, permissions FROM users').all<{ id: string, enabled: number, department_id: string | null, permissions: string }>()
+  if (user.role === 'owner') return new Set(results.map(row => row.id))
+  return new Set(getAllowedCustomerUserIds(results.map(row => ({
+    id: row.id, enabled: row.enabled === 1, departmentId: row.department_id || '', permissions: JSON.parse(row.permissions),
+  })), user.id))
 }
 
 function canAssignUnclaimed(user: AdminUserRow) {
@@ -451,9 +485,10 @@ app.get('/customers/handoff-targets', async (c) => {
   const actor = c.get('user')
   if (!canExecuteHandoff(actor.role, userPermissions(actor)))
     return c.json({ message: '没有执行客资交接的权限' }, 403)
-  const targets = await c.env.DB.prepare("SELECT id, display_name FROM users WHERE enabled = 1 AND role IN ('quoter', 'manager') ORDER BY display_name").all()
+  const targets = await c.env.DB.prepare("SELECT id, display_name FROM users WHERE enabled = 1 AND role IN ('quoter', 'manager') ORDER BY display_name").all<{ id: string, display_name: string }>()
+  const scope = await customerReadScope(c.env.DB, actor)
   c.header('Cache-Control', 'no-store')
-  return c.json(targets.results)
+  return c.json(targets.results.filter(target => scope.has(String(target.id))))
 })
 
 app.get('/customers/unclaimed', async (c) => {
@@ -511,11 +546,9 @@ app.get('/customers', async (c) => {
   if (c.env.CUSTOMER_ROW_API !== 'enabled')
     return c.json({ message: '单条客资接口尚未启用' }, 404)
   const user = c.get('user')
-  const all = customerReadScope(user) === 'all'
-  const query = c.env.DB.prepare(all
-    ? 'SELECT value, row_revision FROM crm_customers ORDER BY updated_at DESC, id'
-    : 'SELECT value, row_revision FROM crm_customers WHERE assigned_to_user_id = ? ORDER BY updated_at DESC, id')
-  const { results } = await (all ? query : query.bind(user.id)).all<{ value: string, row_revision: string }>()
+  const scope = await customerReadScope(c.env.DB, user)
+  const { results } = await c.env.DB.prepare('SELECT value, row_revision FROM crm_customers WHERE assigned_to_user_id IN (SELECT value FROM json_each(?)) ORDER BY updated_at DESC, id')
+    .bind(JSON.stringify([...scope])).all<{ value: string, row_revision: string }>()
   c.header('Cache-Control', 'no-store')
   return c.json({ customers: results.map(row => ({ value: JSON.parse(row.value), revision: row.row_revision })) })
 })
@@ -531,9 +564,11 @@ app.on(['GET', 'PATCH'], '/customers/:id', async (c) => {
   const row = await db.prepare('SELECT assigned_to_user_id, value, row_revision FROM crm_customers WHERE id = ?')
     .bind(id).first<{ assigned_to_user_id: string, value: string, row_revision: string }>()
   const editing = c.req.method === 'PATCH'
-  if (!row || !canAccessCustomer({
+  const scope = await customerReadScope(db, user)
+  if (!row || !scope.has(row.assigned_to_user_id) || !canAccessCustomer({
     id: user.id,
-    scope: editing ? (user.role === 'owner' ? 'all' : 'own') : customerReadScope(user),
+    scope: editing ? (user.role === 'owner' ? 'all' : 'own') : 'team',
+    teamMemberIds: [...scope],
     actions: user.role === 'viewer' ? ['read'] : ['read', 'edit'],
   }, editing ? 'edit' : 'read', row.assigned_to_user_id))
     return c.json({ message: '客资不存在或无权访问' }, 404)
@@ -593,6 +628,9 @@ app.post('/customers/:id/handoff', async (c) => {
     .bind(body.toUserId).first<{ id: string, display_name: string }>()
   if (!target || !row.assigned_to_user_id || target.id === row.assigned_to_user_id)
     return c.json({ message: '请选择不同的启用销售；未分配客资不走交接' }, 400)
+  const scope = await customerReadScope(db, actor)
+  if (!scope.has(row.assigned_to_user_id) || !scope.has(target.id))
+    return c.json({ message: '客资或接手人不在权限范围内' }, 403)
 
   const revision = crypto.randomUUID()
   const customer = JSON.parse(row.value)
@@ -620,11 +658,12 @@ app.post('/customers/:id/handoff', async (c) => {
   return c.json({ value, revision })
 })
 
-function legacyCustomerAccess(user: AdminUserRow) {
-  const permissions = userPermissions(user)
-  const all = user.role === 'owner' || permissions.viewAllCustomers === true
+async function legacyCustomerAccess(db: D1Database, user: AdminUserRow, writing = false) {
+  const permissions = userPermissions(user) as Record<string, unknown>
+  const scope = await customerReadScope(db, user)
+  const all = permissions.viewAllCustomers === true || permissions.customerScope === 'all'
   return {
-    read: (row: CustomerRow) => all || (row.assignedToUserId ? row.assignedToUserId === user.id
+    read: (row: CustomerRow) => (user.role === 'owner' || all) && (!writing || user.role === 'owner') || (row.assignedToUserId ? scope.has(row.assignedToUserId) && (!writing || user.role === 'owner' || row.assignedToUserId === user.id)
       : Boolean(row.owner?.trim() && [user.id, user.account, user.display_name].includes(row.owner.trim()))),
     assign: user.role === 'owner' || (all && permissions.transferCustomers === true),
     remove: user.role === 'owner' || permissions.deleteCustomers === true,
@@ -645,9 +684,10 @@ app.on(['GET', 'POST'], '/sample-ledger', async (c) => {
   const customers = await db.prepare("SELECT value FROM app_state WHERE key = 'customers'").first<{ value: string }>()
   const customerRows = await readNormalizedState(db, 'customers', customers ? parseStoredJson(customers.value, null) : null)
   if (!isCustomerSnapshot(customerRows)) return c.json({ message: '客户快照格式无效' }, 409)
-  const allowedCustomers = new Set(customerRows.filter(legacyCustomerAccess(actor).read).map(row => row.id))
-  const visibleEntry = (entry: Movement) => actor.role === 'owner' || (entry.customerId
-    ? allowedCustomers.has(entry.customerId) : entry.openedById === actor.id || (access.maintain && ['receipt', 'reverse', 'adjustDown'].includes(entry.kind)))
+  const customerAccess = await legacyCustomerAccess(db, actor)
+  const allowedCustomers = new Set(customerRows.filter(customerAccess.read).map(row => row.id))
+  const visibleEntry = (entry: Movement) => (entry.customerId
+    ? allowedCustomers.has(entry.customerId) : actor.role === 'owner' || entry.openedById === actor.id || (access.maintain && ['receipt', 'reverse', 'adjustDown'].includes(entry.kind)))
   c.header('Cache-Control', 'no-store')
   if (c.req.method === 'GET') return c.json({
     revision: stored.revision,
@@ -717,7 +757,8 @@ app.get('/state/:key', async (c) => {
   if (key === 'customers') {
     const value = await readNormalizedState(c.env.DB, key, fallback)
     if (!isCustomerSnapshot(value)) return c.json({ message: '客户快照格式无效' }, 500)
-    return c.json({ value: value.filter(legacyCustomerAccess(c.get('user')).read), revision: row?.revision ?? null })
+    const access = await legacyCustomerAccess(c.env.DB, c.get('user'))
+    return c.json({ value: value.filter(access.read), revision: row?.revision ?? null })
   }
   try {
     const value = await readNormalizedState(c.env.DB, key, fallback)
@@ -783,7 +824,7 @@ app.put('/state/:key', async (c) => {
     const current = await readNormalizedState(c.env.DB, key, stored ? parseStoredJson(stored.value, null) : null)
     if (!isCustomerSnapshot(current) || !isCustomerSnapshot(body.value))
       return c.json({ message: '客户快照格式无效' }, 409)
-    const merged = mergeCustomerSnapshot(current, body.value, legacyCustomerAccess(user))
+    const merged = mergeCustomerSnapshot(current, body.value, await legacyCustomerAccess(c.env.DB, user, true))
     if (!merged) return c.json({ message: '不能修改其他负责人的客户、转移归属或删除无权限的客户' }, 403)
     body.value = merged
     revision = crypto.randomUUID()

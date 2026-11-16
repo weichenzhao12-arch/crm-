@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS transaction_guard (id INTEGER PRIMARY KEY CHECK (id = 1), ok INTEGER NOT NULL CHECK (ok = 1));
+INSERT OR IGNORE INTO transaction_guard VALUES (1, 1);
+CREATE TABLE IF NOT EXISTS warehouse_revision (id INTEGER PRIMARY KEY CHECK (id = 1), revision INTEGER NOT NULL);
+INSERT OR IGNORE INTO warehouse_revision VALUES (1, 0);
+CREATE TRIGGER IF NOT EXISTS warehouse_stock_insert_revision AFTER INSERT ON warehouse_stock BEGIN UPDATE warehouse_revision SET revision = revision + 1 WHERE id = 1; END;
+CREATE TRIGGER IF NOT EXISTS warehouse_stock_update_revision AFTER UPDATE ON warehouse_stock BEGIN UPDATE warehouse_revision SET revision = revision + 1 WHERE id = 1; END;
+CREATE TRIGGER IF NOT EXISTS warehouse_stock_delete_revision AFTER DELETE ON warehouse_stock BEGIN UPDATE warehouse_revision SET revision = revision + 1 WHERE id = 1; END;
+CREATE TRIGGER IF NOT EXISTS warehouse_orders_insert_revision AFTER INSERT ON warehouse_orders BEGIN UPDATE warehouse_revision SET revision = revision + 1 WHERE id = 1; END;
+CREATE TRIGGER IF NOT EXISTS warehouse_orders_update_revision AFTER UPDATE ON warehouse_orders BEGIN UPDATE warehouse_revision SET revision = revision + 1 WHERE id = 1; END;
+CREATE TRIGGER IF NOT EXISTS warehouse_orders_delete_revision AFTER DELETE ON warehouse_orders BEGIN UPDATE warehouse_revision SET revision = revision + 1 WHERE id = 1; END;

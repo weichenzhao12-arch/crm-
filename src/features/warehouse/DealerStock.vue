@@ -19,7 +19,7 @@ async function request(method: 'GET' | 'POST' | 'DELETE') {
       : { method })
     const data = await response.json()
     if (method === 'GET' && response.status === 401) { stocks.value = null; return }
-    if (!response.ok) throw new Error(data.message)
+    if (!response.ok) throw new Error(typeof data.message === 'string' && data.message ? data.message : '库存查询暂不可用，请稍后重试')
     if (method === 'GET') stocks.value = data.stocks
     if (method === 'DELETE') stocks.value = null
     if (method === 'POST') { password.value = ''; await request('GET') }

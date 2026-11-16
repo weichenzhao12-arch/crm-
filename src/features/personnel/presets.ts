@@ -1,8 +1,10 @@
 import type { AdminPermission } from '~/stores/admin'
 import type { Position } from './hierarchy'
+import { warehousePermissionFields } from '../warehouse/model'
 
 export function positionPreset(position: Position, previous: AdminPermission): AdminPermission {
   const permissions = Object.fromEntries(Object.entries(previous).filter(([, value]) => typeof value === 'boolean').map(([key]) => [key, false])) as unknown as AdminPermission
+  for (const [key] of warehousePermissionFields) permissions[key] = false
   permissions.position = position
   permissions.supervisorId = previous.supervisorId || ''
   if (['sales', 'supervisor', 'director'].includes(position)) {

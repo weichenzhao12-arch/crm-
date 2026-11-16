@@ -45,7 +45,9 @@ export function localCrm(): Plugin {
           bind(...values: SQLInputValue[]) { args = values; return this },
           first: async () => statement.get(...args) ?? null,
           all: async () => ({ results: statement.all(...args) }),
-          execute: () => ({ meta: { changes: Number(statement.run(...args).changes) } }),
+          execute: () => statement.columns().length
+            ? { results: statement.all(...args), meta: { changes: 0 } }
+            : { results: [], meta: { changes: Number(statement.run(...args).changes) } },
           async run() { return this.execute() },
         }
       }
@@ -65,8 +67,12 @@ export function localCrm(): Plugin {
         },
       }
       server.httpServer?.once('close', () => { clearInterval(backupTimer); db.close() })
-      server.middlewares.use('/api/local-warehouse', localWarehouse(db))
-      server.middlewares.use('/api/local-personnel', localPersonnel(db))
+      const warehouse = localWarehouse(db)
+      const cloudHandlers = process.env.LOCAL_CLOUD_HANDLERS === '1'
+      if (!cloudHandlers) {
+        server.middlewares.use('/api/local-warehouse', warehouse)
+        server.middlewares.use('/api/local-personnel', localPersonnel(db))
+      }
       dailyBackup()
       for (const prefix of ['/api', '/local-crm-api']) server.middlewares.use(prefix, async (req, res) => {
         try {
@@ -80,7 +86,10 @@ export function localCrm(): Plugin {
             request: new Request(new URL('/api' + req.url, 'http://127.0.0.1'), {
               method: req.method, headers, body: chunks.length ? Buffer.concat(chunks).toString() : undefined,
             }),
-            env: { DB, CUSTOMER_ROW_API: prefix === '/local-crm-api' ? 'enabled' : undefined },
+            env: { DB, CUSTOMER_ROW_API: prefix === '/local-crm-api' ? 'enabled' : undefined,
+              WAREHOUSE_ENABLED: cloudHandlers ? 'enabled' : undefined,
+              PERSONNEL_ENABLED: cloudHandlers ? 'enabled' : undefined,
+              DEALER_PASSWORD: cloudHandlers ? process.env.LOCAL_DEALER_PASSWORD || 'kingturf-local' : undefined },
             data: {}, functionPath: '/api', waitUntil() {}, passThroughOnException() {},
           }) as Response
           res.writeHead(response.status, Object.fromEntries(response.headers))

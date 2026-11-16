@@ -45,6 +45,10 @@ This change is local-only. It does not deploy or connect warehouse routes to pro
 
 ## Remaining Production Blockers
 
+Update 2026-11-16: D1 Functions handlers and atomic revision guards have now been implemented and
+adapter-tested. The following earlier notes describe the pre-adapter state. For current release gates,
+flags, migrations and outstanding Cloudflare-runtime acceptance see cloud-modules-rollout.md.
+
 - Migration 0009 is D1-compatible schema preparation, not a completed D1 API implementation.
 - Warehouse routes are still a local Vite middleware. SQLite BEGIN IMMEDIATE must NOT be copied
   blindly to D1; production requires a D1-supported atomic-write and concurrency implementation.

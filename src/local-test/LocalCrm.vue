@@ -37,7 +37,7 @@ const canEdit = (row: Row) => owner.value || (props.embedded
   : account.value !== 'clerk')
 const handoffTargets = ref<typeof targets.value>([])
 const visibleRows = computed(() => props.remindersOnly
-  ? rows.value.map(row => ({
+  ? rows.value.filter(row => row.value.assignedToUserId === (auth?.user?.id || ({ admin: 'owner', sales1: 'sales-1', sales2: 'sales-2', clerk: 'clerk' } as Record<string, string>)[account.value])).map(row => ({
       ...row,
       value: { ...row.value, followUps: row.value.followUps?.filter(item => item.reminderDate && !item.reminderDone) },
     })).filter(row => row.value.followUps?.length)

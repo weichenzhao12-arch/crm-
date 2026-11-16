@@ -21,6 +21,7 @@ import { samplePermissions } from '~/local-test/permissions'
 import { localWarehouseEnabled } from '~/features/warehouse/release'
 import { warehouseAccess } from '~/features/warehouse/model'
 import CustomerDeliveries from '~/features/warehouse/CustomerDeliveries.vue'
+import { customerDetailAccess } from '~/features/crm/customer-detail-access'
 
 const route = useRoute()
 const router = useRouter()
@@ -28,6 +29,9 @@ const crm = useCrmStore()
 const admin = useAdminStore()
 const { users } = storeToRefs(admin)
 const customer = computed(() => crm.findCustomer(String('id' in route.params ? route.params.id : '')))
+const detailAccess = computed(() => customerDetailAccess(admin.currentUser, customer.value))
+const canEditCustomer = computed(() => detailAccess.value.edit)
+const canAssignCustomer = computed(() => detailAccess.value.assign)
 const reminderSaving = ref(false)
 const reminderError = ref('')
 const reminderId = ref('')
@@ -69,6 +73,7 @@ const hasUnsavedChanges = ref(false)
 const assignableUsers = computed(() => users.value.filter(isSalesUser))
 
 function updateAssignedOwner() {
+  if (!canAssignCustomer.value) return
   const current = customer.value
   if (!current)
     return
@@ -146,11 +151,13 @@ const stageOptions = [
 ]
 
 function save() {
+  if (!canEditCustomer.value) return
   crm.save()
   markSaved()
 }
 
 function newQuote() {
+  if (!canEditCustomer.value) return
   router.push(`/quote?customerId=${customer.value?.id || ''}`)
 }
 
@@ -169,6 +176,7 @@ function followMonthDay(dateText: string) {
 }
 
 function openReminderModal() {
+  if (!canEditCustomer.value) return
   reminderError.value = ''
   reminderId.value = ''
   reminderModal.value = {
@@ -187,6 +195,7 @@ function closeReminderModal() {
 }
 
 async function saveReminder() {
+  if (!canEditCustomer.value) return
   const current = customer.value
   if (!current || reminderSaving.value)
     return
@@ -230,6 +239,7 @@ async function saveReminder() {
 }
 
 function deleteFollowUp(follow: CrmFollowUp) {
+  if (!canEditCustomer.value) return
   const current = customer.value
   if (!current)
     return
@@ -239,6 +249,7 @@ function deleteFollowUp(follow: CrmFollowUp) {
 }
 
 function setWonQuote(quote: CrmQuoteRecord) {
+  if (!canEditCustomer.value) return
   const current = customer.value
   if (!current)
     return
@@ -256,6 +267,7 @@ function setWonQuote(quote: CrmQuoteRecord) {
 }
 
 function clearWonQuote(quote: CrmQuoteRecord) {
+  if (!canEditCustomer.value) return
   quote.isWon = false
   quote.status = '已报价'
   if (!customer.value?.quotes.some(item => item.isWon))
@@ -265,23 +277,31 @@ function clearWonQuote(quote: CrmQuoteRecord) {
 }
 
 function updateDealAmount(quote: CrmQuoteRecord, event: Event) {
+  if (!canEditCustomer.value) return
   quote.dealAmount = Number((event.target as HTMLInputElement).value) || 0
   crm.save()
   markSaved()
 }
 
 function uploadContract(event: Event, quote: CrmQuoteRecord) {
+  if (!canEditCustomer.value) return
+  const customerId = customer.value?.id
   const file = (event.target as HTMLInputElement).files?.[0]
   if (!file)
     return
   const reader = new FileReader()
   reader.onload = () => {
+    if (!canEditCustomer.value || customer.value?.id !== customerId) return
     quote.contractFileName = file.name
     quote.contractFileDataUrl = String(reader.result || '')
     crm.save()
     markSaved()
   }
   reader.readAsDataURL(file)
+}
+
+function addFollowUp() {
+  if (canEditCustomer.value && customer.value) crm.addFollowUp(customer.value.id)
 }
 </script>
 
@@ -295,8 +315,8 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
         </div>
         <nav>
           <RouterLink to="/crm/customers">返回客户列表</RouterLink>
-          <button @click="newQuote">新建报价</button>
-          <button class="save-button" @click="save">{{ hasUnsavedChanges ? '保存（有修改）' : '保存客户' }}</button>
+          <button :disabled="!canEditCustomer" @click="newQuote">新建报价</button>
+          <button class="save-button" :disabled="!canEditCustomer" @click="save">{{ hasUnsavedChanges ? '保存（有修改）' : '保存客户' }}</button>
         </nav>
       </section>
 
@@ -304,14 +324,14 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
         <article class="detail-panel customer-form">
           <header><h2>客户资料</h2><span>{{ stageLabels[customer.stage] }}</span></header>
           <div class="form-section-title"><b>基本信息</b><small>客户身份与当前跟进状态</small></div>
-          <label>客户名称<input v-model="customer.name"></label>
-          <label>客户联系方式<input v-model="customer.phone" placeholder="电话 / 微信 / 其他联系方式"></label>
-          <label>负责人<select v-model="customer.assignedToUserId" @change="updateAssignedOwner">
+          <label>客户名称<input v-model="customer.name" :disabled="!canEditCustomer"></label>
+          <label>客户联系方式<input v-model="customer.phone" :disabled="!canEditCustomer" placeholder="电话 / 微信 / 其他联系方式"></label>
+          <label>负责人<select v-model="customer.assignedToUserId" :disabled="!canAssignCustomer" @change="updateAssignedOwner">
             <option value="">未分配</option>
             <option v-for="user in assignableUsers" :key="user.id" :value="user.id">{{ user.displayName || user.account }}</option>
           </select></label>
-          <label>日期<input v-model="customer.date" type="date"></label>
-          <label>意向等级<select v-model="customer.intentLevel">
+          <label>日期<input v-model="customer.date" :disabled="!canEditCustomer" type="date"></label>
+          <label>意向等级<select v-model="customer.intentLevel" :disabled="!canEditCustomer">
             <option value="A">A 高意向</option>
             <option value="B">B 较高</option>
             <option value="C">C 普通</option>
@@ -319,19 +339,19 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
             <option value="E">E 低意向</option>
             <option value="F">F 无效/暂缓</option>
           </select></label>
-          <label>跟进阶段<select v-model="customer.stage">
+          <label>跟进阶段<select v-model="customer.stage" :disabled="!canEditCustomer">
             <option v-for="option in stageOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
           </select></label>
           <div class="form-section-title"><b>项目资料</b><small>来源、属性及场地需求</small></div>
-          <label>抖音账号来源<input v-model="customer.sourceAccount"></label>
-          <label>成交属性<input v-model="customer.dealAttribute" placeholder="高 / 中 / 低 / 无效"></label>
-          <label>客户属性<input v-model="customer.customerAttribute" placeholder="B端 / C端"></label>
-          <label>地址<input v-model="customer.region"></label>
-          <label>数量（平方）<input v-model.number="customer.area" type="number"></label>
-          <label>使用时间<input v-model="customer.usageTime"></label>
+          <label>抖音账号来源<input v-model="customer.sourceAccount" :disabled="!canEditCustomer"></label>
+          <label>成交属性<input v-model="customer.dealAttribute" :disabled="!canEditCustomer" placeholder="高 / 中 / 低 / 无效"></label>
+          <label>客户属性<input v-model="customer.customerAttribute" :disabled="!canEditCustomer" placeholder="B端 / C端"></label>
+          <label>地址<input v-model="customer.region" :disabled="!canEditCustomer"></label>
+          <label>数量（平方）<input v-model.number="customer.area" :disabled="!canEditCustomer" type="number"></label>
+          <label>使用时间<input v-model="customer.usageTime" :disabled="!canEditCustomer"></label>
           <div class="form-section-title"><b>需求与备注</b><small>长期保留的客户背景信息</small></div>
-          <label class="wide communication-field">客户需求概述<textarea v-model="customer.communication" placeholder="记录客户场地、采购需求和长期背景"></textarea></label>
-          <label class="wide remark-field">备注<textarea v-model="customer.remark" placeholder="其他需要长期保留的信息"></textarea></label>
+          <label class="wide communication-field">客户需求概述<textarea v-model="customer.communication" :disabled="!canEditCustomer" placeholder="记录客户场地、采购需求和长期背景"></textarea></label>
+          <label class="wide remark-field">备注<textarea v-model="customer.remark" :disabled="!canEditCustomer" placeholder="其他需要长期保留的信息"></textarea></label>
         </article>
 
         <article class="detail-panel activity-panel">
@@ -344,12 +364,12 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
             </div>
             <div class="header-actions">
               <template v-if="activityTab === 'follow'">
-                <button class="action-button" @click="openReminderModal"><span>+</span>添加提醒</button>
-                <button class="action-button primary" @click="crm.addFollowUp(customer.id)"><span>+</span>新增跟进</button>
+                <button class="action-button" :disabled="!canEditCustomer" @click="openReminderModal"><span>+</span>添加提醒</button>
+                <button class="action-button primary" :disabled="!canEditCustomer" @click="addFollowUp"><span>+</span>新增跟进</button>
               </template>
               <template v-else-if="activityTab === 'quote'">
-                <button @click="newQuote">{{ localRecords ? '场地报价' : '新建报价' }}</button>
-                <RouterLink v-if="localRecords" :to="{ path: '/quote/b2b', query: { customerId: customer.id } }">普通报价</RouterLink>
+                <button :disabled="!canEditCustomer" @click="newQuote">{{ localRecords ? '场地报价' : '新建报价' }}</button>
+                <RouterLink v-if="localRecords && canEditCustomer" :to="{ path: '/quote/b2b', query: { customerId: customer.id } }">普通报价</RouterLink>
               </template>
               <RouterLink v-else-if="activityTab === 'samples' && sampleAccess.issue" :to="{ path: '/samples', query: { customer: customer.id } }">寄样开单</RouterLink>
               <RouterLink v-else-if="activityTab === 'shipments' && warehousePermissions.sales" :to="{ path: '/warehouse', query: { customerId: customer.id } }">发货开单</RouterLink>
@@ -362,12 +382,12 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
               <div v-if="!followItems.length" class="empty compact">暂无跟进记录</div>
               <div v-for="follow in followItems" :key="follow.id" class="follow-row">
                 <label class="follow-date-tile">
-                  <input v-model="follow.date" type="date" @change="save">
+                  <input v-model="follow.date" :disabled="!canEditCustomer" type="date" @change="save">
                   <span>{{ followYear(follow.date) }}</span>
                   <b>{{ followMonthDay(follow.date) }}</b>
                 </label>
-                <textarea v-model="follow.content" placeholder="新增跟进记录" @blur="save"></textarea>
-                <button class="danger compact-delete" @click="deleteFollowUp(follow)">删除</button>
+                <textarea v-model="follow.content" :disabled="!canEditCustomer" placeholder="新增跟进记录" @blur="save"></textarea>
+                <button class="danger compact-delete" :disabled="!canEditCustomer" @click="deleteFollowUp(follow)">删除</button>
               </div>
             </section>
 
@@ -375,11 +395,11 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
               <h3>提醒事项</h3>
               <div v-if="!reminderItems.length" class="empty compact">暂无提醒</div>
               <div v-for="reminder in reminderItems" :key="reminder.id" class="reminder-edit-row">
-                <input v-model="reminder.reminderDate" type="date" @change="save">
-                <input v-model="reminder.reminderTime" type="time" @change="save">
-                <textarea v-model="reminder.content" @blur="save"></textarea>
-                <input v-model="reminder.nextAction" placeholder="提醒事项" @blur="save">
-                <button class="danger" @click="deleteFollowUp(reminder)">删除</button>
+                <input v-model="reminder.reminderDate" :disabled="!canEditCustomer" type="date" @change="save">
+                <input v-model="reminder.reminderTime" :disabled="!canEditCustomer" type="time" @change="save">
+                <textarea v-model="reminder.content" :disabled="!canEditCustomer" @blur="save"></textarea>
+                <input v-model="reminder.nextAction" :disabled="!canEditCustomer" placeholder="提醒事项" @blur="save">
+                <button class="danger" :disabled="!canEditCustomer" @click="deleteFollowUp(reminder)">删除</button>
               </div>
             </section>
           </section>
@@ -389,15 +409,15 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
             <div v-for="quote in customer.quotes" :key="quote.id" class="record-row">
               <div class="deal-box">
                 <label class="won-check">
-                  <input :checked="quote.isWon" type="checkbox" @change="quote.isWon ? clearWonQuote(quote) : setWonQuote(quote)">
+                  <input :checked="quote.isWon" :disabled="!canEditCustomer" type="checkbox" @change="quote.isWon ? clearWonQuote(quote) : setWonQuote(quote)">
                   已成交
                 </label>
-                <label>成交价<input :value="quote.dealAmount || quote.amount" type="number" @input="updateDealAmount(quote, $event)"></label>
-                <label>报价日期<input v-model="quote.date" type="date" @change="save"></label>
+                <label>成交价<input :value="quote.dealAmount || quote.amount" :disabled="!canEditCustomer" type="number" @input="updateDealAmount(quote, $event)"></label>
+                <label>报价日期<input v-model="quote.date" :disabled="!canEditCustomer" type="date" @change="save"></label>
                 <div class="contract-upload">
                   <label class="file-chip" :class="{ filled: quote.contractFileName }">
                     {{ quote.contractFileName || '上传合同' }}
-                    <input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,image/*,application/pdf" @change="uploadContract($event, quote)">
+                    <input type="file" :disabled="!canEditCustomer" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,image/*,application/pdf" @change="uploadContract($event, quote)">
                   </label>
                 </div>
               </div>
@@ -431,7 +451,7 @@ function uploadContract(event: Event, quote: CrmQuoteRecord) {
         </article>
       </section>
 
-      <section v-if="reminderModal.open" class="modal-mask">
+      <section v-if="reminderModal.open && canEditCustomer" class="modal-mask">
         <div class="modal-box">
           <header>
             <h2>添加提醒</h2>
